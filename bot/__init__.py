@@ -6,7 +6,8 @@ file_data = file.read()
 file.close()
 conf = yaml.safe_load(file_data)
 
-celery = Celery('tasks', broker=conf['celery']['broker'], backend=conf['celery']['backend'])
+#celery = Celery('tasks', broker=conf['celery']['broker'], backend=conf['celery']['backend'])
+celery = Celery('tasks', broker=conf['celery']['broker'])
 
 class BaseTask(celery.Task):
     def __init__(self):
@@ -15,6 +16,6 @@ class BaseTask(celery.Task):
 @celery.task(name='ping')
 def ping():
     print('pong')
-@celery.task(name='add_task',bind=True, base=BaseTask)
-def add_task(self,  id ,  prompt):
-    print(id, prompt)
+@celery.task(name='add_mj_task',bind=True, base=BaseTask)
+def add_task(self, *args, **kwargs):
+    print(id, args)
