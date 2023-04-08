@@ -30,6 +30,8 @@ async def disconnect():
 async def on_message(data):
     print(f'received mj command: {data}')
     res = celery.send_task('add_mj_task', (data['id'], data['data']) )
+    print(res)
+    #await sio.emit('response', {'message': 'Task received'})
 
 
 

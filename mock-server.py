@@ -1,5 +1,6 @@
 from aiohttp import web
 import socketio
+import uuid  # import uuid module to generate UUIDs
 
 sio = socketio.AsyncServer(async_mode='aiohttp')
 app = web.Application()
@@ -11,7 +12,7 @@ async def send_heartbeat():
     while True:
         #data = {'id': '123123', 'prompt': ''}
         data = {
-            "id": "1312342352",
+            "id": str(uuid.uuid4()),  # use uuid4() to generate a random UUID
             "data": {"name":"imagine","type":1,"options":[{"type":3,"name":"prompt","value":"https://s.mj.run/PzsU5JMviYg to create a 3d animate photo with jungle background.o --v 4"}]}
         }
         await  sio.sleep(10)
