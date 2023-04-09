@@ -4,6 +4,7 @@ import asyncio
 from celery import Celery
 
 
+
 file = open("./config.yaml", 'r', encoding="utf-8")
 file_data = file.read()
 file.close()

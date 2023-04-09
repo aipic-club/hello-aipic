@@ -1,6 +1,7 @@
 import yaml
 import time
 from celery import Celery
+from discord.disbot import Bot  
 
 file = open("./config.yaml", 'r', encoding="utf-8")
 file_data = file.read()
@@ -25,3 +26,4 @@ def add_task(self,arg1, arg2, *args, **kwargs):
 def query_task():
     # query the finished tasks
     pass
+
