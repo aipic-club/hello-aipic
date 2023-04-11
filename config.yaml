@@ -1,8 +1,0 @@
-celery:
-  broker : 'redis://:MQUp4TY4WHoLc8W9dyj9@42.192.43.30:5379/2'
-socket: 'http://127.0.0.1:8089'
-discord:
-  proxy: 'http://127.0.0.1:7890',
-  channel: 1084379543516749825
-  BOT_TOKEN : 'MTA4NDM4OTk1NTc0MjIxNjIwNA.GkbgAv.frq88u03qNzcY2J0owCWRuhb59mWPLb7DbP-S8'
-  SELF_TOKEN : 'MTA4NDM4OTk1NTc0MjIxNjIwNA.GkbgAv.frq88u03qNzcY2J0owCWRuhb59mWPLb7DbP-S8'

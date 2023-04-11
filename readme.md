@@ -2,6 +2,7 @@
 
 ```
 celery.exe -A bot worker -l info -c 1
+celery.exe -A bot worker -l info --pool=solo
 ``` 
 
 

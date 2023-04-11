@@ -12,3 +12,5 @@ class Bot(discord.Client):
             return
         if message.content == 'ping':
             await message.channel.send('pong')
+    async def sendImage(self, message):
+        pass
