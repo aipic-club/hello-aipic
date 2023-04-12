@@ -1,3 +1,4 @@
+import os
 from queue import Queue
 import nextcord
 from nextcord.ext import commands, tasks
@@ -21,13 +22,20 @@ class Bot(commands.Bot):
             return
         if message.content == 'ping':
             await message.channel.send('pong')
-
     @tasks.loop(seconds=1)  # task runs every 60 seconds
     async def my_background_task(self):
         channel = self.get_channel(1084379543516749825)  # channel ID goes here
-        msg = queue.get()
-        if msg:
-            await channel.send(msg)
+        if not queue.empty():
+            id = queue.get()
+            file_path = os.path.join(
+                os.getcwd(), 
+                'tmp',
+                f'{id}.jpg'
+            )
+            with open(file_path, 'rb') as f:
+                picture = nextcord.File(f)
+                await channel.send(file=picture)
+            
 
     @my_background_task.before_loop
     async def before_my_task(self):
