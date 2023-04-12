@@ -2,17 +2,11 @@
 
 ```
 celery.exe -A bot worker -l info -c 1
-celery.exe -A bot worker -l info --pool=solo
+celery.exe -A bot worker -l info --pool=solo 
+celery.exe flower --address=127.0.0.1 --port=5566
 ``` 
-
-
+#### start mock server
 ```
-import os
-
-# IMPORT LOAD_DOTENV FUNCTION FROM DOTENV MODULE.
-from dotenv import load_dotenv
-
-# LOADS THE .ENV FILE THAT RESIDES ON THE SAME LEVEL AS THE SCRIPT.
-load_dotenv()
-
+    uvicorn mock-server:app --reload
 ```
+
