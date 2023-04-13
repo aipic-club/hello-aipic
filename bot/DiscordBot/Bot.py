@@ -1,9 +1,9 @@
 import os
-from queue import Queue
 import nextcord
 from nextcord.ext import commands, tasks
 
-queue = Queue()
+from bot.DiscordBot.Q import imgqueue, imgresqueue
+
 
 class Bot(commands.Bot):
     def __init__(self, *args, **kwargs):
@@ -22,11 +22,11 @@ class Bot(commands.Bot):
             return
         if message.content == 'ping':
             await message.channel.send('pong')
-    @tasks.loop(seconds=1)  # task runs every 60 seconds
+    @tasks.loop(seconds=1)  # task runs every 1 second
     async def my_background_task(self):
         channel = self.get_channel(1084379543516749825)  # channel ID goes here
-        if not queue.empty():
-            id = queue.get()
+        while not imgqueue.empty():
+            id = imgqueue.get()
             file_path = os.path.join(
                 os.getcwd(), 
                 'tmp',
@@ -34,7 +34,16 @@ class Bot(commands.Bot):
             )
             with open(file_path, 'rb') as f:
                 picture = nextcord.File(f)
-                await channel.send(file=picture)
+                res = await channel.send(file=picture)
+                message = await channel.fetch_message(res.id)
+                imgurl=message.attachments[0].url
+                data = {'id': id , 'url': imgurl}
+                dc = data.copy()
+                print(dc)
+                imgresqueue.put(dc)
+                data.clear()
+                
+            os.unlink(file_path)
             
 
     @my_background_task.before_loop

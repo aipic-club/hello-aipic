@@ -19,7 +19,10 @@ def read_root():
 
 @app.get("/items/{item_id}")
 def read_item(item_id: int, q: Union[str, None] = None):
-    res = celery.send_task('upload_img', ('https://images.unsplash.com/photo-1681181840771-92f4ab1fddbc?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1430&q=80',))
+    res = celery.send_task('upload_img',
+        ('https://images.unsplash.com/photo-1681276311947-ebee32b4d4cc?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1374&q=80',
+        )
+    )
     print(res)
     return {"item_id": item_id, "q": q }
 

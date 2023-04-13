@@ -3,7 +3,7 @@ import asyncio
 from threading import Thread
 import nextcord
 from bot.DiscordBot.Bot import Bot
-from bot.DiscordBot.Bot import queue
+from bot.DiscordBot.Q import imgqueue, imgresqueue
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 
@@ -14,14 +14,17 @@ load_dotenv(find_dotenv())
 #     os.environ.get("DISCORD.CHANNELID")
 # )
 
-class DiscordBot():
-    def __init__(self):
-        pass
-        # while not self.__queue.empty():
-        #     data = self.__queue.get()
-        #     print('new data , {data}')
-        #     bot.sendMsg(data)
+def handle_img_res():
+    while True:
+        res = imgresqueue.get()
+        if res:
+            print(res)
 
+
+class DiscordBot():
+    def __init__(self, redis_connection):
+        pass
+        
     def start(self, token, proxy):
         intents = nextcord.Intents.default()
         intents.presences = True
@@ -33,12 +36,11 @@ class DiscordBot():
         t1= Thread(target=loop.run_forever)
         t1.daemon = True
         t1.start()
-        # t1 = threading.Thread(target=self.__startDisBot, args=[token,])
-        # t1.daemon = True
-        # t1.start()
+        # t2 = Thread(target=handle_img_res, args=[])
+        # t2.daemon = True
+        # t2.start()
     def addMsg(self, id):
-
-        queue.put(id)
+        imgqueue.put(id)
         
 if __name__ == '__main__':
     pass

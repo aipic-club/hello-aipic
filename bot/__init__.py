@@ -5,6 +5,7 @@ import io
 import requests
 from PIL import Image
 import tempfile
+import redis
 from celery import Celery
 from celery.signals import worker_init
 from dotenv import load_dotenv, find_dotenv
@@ -12,14 +13,17 @@ from bot.DiscordBot import DiscordBot
 
 load_dotenv(find_dotenv())
 
+
+redis_connection = redis.from_url(os.environ.get("REDIS"))
 celery = Celery('tasks', broker=os.environ.get("CELERY.BROKER"))
-discordBot = DiscordBot()
+discordBot = DiscordBot(redis_connection)
 
 
 @worker_init.connect
 def worker_start(sender, **kwargs):
     print('worker started')
     discordBot.start(os.environ.get("DISCORD.BOT.TOKEN"), os.environ.get("DISCORD.PROXY"))
+
 
 #https://stackoverflow.com/questions/37751877/downloading-image-with-pil-and-requests
 def downloadImage(img_url, id):
@@ -52,7 +56,7 @@ class BaseTask(celery.Task):
 def ping():
     print('pong')
 @celery.task(name='upload_img',bind=True, base=BaseTask)
-def upload_img_task(self,  src ):
+async def upload_img_task(self,  src ):
     # download the image first
     id = self.request.id
     downloadImage(src, id)
