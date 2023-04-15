@@ -1,8 +1,10 @@
 import os
 import nextcord
 from nextcord.ext import commands, tasks
-
+from bot.DiscordBot.users import is_user_in_channel
 from bot.DiscordBot.Q import imgqueue, imgresqueue
+
+MJBotId= "936929561302675456"
 
 
 class Bot(commands.Bot):
@@ -18,10 +20,19 @@ class Bot(commands.Bot):
         # don't respond to ourselves
         print(message)
         #print(message.reference.resolved.author.id)
+
+        author = message.author  
+        channel_id = message.channel.id
+        guild_id = message.guild.id
         if message.author == self.user:
             return
         if message.content == 'ping':
             await message.channel.send('pong')
+        if author == MJBotId and is_user_in_channel(guild_id , channel_id ):
+            print(message.content)
+            pass
+
+
     @tasks.loop(seconds=1)  # task runs every 1 second
     async def my_background_task(self):
         # channel = self.get_channel(1084379543516749825)  # channel ID goes here

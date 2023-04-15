@@ -2,9 +2,7 @@
 import random
 import aiohttp
 import asyncio
-MJAppID = "936929561302675456"
-
-
+from  bot.DiscordBot.Bot import MJBotId
 
 
 
@@ -36,18 +34,18 @@ class Selfbot():
         user = random.choice(self.users)
         payload = {
             "type":2,
-            "application_id":MJAppID,
+            "application_id": MJBotId,
             "guild_id": user['guild_id'],
             "channel_id":user['channel_id'],
             "session_id":"435b587a1db9552069d068c373c6f57a",
             "data":{
                 "version":"1077969938624553050","id":"938956540159881230",
                 "name":"imagine","type":1,"options":[{"type":3,"name":"prompt","value":prompt}],
-                "application_command":{"id":"994261739745050684","application_id":MJAppID,"version":"994261739745050685","default_member_permissions": None,"type":1,"nsfw":False,"name":"ask","description":"Get an answer to a question.","dm_permission":True,"options":[{"type":3,"name":"question","description":"What is the question?","required":True}]},
+                "application_command":{"id":"994261739745050684","application_id": MJBotId,"version":"994261739745050685","default_member_permissions": None,"type":1,"nsfw":False,"name":"ask","description":"Get an answer to a question.","dm_permission":True,"options":[{"type":3,"name":"question","description":"What is the question?","required":True}]},
                 "attachments":[]
             }
         }
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
         loop.run_until_complete(self.__sendInteractions(user['authorization'],  payload))
         # response = self.__sendInteractions(user['authorization'],  payload)
     def Upscale(index : int, messageId : str, messageHash : str):

@@ -8,6 +8,9 @@ file.close()
 users = yaml.safe_load(file_data)
 
 
-def is_channel_accepted():
-    pass
+def is_user_in_channel(guild_id: str, channel_id: str) -> bool:
+    for u in users:
+        if guild_id == u['guild_id'] and channel_id == u['channel_id']:
+            return True
+    return False
 

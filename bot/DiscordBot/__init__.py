@@ -15,25 +15,45 @@ file.close()
 users = yaml.safe_load(file_data)
 
 
-
 class DiscordBot():
     def __init__(self,  proxy, redis_connection):
         self.proxy = proxy
         self.userbot = Selfbot(users= users, proxy = proxy)
-    def start(self, token):
+        event_loop_a = asyncio.new_event_loop()
+        event_loop_b = asyncio.new_event_loop()
+
+    def __startBot(self, token):
         intents = nextcord.Intents.default()
         intents.presences = True
         intents.members = True
         intents.message_content = True
         bot = Bot(intents=intents, proxy = self.proxy)
-        loop = asyncio.get_event_loop()
-        loop.create_task(bot.start(token))
-        t1= Thread(target=loop.run_forever)
-        t1.daemon = True
-        t1.start()
-    def sendPrompt(self, taskId, prompt):
-
+        asyncio.set_event_loop(self.event_loop_a)
+        asyncio.get_event_loop().call_soon(lambda: bot.start(token))
+        self.event_loop_a.run_forever()
+        #https://stackoverflow.com/questions/52298922/how-do-i-set-the-asyncio-event-loop-for-a-thread-in-python
+                # loop = asyncio.get_event_loop()
+        # loop.create_task(bot.start(token))
+        # t1= Thread(target=loop.run_forever)
+        # t1.daemon = True
+        # t1.start()
+    def __startUserBot():
         pass
+
+
+    def start(self, token):
+        self.__startBot(token)    
+
+        # loop = asyncio.get_event_loop()
+        # loop.create_task(bot.start(token))
+        # t1= Thread(target=loop.run_forever)
+        # t1.daemon = True
+        # t1.start()
+    def sendPrompt(self,taskId,  prompt):
+        # add task to redis first
+
+        # send to discord
+        self.userbot.sendPrompt(prompt)
 
     
         

@@ -1,8 +1,12 @@
-- 
-  guild_id: 1096288608102666260
-  channel_id: 1096289319041372272
-  authorization: MTA3NjAyNjcwNDE0MjgxNTI0Mg.Gn-i3m.0cKlkMdDnxuc4tSuc9ngKNXjp0sRZR5PkPn2AY
+# - 
+#   guild_id: 1096288608102666260
+#   channel_id: 1096289319041372272
+#   authorization: MTA3NjAyNjcwNDE0MjgxNTI0Mg.Gn-i3m.0cKlkMdDnxuc4tSuc9ngKNXjp0sRZR5PkPn2AY
 - 
   guild_id: 1096333899778490380
   channel_id: 1096333900273426535
   authorization: MTA3NjAyNjcwNDE0MjgxNTI0Mg.Gn-i3m.0cKlkMdDnxuc4tSuc9ngKNXjp0sRZR5PkPn2AY 
+# - 
+#   guild_id: 1084379543072149524
+#   channel_id: 1084379543516749825
+#   authorization: MTA4NDM3MjA1NDUwMzA3NTg3MQ.G2VyHq.VZKmKUhHpqU47-3up_b3DbsXP71uRtpjMB_SuQ
