@@ -2,6 +2,7 @@
 
 import os
 import io
+import asyncio
 # import requests
 from PIL import Image
 import tempfile
@@ -22,7 +23,8 @@ discordBot = DiscordBot( os.environ.get("DISCORD.PROXY"), redis_connection)
 @worker_init.connect
 def worker_start(sender, **kwargs):
     print('worker started')
-    discordBot.start(os.environ.get("DISCORD.BOT.TOKEN"))
+    # discordBot.start(os.environ.get("DISCORD.BOT.TOKEN"))
+
 
 #https://stackoverflow.com/questions/37751877/downloading-image-with-pil-and-requests
 # def downloadImage(img_url, id):
@@ -73,6 +75,8 @@ def query_task(self, taskId, prompt):
     discordBot.sendPrompt(taskId, new_prompt)
     id = self.request.id
     return id
+
+discordBot.start(os.environ.get("DISCORD.BOT.TOKEN"))
 
 if __name__ == '__main__':
    pass

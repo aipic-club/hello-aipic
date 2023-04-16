@@ -7,13 +7,15 @@ from bot.DiscordBot.Q import imgqueue, imgresqueue
 MJBotId= "936929561302675456"
 
 
+
 class Bot(commands.Bot):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # start the task to run in the background
         self.my_background_task.start()
     async def on_ready(self):
-        print('Logged on as', self.user)
+        print(self)
+        print('Bot logged on as', self.user)
         self.is_ready = True
 
     async def on_message(self, message):
@@ -35,6 +37,7 @@ class Bot(commands.Bot):
 
     @tasks.loop(seconds=1)  # task runs every 1 second
     async def my_background_task(self):
+        print(1)
         # channel = self.get_channel(1084379543516749825)  # channel ID goes here
         # while not imgqueue.empty():
         #     id = imgqueue.get()
