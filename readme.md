@@ -5,20 +5,21 @@ pip install "uvicorn[standard]"
 pip install pillow
 pip install "redis[hiredis]"
 pip install pyyaml
-pip install websockets
+pip install websocket-client
+pip install websocket-client[optional]
 ```
 
 
 
 
 ```
-celery.exe -A bot worker -l info -c 1
-celery -A bot worker -l info --pool=solo 
+celery.exe -A bot-main worker -l info -c 1
+celery -A bot-main worker -l info --pool=solo 
 celery.exe flower --address=127.0.0.1 --port=5566
 ``` 
 #### start mock server
 ```
-    uvicorn mock-server:app --reload
+    uvicorn mock-server:app --host 0.0.0.0 --reload
 ```
 
 

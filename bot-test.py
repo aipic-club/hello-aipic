@@ -1,21 +1,37 @@
 import os
 import time
 import asyncio
+import yaml
 # from threading import Thread
-from bot.DiscordBot.Selfbot import Selfbot
-# from dotenv import load_dotenv, find_dotenv
-# # from bot.DiscordBot import DiscordBot
+# from bot.DiscordBot.Selfbot import Selfbot
+from bot import SelfOnline
+from dotenv import load_dotenv, find_dotenv
+# from bot.DiscordBot import DiscordBot
 # from bot.DiscordBot.users import users, is_user_in_channel
 
-# proxy =  os.environ.get("DISCORD.PROXY")
+
+
+
+file = open( os.path.join( os.getcwd(), 'users.yaml') , 'r', encoding="utf-8")
+file_data = file.read()
+file.close()
+users = yaml.safe_load(file_data)
+
+proxy =  os.environ.get("http_proxy")
+
+
 # selfbot = Selfbot(proxy = proxy, users= users)
 
 
+print('bot test')
 
-loop = asyncio.new_event_loop()
-# loop.create_task(selfbot.keep_online())
-loop.create_task(asyncio.sleep(100))
-loop.run_forever()
+selfOnline = SelfOnline( users )
+
+selfOnline.run()
+
+
+
+
 # loop.run_in_executor(None, selfbot.keep_online())
 
 
