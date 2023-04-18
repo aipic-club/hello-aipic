@@ -1,74 +1,78 @@
 import asyncio
 from threading import Thread
 import nextcord
-from .Bot import Bot
+from .Bot import Bot, MJBotId
 from .Selfbot import Selfbot
-from .users import users
-from cache import MyRedis, resq
+from .users import users, is_user_in_channel
+from .utils import get_taskId, output_type, is_committed, OutputType
+from data import Data
+
 
 
 
 class DiscordBot():
-    def __init__(self,  proxy, redis_url):
+    def __init__(self,  proxy: str | None, redis_url: str, mysql_url: str):
         self.proxy = proxy
-        self.myRedis = MyRedis(url= redis_url)
+        self.data = Data(redis_url = redis_url, mysql_url= mysql_url)
+    async def __on_message (self, message):
+        author_id = message.author.id
+        channel_id = message.channel.id
+        guild_id = message.guild.id
+        if message.author == self.bot_user:
+            return
+        if message.content == 'ping':
+            await message.channel.send('pong')
+        if author_id == MJBotId and is_user_in_channel(guild_id , channel_id ):
+            #print("-- new message form MJ --")
+            #print(message.content)
+            taskId = get_taskId(message.content)
+            print(f'==⏰== new task taskId is {taskId}')
+            curType = output_type(message.content)
+            if curType != OutputType.UNKNOWN:
+                loop = asyncio.get_event_loop()
+                loop.run_in_executor(None, lambda: 
+                    self.data.updateTask(
+                        taskId = taskId, 
+                        type= curType , 
+                        message_id= message.id , 
+                        url = message.attachments[0].url if  (
+                            curType == OutputType.DRAFT or 
+                            curType == OutputType.UPSCALE or 
+                            curType == OutputType.VARIATION
+                        ) else None
+                    )
+                )
+        
+        print(author_id)
     def __startBot(self, token):
         intents = nextcord.Intents.default()
         intents.presences = True
         intents.members = True
         intents.message_content = True
-        bot = Bot(intents=intents, proxy = self.proxy)
         self.userbot = Selfbot(users= users, proxy = self.proxy)
-
-
-
-
-        loop = asyncio.get_event_loop()
-        loop.create_task(bot.start(token))
-        t1= Thread(target=loop.run_forever)
-        t1.daemon = True
-        t1.start()
-
-
-
-
-
-    def __startHandler(self):
-        loop2 = asyncio.get_event_loop()
-        loop2.create_task(self.handleResult())
-        t2= Thread(target=loop2.run_forever)
-        t2.daemon = True
-        t2.start()
-
-
-
-    def start(self, token):
-        self.__startBot(token) 
-        self.__startHandler()
-
-    async def __sendPrompt(self, taskId, prompt, new_prompt):
-        return await asyncio.gather(*[
-            self.myRedis.addTask(taskId, prompt) , 
-            self.userbot.sendPrompt(new_prompt)
-        ], return_exceptions=True)
-
-    def sendPrompt(self, taskId, prompt, new_prompt):
+        
         loop = asyncio.new_event_loop()
-        loop.run_until_complete(self.__sendPrompt(taskId, prompt, new_prompt))
+        bot = Bot(intents=intents, proxy = self.proxy, loop = loop)
+        self.bot_user  = bot.user
+        bot.on_message  = self.__on_message
 
-    async def handleResult(self):
-        while True:
-            try:
-                item = resq.get()
-                print(item)
-            except asyncio.QueueEmpty:
-                # print('Consumer: got nothing, waiting a while...')
-                await asyncio.sleep(1)
+
+        loop.create_task(bot.start(token))
+        t= Thread(target=loop.run_forever)
+        t.daemon = True
+        t.start()
 
         
 
-    
+    def start(self, token: str) -> None:
+        self.__startBot(token)
+
+    def sendPrompt(self, taskId, prompt, new_prompt):
+        self.data.addTask(taskId, prompt) 
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(self.userbot.sendPrompt(new_prompt))
+
+
         
 if __name__ == '__main__':
     pass
-    #selfbot.sendPrompt("a tiny cute Audi Racing Car RS 5 in grey color with a sheep on the road of New York Brooklyn Bridge")

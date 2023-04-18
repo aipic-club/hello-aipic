@@ -7,6 +7,7 @@ pip install "redis[hiredis]"
 pip install pyyaml
 pip install websocket-client
 pip install websocket-client[optional]
+pip install mysql-connector-python
 ```
 
 

@@ -17,7 +17,11 @@ load_dotenv(find_dotenv())
 
 celery = Celery('tasks', broker=os.environ.get("CELERY.BROKER"))
 
-discordBot = DiscordBot( os.environ.get("http_proxy"), redis_url = os.environ.get("REDIS"))
+discordBot = DiscordBot( 
+    os.environ.get("http_proxy"), 
+    redis_url = os.environ.get("REDIS"),
+    mysql_url = os.environ.get("MYSQL")
+)
 
 
 
@@ -54,14 +58,6 @@ class BaseTask(celery.Task):
 def ping():
     print('pong')
 
-#  no need to upload image to discord first any more
-# @celery.task(name='upload_img',bind=True, base=BaseTask)
-# async def upload_img_task(self,  src ):
-#     # download the image first
-#     id = self.request.id
-#     downloadImage(src, id)
-#     discordBot.addImg(id)
-#     return id
 
 @celery.task(name='query_task',bind=True, base=BaseTask)
 def query_task():
