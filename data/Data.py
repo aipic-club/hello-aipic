@@ -32,7 +32,7 @@ class Data():
             self.session.close()
         if self.client:
             self.client.close()
-    def addTask(self, taskId, prompt):
+    def add_task(self, taskId, prompt):
         self.r.setex(taskId, 10 * 60 , json.dumps({
             'prompt': prompt,
             'type': TaskStatus.PENDING.value
@@ -45,10 +45,18 @@ class Data():
         cursor.execute(sql, params)
         self.cnx.commit()
         cursor.close()
+    """
+    remove task from redis
+    """
+    def remove_task(self, taskId):
+        self.r.delete(taskId)
+        pass
         
-    def updateTask(self, taskId: str , type: TaskStatus, message_id , url):
+    def update_task(self, taskId: str , type: TaskStatus, message_id , url):
         print(taskId, type , message_id, url )        
         # download file
+
+
 
         # upload to bitiful
 
@@ -59,7 +67,7 @@ class Data():
             pass
         else:
             cursor = self.cnx.cursor()
-            sql = f"INSERT INTO `tasks` (`id`,`taskID`,`prompt`) VALUES( NULL, %s, %s)"
+            sql = f"INSERT INTO `tasks` (`id`,`taskID`,`prompt`, ) VALUES( NULL, %s, %s)"
             params = (taskId, '')
             cursor.execute(sql, params)
             self.cnx.commit()

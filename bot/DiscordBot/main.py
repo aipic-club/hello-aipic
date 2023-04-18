@@ -31,7 +31,7 @@ class DiscordBot():
             if curType != OutputType.UNKNOWN:
                 loop = asyncio.get_event_loop()
                 loop.run_in_executor(None, lambda: 
-                    self.data.updateTask(
+                    self.data.update_task(
                         taskId = taskId, 
                         type= curType , 
                         message_id= message.id , 
@@ -43,7 +43,7 @@ class DiscordBot():
                     )
                 )
         
-        print(author_id)
+        # print(author_id)
     def __startBot(self, token):
         intents = nextcord.Intents.default()
         intents.presences = True
@@ -68,7 +68,7 @@ class DiscordBot():
         self.__startBot(token)
 
     def sendPrompt(self, taskId, prompt, new_prompt):
-        self.data.addTask(taskId, prompt) 
+        self.data.add_task(taskId, prompt) 
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.userbot.sendPrompt(new_prompt))
 
