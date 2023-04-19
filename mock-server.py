@@ -13,7 +13,7 @@ celery = Celery('tasks', broker=os.environ.get("CELERY.BROKER"))
 
 
 app = FastAPI()
-fileHandler = FileHandler(s3config= {
+fileHandler = FileHandler(proxy = None, s3config= {
     'aws_access_key_id' : os.environ.get("AWS.ACCESS_KEY_ID"),
     'aws_secret_access_key' : os.environ.get("AWS.SECRET_ACCESS_KEY"),
     'endpoint_url' : os.environ.get("AWS.ENDPOINT")
@@ -63,13 +63,9 @@ async def send_prompt(item: Prompt):
     print(res)         
     return item
 
-@app.post("/sign")
+@app.get("/sign")
 async def get_sign():
     return fileHandler.generate_presigned_url(f'temp/{random_id(10)}.jpg')    
-
-
-
-
 
 if __name__ == "__main__":
     pass
