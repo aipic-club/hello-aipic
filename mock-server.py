@@ -6,13 +6,18 @@ from fastapi import FastAPI
 from fastapi import BackgroundTasks
 from celery import Celery
 from dotenv import load_dotenv, find_dotenv
+from data import FileHandler
 load_dotenv(find_dotenv())
 
 celery = Celery('tasks', broker=os.environ.get("CELERY.BROKER"))
 
 
 app = FastAPI()
-
+fileHandler = FileHandler(s3config= {
+    'aws_access_key_id' : os.environ.get("AWS.ACCESS_KEY_ID"),
+    'aws_secret_access_key' : os.environ.get("AWS.SECRET_ACCESS_KEY"),
+    'endpoint_url' : os.environ.get("AWS.ENDPOINT")
+})
 
 def random_id(length = 6) -> str:
     all = string.ascii_letters + string.digits
@@ -45,16 +50,22 @@ def read_root():
 
 @app.post("/prompt")
 async def send_prompt(item: Prompt):
+    token = 'XDV9Z3uvQgVTsSYReuXk'
     prompt = item.prompt
     taskId = random_id()
     res = celery.send_task('send_prompt',
         (
+            token,
             taskId,
             prompt
         )
     )
     print(res)         
     return item
+
+@app.post("/sign")
+async def get_sign():
+    return fileHandler.generate_presigned_url(f'temp/{random_id(10)}.jpg')    
 
 
 

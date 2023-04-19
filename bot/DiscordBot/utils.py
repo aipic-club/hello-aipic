@@ -6,12 +6,7 @@ add a meaningless word to parameter --no
 import re
 from enum import Enum
 
-class OutputType(Enum):
-    UNKNOWN = 0
-    COMMITTED = 1,
-    DRAFT = 2
-    VARIATION = 3
-    UPSCALE = 4
+from data import TaskStatus,OutputType
 
 
 def refine_prompt(taskId: str, prompt: str):
@@ -53,16 +48,22 @@ def is_upsacle(content: str) -> bool:
     #Image #1
     return re.search(r"Image\s#\d", content)
 
-def output_type(content: str):
+
+
+def status_type(content: str):
     if is_committed(content):
-        return OutputType.COMMITTED
-    elif is_draft(content):
+        return TaskStatus.COMMITTED
+    elif output_type(content) is not None:
+        return TaskStatus.FINISHED
+    
+def output_type(content: str):
+    if is_draft(content):
         return OutputType.DRAFT
     elif is_variations(content):
         return OutputType.VARIATION
     elif is_upsacle(content):
         return OutputType.UPSCALE
     else:
-        return OutputType.UNKNOWN
+        return None
 
 

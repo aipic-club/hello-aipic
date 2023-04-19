@@ -17,10 +17,16 @@ load_dotenv(find_dotenv())
 
 celery = Celery('tasks', broker=os.environ.get("CELERY.BROKER"))
 
+
 discordBot = DiscordBot( 
     os.environ.get("http_proxy"), 
     redis_url = os.environ.get("REDIS"),
-    mysql_url = os.environ.get("MYSQL")
+    mysql_url = os.environ.get("MYSQL"),
+    s3config= {
+        'aws_access_key_id' : os.environ.get("AWS.ACCESS_KEY_ID"),
+        'aws_secret_access_key' : os.environ.get("AWS.SECRET_ACCESS_KEY"),
+        'endpoint_url' : os.environ.get("AWS.ENDPOINT")
+    }
 )
 
 
@@ -59,17 +65,15 @@ def ping():
     print('pong')
 
 
-@celery.task(name='query_task',bind=True, base=BaseTask)
-def query_task():
-    # query the finished tasks
-    pass
-
-
 @celery.task(name='send_prompt',bind=True, base=BaseTask)
-def query_task(self, taskId, prompt):
+def add_task(self,  token, taskId, prompt):
+    # TODO validate token first
+
+    tokenId = 1
+    # token is fine
     new_prompt = refine_prompt(taskId, prompt)
-    discordBot.sendPrompt(taskId, prompt, new_prompt)
-    id = self.request.id
+    discordBot.sendPrompt(tokenId, taskId, prompt, new_prompt)
+    # id = self.request.id
     return id
 
 discordBot.start(os.environ.get("DISCORD.BOT.TOKEN"))
