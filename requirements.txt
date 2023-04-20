@@ -2,13 +2,12 @@ aiohttp==3.8.4
 boto3==1.26.115
 celery==5.2.7
 fastapi==0.95.1
-mysql_connector_repackaged==0.3.1
 nextcord==2.4.2
-Pillow==9.5.0
 Pillow==9.5.0
 pydantic==1.10.7
 python-dotenv==1.0.0
 PyYAML==6.0
-PyYAML==6.0
 redis==4.5.4
 websocket_client==1.5.1
+uvicorn
+mysql-connector-python

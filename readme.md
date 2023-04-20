@@ -1,5 +1,5 @@
 
-pipreqs . --encoding UTF-8
+pipreqs . --encoding UTF-8 --use-local
 
 
 
