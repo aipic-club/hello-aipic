@@ -31,7 +31,7 @@ class Prompt(BaseModel):
 
 @app.get("/")
 def read_root():
-    return ""
+    return {}
 
 # @app.get("/items/{item_id}")
 # def read_item(item_id: int, q: Union[str, None] = None):
@@ -56,9 +56,6 @@ async def send_prompt(item: Prompt):
     return {
         'taskId': taskId
     }
-@app.post("/variation")
-async def variation():
-    return ""
 
 @app.post("/upscale/{id}/{index}")
 async def upscale(id: int, index: int):
@@ -69,7 +66,7 @@ async def upscale(id: int, index: int):
             index
         )
     )
-    return ""
+    return {}
 
 @app.post("/variation/{id}/{index}")
 async def variation(id: int, index: int):
@@ -80,11 +77,12 @@ async def variation(id: int, index: int):
             index
         )
     )
-    return ""
+    return {}
 
 @app.get("/sign")
 async def get_sign():
-    return fileHandler.generate_presigned_url(f'temp/{random_id(10)}.jpg')    
+    sign = fileHandler.generate_presigned_url(f'temp/{random_id(10)}.jpg')  
+    return   {'sign': sign}
 
 if __name__ == "__main__":
     pass
