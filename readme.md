@@ -1,14 +1,10 @@
-requirements
+
+pipreqs . --encoding UTF-8
+
+
+
 ```
-pip install fastapi
-pip install "uvicorn[standard]"
-pip install pillow
-pip install "redis[hiredis]"
-pip install pyyaml
-pip install websocket-client
-pip install websocket-client[optional]
-pip install mysql-connector-python
-pip install boto3
+pip install --no-cache-dir --upgrade -r requirements.txt
 ```
 
 
