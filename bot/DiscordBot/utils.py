@@ -57,12 +57,13 @@ def status_type(content: str):
         return TaskStatus.FINISHED
     
 def output_type(content: str):
-    if is_draft(content):
-        return OutputType.DRAFT
-    elif is_variations(content):
+
+    if is_variations(content):
         return OutputType.VARIATION
     elif is_upsacle(content):
         return OutputType.UPSCALE
+    elif is_draft(content):
+        return OutputType.DRAFT
     else:
         return None
 

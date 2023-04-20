@@ -25,3 +25,9 @@ class Cost(Enum):
         if output == OutputType.UPSCALE.value:
             return Cost.UPSCALE.value  
         return 0
+    
+class SysError(Enum):
+    FATAL = 0
+    TOKEN_NOT_EXIST = 1
+    TOKEN_EXPIRED = 2
+    

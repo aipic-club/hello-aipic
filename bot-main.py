@@ -65,7 +65,7 @@ def ping():
     print('pong')
 
 
-@celery.task(name='send_prompt',bind=True, base=BaseTask)
+@celery.task(name='prompt',bind=True, base=BaseTask)
 def add_task(self,  token, taskId, prompt):
     # TODO validate token first
 
@@ -75,6 +75,25 @@ def add_task(self,  token, taskId, prompt):
     discordBot.sendPrompt(tokenId, taskId, prompt, new_prompt)
     # id = self.request.id
     return id
+
+@celery.task(name='variation',bind=True, base=BaseTask)
+def variation(self,  id, index):
+    # TODO validate token first
+
+    tokenId = 1
+    # token is fine
+
+    
+    return id
+@celery.task(name='upscale',bind=True, base=BaseTask)
+def upscale(self,  id, index):
+    # TODO validate token first
+    tokenId = 1
+    # token is fine
+
+    return id
+
+
 
 discordBot.start(os.environ.get("DISCORD.BOT.TOKEN"))
 

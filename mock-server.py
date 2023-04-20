@@ -13,6 +13,8 @@ celery = Celery('tasks', broker=os.environ.get("CELERY.BROKER"))
 
 
 app = FastAPI()
+
+test_token = 'XDV9Z3uvQgVTsSYReuXk'
 fileHandler = FileHandler(proxy = None, s3config= {
     'aws_access_key_id' : os.environ.get("AWS.ACCESS_KEY_ID"),
     'aws_secret_access_key' : os.environ.get("AWS.SECRET_ACCESS_KEY"),
@@ -27,14 +29,9 @@ def random_id(length = 6) -> str:
 class Prompt(BaseModel):
     prompt: str
 
-
-
 @app.get("/")
 def read_root():
-    return {"Hello": "World"}
-
-
-
+    return ""
 
 # @app.get("/items/{item_id}")
 # def read_item(item_id: int, q: Union[str, None] = None):
@@ -45,23 +42,45 @@ def read_root():
 #     print(res)
 #     return {"item_id": item_id, "q": q }
 
-
-
-
 @app.post("/prompt")
 async def send_prompt(item: Prompt):
-    token = 'XDV9Z3uvQgVTsSYReuXk'
     prompt = item.prompt
     taskId = random_id()
-    res = celery.send_task('send_prompt',
+    res = celery.send_task('prompt',
         (
-            token,
+            test_token,
             taskId,
             prompt
         )
     )
-    print(res)         
-    return item
+    return {
+        'taskId': taskId
+    }
+@app.post("/variation")
+async def variation():
+    return ""
+
+@app.post("/upscale/{id}/{index}")
+async def upscale(id: int, index: int):
+    res = celery.send_task('upscale',
+        (
+            test_token,
+            id,
+            index
+        )
+    )
+    return ""
+
+@app.post("/variation/{id}/{index}")
+async def variation(id: int, index: int):
+    res = celery.send_task('upscale',
+        (
+            test_token,
+            id,
+            index
+        )
+    )
+    return ""
 
 @app.get("/sign")
 async def get_sign():

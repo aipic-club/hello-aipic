@@ -35,7 +35,7 @@ class DiscordBot():
             #print(message.content)
             taskId = get_taskId(content)
             print(f'==⏰== new task taskId is {taskId}')
-            curType = output_type(content)
+
             task_is_committed = is_committed(content)
             if task_is_committed:
                 loop = asyncio.get_event_loop()
@@ -44,17 +44,19 @@ class DiscordBot():
                         taskId = taskId
                     )
                 )
-            if curType is not None:
-                attachment = message.attachments[0].url
-                loop = asyncio.get_event_loop()
-                loop.run_in_executor(None, lambda: 
-                    self.data.process_task(
-                        taskId = taskId, 
-                        type= curType , 
-                        message_id= message_id , 
-                        url = attachment
+            else:
+                curType = output_type(content)
+                if curType is not None:
+                    attachment = message.attachments[0].url
+                    loop = asyncio.get_event_loop()
+                    loop.run_in_executor(None, lambda: 
+                        self.data.process_task(
+                            taskId = taskId, 
+                            type= curType , 
+                            message_id= message_id , 
+                            url = attachment
+                        )
                     )
-                )
         
         # print(author_id)
     def __startBot(self, token):
