@@ -4,12 +4,10 @@ import random
 import aiohttp
 import asyncio
 from  .Bot import MJBotId
+from data.users import users,get_user_by_taskId
 
-
-status = "online"
-custom_status = ""
 class Selfbot():
-    def __init__(self, proxy: str = False, users: object = []):
+    def __init__(self, proxy: str = False):
         self.proxy = proxy
         self.users = users
     def run(self):
@@ -51,11 +49,41 @@ class Selfbot():
         }
         response = await self.__sendInteractions(user['authorization'],  payload)
         return response
-    def Upscale(index : int, messageId : str, messageHash : str):
+    async def Upscale(self, taskId: str,  index : int, messageId : str, messageHash : str):
+        user = get_user_by_taskId(taskId)
+        payload = {
+            "type":3,
+            "guild_id": user['guild_id'],
+            "channel_id":user['channel_id'],
+            "message_flags":0,
+            "message_id": messageId,
+            "application_id": MJBotId,
+            "session_id":"45bc04dd4da37141a5f73dfbfaf5bdcf",
+            "data":{
+                "component_type":2,
+                "custom_id":"MJ::JOB::upsample::{}::{}".format(index, messageHash)
+            }
+        } 
+        response = await self.__sendInteractions(user['authorization'],  payload)
+        return response
+    def MaxUpscale(self, messageId : str, messageHash : str):
         pass
-    def MaxUpscale(messageId : str, messageHash : str):
-        pass
-    def Variation(index : int,messageId : str, messageHash : str):
-        pass
+    async def Variation(self, taskId: str,  index : int,messageId : str, messageHash : str):
+            user = get_user_by_taskId(taskId)
+            payload = {
+                "type":3, 
+                "guild_id": user['guild_id'],
+                "channel_id":user['channel_id'],
+                "message_flags":0,
+                "message_id": messageId,
+                "application_id": MJBotId,
+                "session_id":"1f3dbdf09efdf93d81a3a6420882c92c",
+                "data":{
+                    "component_type":2,
+                    "custom_id":"MJ::JOB::variation::{}::{}".format(index, messageHash)
+                }
+            }
+            response = await self.__sendInteractions(user['authorization'],  payload)
+            return response
     def ReRoll(self):
         pass

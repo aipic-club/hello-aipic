@@ -3,6 +3,7 @@
 import os
 import io
 import asyncio
+import random
 # import requests
 from PIL import Image
 import tempfile
@@ -12,6 +13,7 @@ from celery.signals import worker_init
 from dotenv import load_dotenv, find_dotenv
 from bot import DiscordBot
 from bot.DiscordBot import refine_prompt
+from data import SysError, random_id, uids
 
 load_dotenv(find_dotenv())
 
@@ -66,15 +68,13 @@ def ping():
 
 
 @celery.task(name='prompt',bind=True, base=BaseTask)
-def add_task(self,  token, taskId, prompt):
-    # TODO validate token first
+def add_task(self, token_id , taskId, prompt):
 
-    tokenId = 1
-    # token is fine
-    new_prompt = refine_prompt(taskId, prompt)
-    discordBot.sendPrompt(tokenId, taskId, prompt, new_prompt)
-    # id = self.request.id
-    return id
+        # token is fine
+        new_prompt = refine_prompt(taskId, prompt)
+        discordBot.sendPrompt(token_id, taskId, prompt, new_prompt)
+        # id = self.request.id
+        return taskId
 
 @celery.task(name='variation',bind=True, base=BaseTask)
 def variation(self,  id, index):

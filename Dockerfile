@@ -11,4 +11,4 @@ RUN pip install -i https://pypi.tuna.tsinghua.edu.cn/simple pip -U
 RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 
 RUN pip install --no-cache-dir -r requirements.txt
-CMD ["uvicorn", "mock-server:app", "--host", "0.0.0.0", "--port", "80"]
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "80"]

@@ -1,12 +1,12 @@
 import asyncio
+import atexit
 from threading import Thread
 import nextcord
 from .Bot import Bot, MJBotId
 from .Selfbot import Selfbot
-from .users import users, is_user_in_channel
 from .utils import get_taskId, output_type, is_committed
-
 from data import Data,TaskStatus,OutputType
+from data import users, is_user_in_channel
 
 
 
@@ -20,6 +20,7 @@ class DiscordBot():
             proxy = proxy,
             s3config = s3config
         )
+        atexit.register(self.data.close)
     async def __on_message (self, message):
         message_id = message.id
         author_id = message.author.id
@@ -64,7 +65,7 @@ class DiscordBot():
         intents.presences = True
         intents.members = True
         intents.message_content = True
-        self.userbot = Selfbot(users= users, proxy = self.proxy)
+        self.userbot = Selfbot( proxy = self.proxy)
         
         loop = asyncio.new_event_loop()
         bot = Bot(intents=intents, proxy = self.proxy, loop = loop)
@@ -87,7 +88,11 @@ class DiscordBot():
         loop = asyncio.new_event_loop()
         loop.run_until_complete(self.userbot.sendPrompt(new_prompt))
         loop.close()
+    def sendVariation(self,):
         pass
+    def sendUpscale(self,):
+        pass
+
 
 
         

@@ -1,10 +1,10 @@
-import json
 import redis
 import asyncio
 from urllib.parse import urlparse
 import mysql.connector
 from mysql.connector import errorcode
-from .values import TaskStatus,OutputType,Cost
+from .values import TaskStatus,OutputType,Cost, SysError
+from .utils import current_time,is_expired
 from .FileHandler import FileHandler
 
 
@@ -19,12 +19,17 @@ class Data():
     ) -> None:
         parsed = urlparse(mysql_url)
         try:
+            dbconfig = {
+                'user' : parsed.username, 
+                'password' : parsed.password,
+                'host' : parsed.hostname,
+                'port' : parsed.port,
+                'database' : parsed.path.lstrip('/')
+            }
             self.cnx = mysql.connector.connect(
-                user = parsed.username, 
-                password = parsed.password,
-                host = parsed.hostname,
-                port = parsed.port,
-                database = parsed.path.lstrip('/')
+                pool_name = "mypool",
+                pool_size = 3,
+                **dbconfig
             )
         except mysql.connector.Error as err:
             if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
@@ -35,17 +40,19 @@ class Data():
                 print(err)
         self.r = redis.from_url(redis_url)
         self.fileHandler = FileHandler(proxy= proxy, s3config=s3config)
-    def __del__(self):
+    def close(self):
         if self.session:
             self.session.close()
         if self.client:
             self.client.close()
     def __insert_prompt(self, params: dict):
         cursor = self.cnx.cursor()
-        add_prompt = ("INSERT INTO `prompts` (`token_id`, `taskId`,`prompt`) VALUES( %(token_id)s, %(taskId)s, %(prompt)s)")
-        cursor.execute(add_prompt, params)
-        self.cnx.commit()
-        cursor.close()
+        try:
+            add_prompt = ("INSERT INTO `prompts` (`token_id`, `taskId`,`prompt`) VALUES( %(token_id)s, %(taskId)s, %(prompt)s)")
+            cursor.execute(add_prompt, params)
+            self.cnx.commit()
+        finally:
+            cursor.close()
     def __insert_task(self, params: dict):
         cursor = self.cnx.cursor()
         try:
@@ -59,8 +66,8 @@ class Data():
                 token_id = record[0]
                 add_task = (
                     "INSERT INTO `tasks` "
-                    "(`taskID`,`type`,`parent`,`v_index`,`u_index`,`status`,`message_id`,`image_hash`,`url_global`,`url_cn`) "
-                    "VALUES ( %(taskId)s, %(type)s, %(parent)s, %(v_index)s, %(u_index)s, %(status)s, %(message_id)s, %(image_hash)s, %(url_global)s, %(url_cn)s)"
+                    "(`taskID`,`type`,`parent`,`v_index`,`u_index`,`status`,`message_id`,`message_hash`,`url_global`,`url_cn`) "
+                    "VALUES ( %(taskId)s, %(type)s, %(parent)s, %(v_index)s, %(u_index)s, %(status)s, %(message_id)s, %(message_hash)s, %(url_global)s, %(url_cn)s)"
                 )
                 cursor.execute(add_task, params)
                 insertd_task_id = cursor.lastrowid
@@ -79,7 +86,28 @@ class Data():
             print(e)
             self.cnx.rollback()
         finally:
-            cursor.close()         
+            cursor.close()  
+    def check_token_and_get_id(self, token: str) -> int | SysError:
+        cursor = self.cnx.cursor()
+        try:
+            sql = "SELECT `id`,`expire_at` FROM `tokens` WHERE token = %s"
+            val = (token,)
+            cursor.execute(sql, val)
+            record = cursor.fetchone()
+            if record is not None:
+                id = record[0]
+                expire_at = record[1]
+                if is_expired(expire_at):
+                    return SysError.TOKEN_EXPIRED
+                else:
+                    ### TODO check blance usage ###
+
+                    #############
+                    return id
+            else:
+                return SysError.TOKEN_NOT_EXIST
+        finally:
+            cursor.close()     
     def add_task(self, tokenId,  taskId, prompt):
         self.r.setex(taskId, 10 * 60 , prompt )
         self.__insert_prompt({
@@ -95,7 +123,7 @@ class Data():
             'u_index': None,
             'status': TaskStatus.CREATED.value,
             'message_id': None,
-            'image_hash': None,
+            'message_hash': None,
             'url_global': None,
             'url_cn': None
         })
@@ -108,7 +136,7 @@ class Data():
             'u_index': None,
             'status': TaskStatus.COMMITTED.value,
             'message_id': None,
-            'image_hash': None,
+            'message_hash': None,
             'url_global': None,
             'url_cn': None
         })
@@ -139,10 +167,26 @@ class Data():
             'u_index': None,
             'status': TaskStatus.FINISHED.value,
             'message_id': message_id if type is not OutputType.UPSCALE else '',
-            'image_hash': hash if type is not OutputType.UPSCALE else '',
+            'message_hash': hash if type is not OutputType.UPSCALE else '',
             'url_global': url,
             'url_cn': url_cn
         })
+    def get_task_by_id(self, id: int):
+        cursor = self.cnx.cursor()
+        try:
+            sql = "SELECT `message_id`,`message_hash` FROM `tasks` WHERE id = %s"
+            val = (id,)
+            cursor.execute(sql, val)
+            record = cursor.fetchone()
+            if record is not None:
+                return {
+                    'message_id' : record[0],
+                    'message_hash' : record[1]
+                }
+            else:
+                return None
+        finally:
+            cursor.close() 
 
 
 

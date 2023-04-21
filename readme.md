@@ -17,7 +17,7 @@ celery.exe flower --address=127.0.0.1 --port=5566
 ``` 
 #### start mock server
 ```
-    uvicorn mock-server:app --host 0.0.0.0 --reload
+    uvicorn server:app --host 0.0.0.0 --reload
 ```
 
 
