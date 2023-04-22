@@ -12,14 +12,14 @@ class Selfbot():
         self.users = users
     def run(self):
         asyncio.run(self.__keep_online())
-    async def __sendInteractions(self, authorization, payload):
+    async def __send_interactions(self, authorization, payload):
         
         headers = {
             'authorization' : authorization
         }
         # response = requests.post("https://discord.com/api/v9/interactions",json = payload, headers = header)
         # return response
-        print("----sending prompt----")
+        print("----sending __send_interactions----")
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 "https://discord.com/api/v9/interactions", 
@@ -32,7 +32,7 @@ class Selfbot():
                 # print(response)
                 return status
 
-    async def sendPrompt(self, prompt):
+    async def send_prompt(self, prompt):
         user = random.choice(self.users)
         payload = {
             "type":2,
@@ -47,9 +47,9 @@ class Selfbot():
                 "attachments":[]
             }
         }
-        response = await self.__sendInteractions(user['authorization'],  payload)
+        response = await self.__send_interactions(user['authorization'],  payload)
         return response
-    async def Upscale(self, taskId: str,  index : int, messageId : str, messageHash : str):
+    async def send_upscale(self, taskId: str,  index : int, messageId : str, messageHash : str):
         user = get_user_by_taskId(taskId)
         payload = {
             "type":3,
@@ -64,11 +64,11 @@ class Selfbot():
                 "custom_id":"MJ::JOB::upsample::{}::{}".format(index, messageHash)
             }
         } 
-        response = await self.__sendInteractions(user['authorization'],  payload)
+        response = await self.__send_interactions(user['authorization'],  payload)
         return response
-    def MaxUpscale(self, messageId : str, messageHash : str):
+    def send_max_upscale(self, messageId : str, messageHash : str):
         pass
-    async def Variation(self, taskId: str,  index : int,messageId : str, messageHash : str):
+    async def send_variation(self, taskId: str,  index : int,messageId : str, messageHash : str):
             user = get_user_by_taskId(taskId)
             payload = {
                 "type":3, 
@@ -83,7 +83,7 @@ class Selfbot():
                     "custom_id":"MJ::JOB::variation::{}::{}".format(index, messageHash)
                 }
             }
-            response = await self.__sendInteractions(user['authorization'],  payload)
+            response = await self.__send_interactions(user['authorization'],  payload)
             return response
     def ReRoll(self):
         pass

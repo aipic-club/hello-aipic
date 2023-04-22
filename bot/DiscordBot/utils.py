@@ -35,7 +35,7 @@ def is_draft(content: str) -> str | None:
     return "(relaxed)"  in content or "(fast)" in content
 
 def get_taskId(content: str) -> str | None:
-    match = re.search(r"--no\s(\w+)", content)
+    match = re.search(r"--no\s([\.\w]+)", content)
     if match:
         return match.group(1)
     return None

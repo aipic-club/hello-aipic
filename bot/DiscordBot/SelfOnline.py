@@ -5,11 +5,11 @@ import json
 import time
 import websocket
 import threading
-
+from data.users import users
 
 class SelfOnline():
-    def __init__(self,  users: object = []):
-        self.users = users    
+    def __init__(self):
+        pass  
     def onliner(self, token):
         print("-- keep all users online --")
         status = "online"

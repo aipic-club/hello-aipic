@@ -72,26 +72,16 @@ def add_task(self, token_id , taskId, prompt):
 
         # token is fine
         new_prompt = refine_prompt(taskId, prompt)
-        discordBot.sendPrompt(token_id, taskId, prompt, new_prompt)
+        discordBot.send_prompt(token_id, taskId, prompt, new_prompt)
         # id = self.request.id
         return taskId
 
 @celery.task(name='variation',bind=True, base=BaseTask)
-def variation(self,  id, index):
-    # TODO validate token first
-
-    tokenId = 1
-    # token is fine
-
-    
-    return id
+def variation(self, task: dict[str, str, str], index: str):
+    discordBot.send_variation(task, index)
 @celery.task(name='upscale',bind=True, base=BaseTask)
-def upscale(self,  id, index):
-    # TODO validate token first
-    tokenId = 1
-    # token is fine
-
-    return id
+def upscale(self,  task: dict[str, str, str], index: str):
+    discordBot.send_upscale(task, index)
 
 
 

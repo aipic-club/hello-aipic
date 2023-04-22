@@ -21,40 +21,7 @@ class Bot(commands.Bot):
     # async def on_message(self, message):
     #     # don't respond to ourselves
     #     # print(message)
-    #     #print(message.reference.resolved.author.id)
-
-    #     author_id = message.author.id
-    #     channel_id = message.channel.id
-    #     guild_id = message.guild.id
-    #     if message.author == self.user:
-    #         return
-        
-    #     if message.content == 'ping':
-    #         await message.channel.send('pong')
-
-    #     # print(message.content)
-
-    #     # print(message.attachments)
-
-    #     # print(message.reference)
-
-    #     print(author_id)
-
-    #     if author_id == MJBotId and is_user_in_channel(guild_id , channel_id ):
-    #         #print("-- new message form MJ --")
-    #         #print(message.content)
-    #         taskId = get_taskId(message.content)
-    #         print(f'==⏰== new task taskId is {taskId}')
-    #         curType = output_type(message.content)
-    #         print(curType)
-    #         if not OutputType.UNKNOWN:
-    #             resq.put({
-    #                 'id': taskId,
-    #                 'type': curType,
-    #                 'message_id': message.id,
-    #                 'url': message.attachments[0].url
-    #             })
-
+    #     pass
     @tasks.loop(seconds=1000)  # task runs every 1000 second
     async def my_background_task(self):
         # channel = self.get_channel(1084379543516749825)  # channel ID goes here

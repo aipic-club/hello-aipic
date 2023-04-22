@@ -15,8 +15,6 @@ celery = Celery('tasks', broker=os.environ.get("CELERY.BROKER"))
 
 app = FastAPI()
 
-test_token = 'XDV9Z3uvQgVTsSYReuXk'
-test_invalid_token = 'XDV9Z3uvQgVTsSYReuXs'
 
 data = Data(
     redis_url = os.environ.get("REDIS"),
@@ -37,6 +35,15 @@ def random_id(length = 6) -> str:
 
 class Prompt(BaseModel):
     prompt: str
+
+class Variation(BaseModel):
+    id : int
+    index: int
+
+class Upscale(BaseModel):
+    id : int
+    index: int
+
 
 @app.get("/")
 def read_root():
@@ -61,32 +68,38 @@ async def send_prompt(item: Prompt, authentication: Annotated[str | None, Header
         'id':  taskId
     }
 
-@app.post("/upscale/{id}/{index}")
-async def upscale(id: int, index: int, authentication: Annotated[str | None, Header()] = None):
+@app.post("/upscale")
+async def upscale(item: Upscale, authentication: Annotated[str | None, Header()] = None):
     temp = data.check_token_and_get_id(token= authentication)
     if type(temp) is SysError:
         raise HTTPException(401,  temp.value)
-    res = celery.send_task('upscale',
-        (
-            temp,
-            id,
-            index
+    task = data.get_task_by_id(temp, item.id)
+    if task is None:
+        raise HTTPException(404,  "")    
+    else:
+        res = celery.send_task('upscale',
+            (
+                task,
+                item.index
+            )
         )
-    )
     return {}
 
-@app.post("/variation/{id}/{index}")
-async def variation(id: int, index: int, authentication: Annotated[str | None, Header()] = None):
+@app.post("/variation")
+async def variation(item: Variation, authentication: Annotated[str | None, Header()] = None):
     temp = data.check_token_and_get_id(token= authentication)
     if type(temp) is SysError:
         raise HTTPException(401,  temp.value)    
-    res = celery.send_task('upscale',
-        (
-            temp,
-            id,
-            index
+    task = data.get_task_by_id(temp, item.id)
+    if task is None:
+        raise HTTPException(404,  "")    
+    else:
+        res = celery.send_task('variation',
+            (
+                task,
+                item.index
+            )
         )
-    )
     return {}
 
 @app.get("/sign")

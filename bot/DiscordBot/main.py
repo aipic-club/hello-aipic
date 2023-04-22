@@ -83,17 +83,33 @@ class DiscordBot():
     def start(self, token: str) -> None:
         self.__startBot(token)
 
-    def sendPrompt(self, tokenId, taskId, prompt, new_prompt):
-        self.data.add_task(tokenId, taskId, prompt) 
+    def send_prompt(self, token_id, taskId, prompt, new_prompt):
+        self.data.add_task(token_id, taskId, prompt) 
         loop = asyncio.new_event_loop()
-        loop.run_until_complete(self.userbot.sendPrompt(new_prompt))
+        loop.run_until_complete(self.userbot.send_prompt(new_prompt))
         loop.close()
-    def sendVariation(self,):
-        pass
-    def sendUpscale(self,):
-        pass
-
-
+    def send_variation(self, task: dict[str, str, str], index: str):
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(
+            self.userbot.send_variation(
+                task['taskId'],
+                messageId = task['message_id'],
+                messageHash = task['message_hash'], 
+                index = index
+            )
+        )
+        loop.close()
+    def send_upscale(self, task: dict[str, str, str], index: str):
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(
+            self.userbot.send_upscale(
+                task['taskId'],
+                messageId = task['message_id'],
+                messageHash = task['message_hash'], 
+                index = index
+            )
+        )
+        loop.close()
 
         
 if __name__ == '__main__':

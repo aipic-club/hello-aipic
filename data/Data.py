@@ -108,10 +108,10 @@ class Data():
                 return SysError.TOKEN_NOT_EXIST
         finally:
             cursor.close()     
-    def add_task(self, tokenId,  taskId, prompt):
+    def add_task(self, token_id,  taskId, prompt):
         self.r.setex(taskId, 10 * 60 , prompt )
         self.__insert_prompt({
-            'token_id': tokenId, 
+            'token_id': token_id, 
             'taskId': taskId, 
             'prompt': prompt
         })
@@ -171,17 +171,19 @@ class Data():
             'url_global': url,
             'url_cn': url_cn
         })
-    def get_task_by_id(self, id: int):
+    def get_task_by_id(self, token_id: int, id: int) -> dict[str, str]:
         cursor = self.cnx.cursor()
         try:
-            sql = "SELECT `message_id`,`message_hash` FROM `tasks` WHERE id = %s"
-            val = (id,)
+            ### check the id is belong to the token
+            sql = "SELECT t1.taskId,t1.message_id,t1.message_hash FROM `tasks` t1 LEFT JOIN `prompts` t2  ON t1.taskId = t2.taskId WHERE t2.token_id = %s AND t1.id = %s "
+            val = (token_id, id,)
             cursor.execute(sql, val)
             record = cursor.fetchone()
-            if record is not None:
+            if  all(val is not None for val in record): 
                 return {
-                    'message_id' : record[0],
-                    'message_hash' : record[1]
+                    'taskId': record[0],
+                    'message_id' : record[1],
+                    'message_hash' : record[2]
                 }
             else:
                 return None
