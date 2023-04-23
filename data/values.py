@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class TaskStatus(Enum):
     ABORTED = 0 
     CREATED = 1  # to db

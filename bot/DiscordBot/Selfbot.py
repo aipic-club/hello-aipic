@@ -19,7 +19,7 @@ class Selfbot():
         }
         # response = requests.post("https://discord.com/api/v9/interactions",json = payload, headers = header)
         # return response
-        print("----sending __send_interactions----")
+        print("===🚀sending to user bot===")
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 "https://discord.com/api/v9/interactions", 

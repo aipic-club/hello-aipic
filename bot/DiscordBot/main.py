@@ -22,11 +22,18 @@ class DiscordBot():
         )
         atexit.register(self.data.close)
     async def __on_message (self, message):
+ 
+        reference_id = getattr(message.reference, 'message_id', None) 
         message_id = message.id
         author_id = message.author.id
         channel_id = message.channel.id
         guild_id = message.guild.id
         content = message.content
+        print("===========")
+        print(message.application)
+        print("===========")
+        print(message.components)
+        print("===========")
         if message.author == self.bot_user:
             return
         if content == 'ping':
@@ -35,8 +42,7 @@ class DiscordBot():
             #print("-- new message form MJ --")
             #print(message.content)
             taskId = get_taskId(content)
-            print(f'==⏰== new task taskId is {taskId}')
-
+            print(f'==⏰== taskId {taskId}')
             task_is_committed = is_committed(content)
             if task_is_committed:
                 loop = asyncio.get_event_loop()
@@ -54,6 +60,7 @@ class DiscordBot():
                         self.data.process_task(
                             taskId = taskId, 
                             type= curType , 
+                            reference= reference_id,
                             message_id= message_id , 
                             url = attachment
                         )
@@ -110,6 +117,8 @@ class DiscordBot():
             )
         )
         loop.close()
+    
+
 
         
 if __name__ == '__main__':
