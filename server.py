@@ -1,10 +1,11 @@
 import os
 import random
 import string
-from typing import Annotated
+from typing import Annotated, Callable
 from pydantic import BaseModel
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI,APIRouter, HTTPException, Depends,  Header, Request, Response
 from fastapi import BackgroundTasks
+from fastapi.routing import APIRoute
 from celery import Celery
 from dotenv import load_dotenv, find_dotenv
 from data import Data, FileHandler, SysError, random_id, uids
@@ -13,7 +14,22 @@ load_dotenv(find_dotenv())
 celery = Celery('tasks', broker=os.environ.get("CELERY.BROKER"))
 
 
+async def get_token_id(authentication: str = Header(None)):
+    # if x_token != "fake-super-secret-token":
+    #     raise HTTPException(status_code=400, detail="X-Token header invalid")
+    temp = data.check_token_and_get_id(token= authentication)
+    if type(temp) is SysError:
+        raise HTTPException(401)
+    else:
+        return temp
+        
+
+
 app = FastAPI()
+router = APIRouter(
+    prefix="/api/v1.0",
+    dependencies=[Depends(get_token_id)]
+)
 
 
 data = Data(
@@ -45,21 +61,30 @@ class Upscale(BaseModel):
     index: int
 
 
-@app.get("/")
-def read_root():
-    return "hello"
 
-@app.post("/prompt")
-async def send_prompt(item: Prompt, authentication: Annotated[str | None, Header()] = None):
-    temp = data.check_token_and_get_id(token= authentication)
-    if type(temp) is SysError:
-        raise HTTPException(401,  temp.value)
+
+
+
+@app.get("/ping")
+async def ping():
+    return "pong"
+
+@router.get("/prompts")
+async def variation( page: int = 1, size: int = 10, token_id: int = Depends(get_token_id)):
+    pass
+
+@router.get("/prompts/{prompt_id}")
+async def variation(prompt_id: int,  token_id: int = Depends(get_token_id)):
+    pass
+
+@router.post("/prompts")
+async def send_prompt(item: Prompt, token_id: int = Depends(get_token_id) ):
     user = random.choice(uids)
     taskId = f'{user}.{random_id(10)}'    
     prompt = item.prompt
     res = celery.send_task('prompt',
         (
-            temp,
+            token_id,
             taskId,
             prompt
         )
@@ -68,14 +93,11 @@ async def send_prompt(item: Prompt, authentication: Annotated[str | None, Header
         'id':  taskId
     }
 
-@app.post("/upscale")
-async def upscale(item: Upscale, authentication: Annotated[str | None, Header()] = None):
-    temp = data.check_token_and_get_id(token= authentication)
-    if type(temp) is SysError:
-        raise HTTPException(401,  temp.value)
-    task = data.get_task_by_id(temp, item.id)
+@router.post("/upscale")
+async def upscale(item: Upscale, token_id: int = Depends(get_token_id)):
+    task = data.get_task_by_id( token_id, item.id)
     if task is None:
-        raise HTTPException(404,  "")    
+        raise HTTPException(404)    
     else:
         res = celery.send_task('upscale',
             (
@@ -85,14 +107,11 @@ async def upscale(item: Upscale, authentication: Annotated[str | None, Header()]
         )
     return {}
 
-@app.post("/variation")
-async def variation(item: Variation, authentication: Annotated[str | None, Header()] = None):
-    temp = data.check_token_and_get_id(token= authentication)
-    if type(temp) is SysError:
-        raise HTTPException(401,  temp.value)    
-    task = data.get_task_by_id(temp, item.id)
+@router.post("/variation")
+async def variation(item: Variation,  token_id: int = Depends(get_token_id)):
+    task = data.get_task_by_id(token_id , item.id)
     if task is None:
-        raise HTTPException(404,  "")    
+        raise HTTPException(404)    
     else:
         res = celery.send_task('variation',
             (
@@ -102,10 +121,15 @@ async def variation(item: Variation, authentication: Annotated[str | None, Heade
         )
     return {}
 
-@app.get("/sign")
+
+
+
+
+
+@router.post("/sign")
 async def get_sign():
     sign = data.fileHandler.generate_presigned_url(f'temp/{random_id(10)}.jpg')  
     return   {'sign': sign}
 
-if __name__ == "__main__":
-    pass
+
+app.include_router(router)
