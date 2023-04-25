@@ -1,6 +1,7 @@
 import redis
 import asyncio
 import logging
+import uuid
 from urllib.parse import urlparse
 import mysql.connector.pooling
 from mysql.connector import errorcode
@@ -50,6 +51,8 @@ class Data():
             self.session.close()
         if self.client:
             self.client.close()
+    def __id(self):
+        return str(uuid.uuid4())[:10]
     def __insert_prompt(self, params: dict):
         cnx = self.pool.get_connection()
         cursor = cnx.cursor()
@@ -74,8 +77,8 @@ class Data():
                 token_id = record[0]
                 add_task = (
                     "INSERT INTO `tasks` "
-                    "(`taskID`,`type`,`reference`,`v_index`,`u_index`,`status`,`message_id`,`message_hash`,`url_global`,`url_cn`) "
-                    "VALUES ( %(taskId)s, %(type)s, %(reference)s, %(v_index)s, %(u_index)s, %(status)s, %(message_id)s, %(message_hash)s, %(url_global)s, %(url_cn)s)"
+                    "(`id`,`taskID`,`type`,`reference`,`v_index`,`u_index`,`status`,`message_id`,`message_hash`,`url_global`,`url_cn`) "
+                    "VALUES (%(id)s, %(taskId)s, %(type)s, %(reference)s, %(v_index)s, %(u_index)s, %(status)s, %(message_id)s, %(message_hash)s, %(url_global)s, %(url_cn)s)"
                 )
                 cursor.execute(add_task, params)
                 insertd_task_id = cursor.lastrowid
@@ -124,6 +127,7 @@ class Data():
             'prompt': prompt
         })
         self.__insert_task({
+            'id': self.__id(),
             'taskId': taskId,
             'type': None,
             'reference': None,
@@ -137,6 +141,7 @@ class Data():
         })
     def commit_task(self, taskId: str ):
         self.__insert_task({
+            'id': self.__id(),
             'taskId': taskId,
             'type': None,
             'reference': None,
@@ -169,6 +174,7 @@ class Data():
         loop.close()   
         # update mysql record
         self.__insert_task({
+            'id': self.__id(),
             'taskId': taskId,
             'type': type.value,
             'reference': reference,
@@ -213,7 +219,7 @@ class Data():
         cursor = cnx.cursor(dictionary=True)
         records = None
         try:
-            sql = "SELECT `id`,`taskId`,`prompt`,`create_at` FROM `prompts` WHERE `token_id` = %s ORDER BY `id` DESC LIMIT %s, %s"
+            sql = "SELECT `taskId`,`prompt`,`create_at` FROM `prompts` WHERE `token_id` = %s ORDER BY `id` DESC LIMIT %s, %s"
             offset = (page - 1) * page_size
             val = (token_id, offset, page_size, )
             cursor.execute(sql, val)
