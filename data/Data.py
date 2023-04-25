@@ -1,11 +1,15 @@
 import redis
 import asyncio
+import logging
 from urllib.parse import urlparse
 import mysql.connector.pooling
 from mysql.connector import errorcode
 from .values import TaskStatus,OutputType,Cost, SysError
 from .utils import current_time,is_expired
 from .FileHandler import FileHandler
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 
 class Data():
@@ -199,6 +203,46 @@ class Data():
         finally:
             cursor.close()
             cnx.close()
+    def sum_costs_by_token_id(self):
+        pass
+    def sum_costs_by_taskID():
+        # SELECT  t1.taskId, SUM(t2.cost) as cost FROM mj.tasks t1 LEFT JOIN mj.token_audit t2 ON t2.task_id = t1.id GROUP BY t1.taskId;
+        pass
+    def get_prompts_by_token_id(self, token_id,  page: int = 0, page_size: int = 10):
+        cnx = self.pool.get_connection()
+        cursor = cnx.cursor(dictionary=True)
+        records = None
+        try:
+            sql = "SELECT `id`,`taskId`,`prompt`,`create_at` FROM `prompts` WHERE `token_id` = %s ORDER BY `id` DESC LIMIT %s, %s"
+            offset = (page - 1) * page_size
+            val = (token_id, offset, page_size, )
+            cursor.execute(sql, val)
+            records = cursor.fetchall()
+            print(records)
+        finally:
+            cursor.close()
+            cnx.close()
+        return records
+    def get_tasks_by_taskId(self, token_id,  taskId, page: int = 0, page_size: int = 10):
+        cnx = self.pool.get_connection()
+        cursor = cnx.cursor(dictionary=True)
+        records = None
+        try:
+            ### check token id first 
+            check_sql = "SELECT 1 FROM `prompts` WHERE token_id =%s AND taskId = %s LIMIT 1"
+            val = (token_id,  taskId,)
+            cursor.execute(check_sql, val)
+            record = cursor.fetchone()
+            if record is not None:
+                sql = "SELECT * FROM `tasks` WHERE `taskId` = %s LIMIT %s, %s"
+                offset = (page - 1) * page_size
+                val = (taskId, offset, page_size, )
+                cursor.execute(sql, val)
+                records = cursor.fetchall()
+        finally:
+            cursor.close()
+            cnx.close()
+        return records
 
 
 

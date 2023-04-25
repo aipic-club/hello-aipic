@@ -15,20 +15,25 @@ celery = Celery('tasks', broker=os.environ.get("CELERY.BROKER"))
 
 
 async def get_token_id(authentication: str = Header(None)):
-    # if x_token != "fake-super-secret-token":
-    #     raise HTTPException(status_code=400, detail="X-Token header invalid")
     temp = data.check_token_and_get_id(token= authentication)
     if type(temp) is SysError:
         raise HTTPException(401)
     else:
         return temp
-        
+    
+async def validate_pagination(page: int = 1, size: int = 10,) -> dict[int, int]:
+    page = 1 if page < 1 else page
+    size = 10 if size < 10 else size
+    return {'page':page,'size':size}
 
 
 app = FastAPI()
 router = APIRouter(
     prefix="/api/v1.0",
-    dependencies=[Depends(get_token_id)]
+    dependencies=[
+        Depends(get_token_id),
+        Depends(validate_pagination)
+    ]
 )
 
 
@@ -70,12 +75,16 @@ async def ping():
     return "pong"
 
 @router.get("/prompts")
-async def variation( page: int = 1, size: int = 10, token_id: int = Depends(get_token_id)):
-    pass
+async def variation( token_id: int = Depends(get_token_id), pagination = Depends(validate_pagination)):
+    records = data.get_prompts_by_token_id(token_id=token_id, page= pagination['page'] , page_size= pagination['size'])
+    return records
 
-@router.get("/prompts/{prompt_id}")
-async def variation(prompt_id: int,  token_id: int = Depends(get_token_id)):
-    pass
+@router.get("/prompts/{taskId}")
+async def variation(taskId: str, page: int = 1, size: int = 10, token_id: int = Depends(get_token_id)):
+    if page < 1 or size < 10:
+        raise HTTPException(500)
+    records = data.get_tasks_by_taskId(token_id=token_id, taskId= taskId, page= page, page_size= size)
+    return records
 
 @router.post("/prompts")
 async def send_prompt(item: Prompt, token_id: int = Depends(get_token_id) ):
