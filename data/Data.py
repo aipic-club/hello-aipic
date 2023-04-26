@@ -52,7 +52,7 @@ class Data():
         if self.client:
             self.client.close()
     def __id(self):
-        return str(uuid.uuid4())[:10]
+        return str(uuid.uuid4())
     def __insert_prompt(self, params: dict):
         cnx = self.pool.get_connection()
         cursor = cnx.cursor()
@@ -197,7 +197,6 @@ class Data():
             val = (token_id, id,)
             cursor.execute(sql, val)
             record = cursor.fetchone()
-            print(record)
             if record is not None: 
                 return {
                     'taskId': record[0],

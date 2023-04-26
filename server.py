@@ -26,6 +26,13 @@ async def validate_pagination(page: int = 1, size: int = 10,) -> dict[int, int]:
     size = 10 if size < 10 else size
     return {'page':page,'size':size}
 
+async def get_task():
+    # task = data.get_task_by_id( token_id, task_id)
+    # if task is None:
+    #     raise HTTPException(404)  
+    # return task  
+    pass
+
 
 app = FastAPI()
 router = APIRouter(
@@ -56,14 +63,6 @@ def random_id(length = 6) -> str:
 
 class Prompt(BaseModel):
     prompt: str
-
-class Variation(BaseModel):
-    id : int
-    index: int
-
-class Upscale(BaseModel):
-    id : int
-    index: int
 
 
 
@@ -102,22 +101,22 @@ async def send_prompt(item: Prompt, token_id: int = Depends(get_token_id) ):
         'id':  taskId
     }
 
-@router.post("/upscale")
-async def upscale(item: Upscale, token_id: int = Depends(get_token_id)):
-    task = data.get_task_by_id( token_id, item.id)
+@router.post("/tasks/{task_id}/upscale")
+async def upscale(task_id:str, index: int, token_id: int = Depends(get_token_id)):
+    task = data.get_task_by_id( token_id, task_id)
     if task is None:
         raise HTTPException(404)    
     else:
         res = celery.send_task('upscale',
             (
                 task,
-                item.index
+                index
             )
         )
     return {}
 
-@router.post("/variation")
-async def variation(item: Variation,  token_id: int = Depends(get_token_id)):
+@router.post("/tasks/{task_id}/variation")
+async def variation(task_id:str, index: int,  token_id: int = Depends(get_token_id)):
     task = data.get_task_by_id(token_id , item.id)
     if task is None:
         raise HTTPException(404)    
