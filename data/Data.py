@@ -51,8 +51,6 @@ class Data():
             self.session.close()
         if self.client:
             self.client.close()
-    def __id(self):
-        return str(uuid.uuid4())
     def __insert_prompt(self, params: dict):
         cnx = self.pool.get_connection()
         cursor = cnx.cursor()
@@ -77,8 +75,8 @@ class Data():
                 token_id = record[0]
                 add_task = (
                     "INSERT INTO `tasks` "
-                    "(`id`,`taskID`,`type`,`reference`,`v_index`,`u_index`,`status`,`message_id`,`message_hash`,`url_global`,`url_cn`) "
-                    "VALUES (%(id)s, %(taskId)s, %(type)s, %(reference)s, %(v_index)s, %(u_index)s, %(status)s, %(message_id)s, %(message_hash)s, %(url_global)s, %(url_cn)s)"
+                    "(`taskID`,`type`,`reference`,`v_index`,`u_index`,`status`,`message_id`,`message_hash`,`url_global`,`url_cn`) "
+                    "VALUES ( %(taskId)s, %(type)s, %(reference)s, %(v_index)s, %(u_index)s, %(status)s, %(message_id)s, %(message_hash)s, %(url_global)s, %(url_cn)s)"
                 )
                 cursor.execute(add_task, params)
                 insertd_task_id = cursor.lastrowid
@@ -127,7 +125,6 @@ class Data():
             'prompt': prompt
         })
         self.__insert_task({
-            'id': self.__id(),
             'taskId': taskId,
             'type': None,
             'reference': None,
@@ -141,7 +138,6 @@ class Data():
         })
     def commit_task(self, taskId: str ):
         self.__insert_task({
-            'id': self.__id(),
             'taskId': taskId,
             'type': None,
             'reference': None,
@@ -174,7 +170,6 @@ class Data():
         loop.close()   
         # update mysql record
         self.__insert_task({
-            'id': self.__id(),
             'taskId': taskId,
             'type': type.value,
             'reference': reference,
@@ -186,14 +181,14 @@ class Data():
             'url_global': url,
             'url_cn': url_cn
         })
-    def get_task_by_id(self, token_id: int, id: int) -> dict[str, str]:
+    def get_task_by_messageHash(self, token_id: int, id: int) -> dict[str, str]:
         # https://stackoverflow.com/questions/29772337/python-mysql-connector-unread-result-found-when-using-fetchone
         cnx = self.pool.get_connection()
         cursor = cnx.cursor()
         try:
             ### check the id is belong to the token
             ### sql = "SELECT t1.taskId,t1.message_id,t1.message_hash FROM `tasks` t1 LEFT JOIN `prompts` t2  ON t1.taskId = t2.taskId WHERE t2.token_id = %s AND t1.id = %s LIMT 1"
-            sql = " SELECT t1.taskId,t1.message_id,t1.message_hash FROM `tasks` t1 LEFT JOIN (SELECT taskId FROM `prompts` WHERE id = %s) t2 ON t1.taskId = t2.taskId WHERE t1.id = %s LIMIT 1"
+            sql = " SELECT t1.taskId,t1.message_id,t1.message_hash FROM `tasks` t1 LEFT JOIN (SELECT taskId FROM `prompts` WHERE id = %s) t2 ON t1.taskId = t2.taskId WHERE t1.message_hash = %s LIMIT 1"
             val = (token_id, id,)
             cursor.execute(sql, val)
             record = cursor.fetchone()
@@ -239,7 +234,7 @@ class Data():
             cursor.execute(check_sql, val)
             record = cursor.fetchone()
             if record is not None:
-                sql = "SELECT * FROM `tasks` WHERE `taskId` = %s LIMIT %s, %s"
+                sql = "SELECT v_index,u_index,type,status,reference,message_id,message_hash,url_global,url_cn,create_at FROM `tasks` WHERE `taskId` = %s LIMIT %s, %s"
                 offset = (page - 1) * page_size
                 val = (taskId, offset, page_size, )
                 cursor.execute(sql, val)

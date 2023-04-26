@@ -101,9 +101,9 @@ async def send_prompt(item: Prompt, token_id: int = Depends(get_token_id) ):
         'id':  taskId
     }
 
-@router.post("/tasks/{task_id}/upscale")
-async def upscale(task_id:str, index: int, token_id: int = Depends(get_token_id)):
-    task = data.get_task_by_id( token_id, task_id)
+@router.post("/images/{image_hash}/upscale")
+async def upscale(image_hash:str, index: int, token_id: int = Depends(get_token_id)):
+    task = data.get_task_by_messageHash(token_id , image_hash)
     if task is None:
         raise HTTPException(404)    
     else:
@@ -115,23 +115,19 @@ async def upscale(task_id:str, index: int, token_id: int = Depends(get_token_id)
         )
     return {}
 
-@router.post("/tasks/{task_id}/variation")
-async def variation(task_id:str, index: int,  token_id: int = Depends(get_token_id)):
-    task = data.get_task_by_id(token_id , item.id)
+@router.post("/images/{image_hash}/variation")
+async def variation(image_hash:str, index: int,  token_id: int = Depends(get_token_id)):
+    task = data.get_task_by_messageHash(token_id , image_hash)
     if task is None:
         raise HTTPException(404)    
     else:
         res = celery.send_task('variation',
             (
                 task,
-                item.index
+                index
             )
         )
     return {}
-
-
-
-
 
 
 @router.post("/sign")
