@@ -219,7 +219,7 @@ class Data():
         cursor = cnx.cursor(dictionary=True)
         records = None
         try:
-            sql = "SELECT `taskId`,`prompt`,`raw_params`,`create_at` FROM `prompts` WHERE `token_id` = %s ORDER BY `id` DESC LIMIT %s, %s"
+            sql = "SELECT `taskId`,`prompt`,`raw`,`create_at` FROM `prompts` WHERE `token_id` = %s ORDER BY `id` DESC LIMIT %s, %s"
             offset = (page - 1) * page_size
             val = (token_id, offset, page_size, )
             cursor.execute(sql, val)
