@@ -1,16 +1,15 @@
 import redis
 import asyncio
-import logging
-import uuid
+# import logging
 from urllib.parse import urlparse
 import mysql.connector.pooling
 from mysql.connector import errorcode
-from .values import TaskStatus,OutputType,Cost, SysError
+from .values import  TaskStatus,OutputType,Cost, SysError
 from .utils import current_time,is_expired
 from .FileHandler import FileHandler
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
+# logging.basicConfig(level=logging.DEBUG)
+# logger = logging.getLogger(__name__)
 
 
 class Data():
@@ -55,7 +54,7 @@ class Data():
         cnx = self.pool.get_connection()
         cursor = cnx.cursor()
         try:
-            add_prompt = ("INSERT INTO `prompts` (`token_id`, `taskId`,`prompt`) VALUES( %(token_id)s, %(taskId)s, %(prompt)s)")
+            add_prompt = ("INSERT INTO `prompts` (`token_id`, `taskId`,`prompt`, `raw`) VALUES( %(token_id)s, %(taskId)s, %(prompt)s, %(raw)s)")
             cursor.execute(add_prompt, params)
             cnx.commit()
         finally:
@@ -73,12 +72,12 @@ class Data():
             record = cursor.fetchone()
             if record is not None:
                 token_id = record[0]
-                add_task = (
+                add_sql = (
                     "INSERT INTO `tasks` "
                     "(`taskID`,`type`,`reference`,`v_index`,`u_index`,`status`,`message_id`,`message_hash`,`url_global`,`url_cn`) "
                     "VALUES ( %(taskId)s, %(type)s, %(reference)s, %(v_index)s, %(u_index)s, %(status)s, %(message_id)s, %(message_hash)s, %(url_global)s, %(url_cn)s)"
                 )
-                cursor.execute(add_task, params)
+                cursor.execute(add_sql, params)
                 insertd_task_id = cursor.lastrowid
                 ##### add the cost ####
                 if params['status'] == TaskStatus.FINISHED.value:
@@ -117,12 +116,19 @@ class Data():
         finally:
             cursor.close()
             cnx.close()
-    def add_task(self, token_id,  taskId, prompt):
+    def add_task(self, 
+            token_id: str,  
+            prompt: str, 
+            raw: str,
+            taskId: str , 
+            status: TaskStatus = TaskStatus.CREATED 
+        ):
         self.r.setex(taskId, 10 * 60 , prompt )
         self.__insert_prompt({
             'token_id': token_id, 
             'taskId': taskId, 
-            'prompt': prompt
+            'prompt': prompt,
+            'raw': raw
         })
         self.__insert_task({
             'taskId': taskId,
@@ -130,7 +136,7 @@ class Data():
             'reference': None,
             'v_index': None,
             'u_index': None,
-            'status': TaskStatus.CREATED.value,
+            'status': status.value,
             'message_id': None,
             'message_hash': None,
             'url_global': None,
@@ -213,7 +219,7 @@ class Data():
         cursor = cnx.cursor(dictionary=True)
         records = None
         try:
-            sql = "SELECT `taskId`,`prompt`,`create_at` FROM `prompts` WHERE `token_id` = %s ORDER BY `id` DESC LIMIT %s, %s"
+            sql = "SELECT `taskId`,`prompt`,`raw_params`,`create_at` FROM `prompts` WHERE `token_id` = %s ORDER BY `id` DESC LIMIT %s, %s"
             offset = (page - 1) * page_size
             val = (token_id, offset, page_size, )
             cursor.execute(sql, val)

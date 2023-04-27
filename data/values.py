@@ -2,10 +2,13 @@ from enum import Enum
 
 
 class TaskStatus(Enum):
-    ABORTED = 0 
-    CREATED = 1  # to db
-    COMMITTED = 2 # to mj  
-    FINISHED = 3 # 
+    
+    ABORTED = 0 # 经过 server 的初筛，认为包含不合适的内容，不会向MJ 发送
+    CREATED = 1 # 保存为草稿，但并不向MJ 发送
+    CONFIRMED = 2 # 向MJ 发送
+    COMMITTED = 3 # 已经送达至MJ 
+    FINISHED = 4 # MJ 已经成功返回图像
+    FAILED = 5 # 一定时间内没有收到 MJ 的响应， 标记为失败
 
 class OutputType(Enum):
     DRAFT = 1

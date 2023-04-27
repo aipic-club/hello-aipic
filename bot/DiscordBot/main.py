@@ -42,7 +42,6 @@ class DiscordBot():
         self.__startBot(token)
 
     def send_prompt(self, token_id, taskId, prompt, new_prompt):
-        self.data.add_task(token_id, taskId, prompt) 
         loop = asyncio.new_event_loop()
         loop.run_until_complete(self.userbot.send_prompt(new_prompt))
         loop.close()

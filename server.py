@@ -1,14 +1,15 @@
 import os
 import random
 import string
-from typing import Annotated, Callable
-from pydantic import BaseModel
+from typing import Annotated, Callable, Optional, Union
+from pydantic import BaseModel, Json
 from fastapi import FastAPI,APIRouter, HTTPException, Depends,  Header, Request, Response
 from fastapi import BackgroundTasks
 from fastapi.routing import APIRoute
+from fastapi.responses import PlainTextResponse
 from celery import Celery
 from dotenv import load_dotenv, find_dotenv
-from data import Data, FileHandler, SysError, random_id, uids
+from data import Data, TaskStatus, SysError, random_id, uids
 load_dotenv(find_dotenv())
 
 celery = Celery('tasks', broker=os.environ.get("CELERY.BROKER"))
@@ -56,30 +57,23 @@ data = Data(
 )
 
 
-def random_id(length = 6) -> str:
-    all = string.ascii_letters + string.digits
-    # all = string.ascii_letters + string.digits + string.punctuation
-    return "".join(random.sample(all,length))
-
 class Prompt(BaseModel):
     prompt: str
-
-
-
-
+    raw: Union[str , None] = None
+    execute: Union[bool , None] = None
 
 
 @app.get("/ping")
 async def ping():
-    return "pong"
+    return PlainTextResponse(content="pong") 
 
 @router.get("/prompts")
-async def variation( token_id: int = Depends(get_token_id), pagination = Depends(validate_pagination)):
+async def list_prompts( token_id: int = Depends(get_token_id), pagination = Depends(validate_pagination)):
     records = data.get_prompts_by_token_id(token_id=token_id, page= pagination['page'] , page_size= pagination['size'])
     return records
 
-@router.get("/prompts/{taskId}")
-async def variation(taskId: str, page: int = 1, size: int = 10, token_id: int = Depends(get_token_id)):
+@router.get("/images/{taskId}")
+async def prompt_detail(taskId: str, page: int = 1, size: int = 10, token_id: int = Depends(get_token_id)):
     if page < 1 or size < 10:
         raise HTTPException(500)
     records = data.get_tasks_by_taskId(token_id=token_id, taskId= taskId, page= page, page_size= size)
@@ -90,13 +84,22 @@ async def send_prompt(item: Prompt, token_id: int = Depends(get_token_id) ):
     user = random.choice(uids)
     taskId = f'{user}.{random_id(10)}'    
     prompt = item.prompt
-    res = celery.send_task('prompt',
-        (
-            token_id,
-            taskId,
-            prompt
+    data.add_task(
+        token_id = token_id,
+        prompt = prompt,
+        raw= item.raw,
+        taskId = taskId,
+        status = TaskStatus.CONFIRMED if item.execute else TaskStatus.CREATED
+    ) 
+
+    if item.execute:
+         celery.send_task('prompt',
+            (
+                token_id,
+                taskId,
+                prompt
+            )
         )
-    )
     return {
         'id':  taskId
     }
@@ -131,8 +134,8 @@ async def variation(image_hash:str, index: int,  token_id: int = Depends(get_tok
 
 
 @router.post("/sign")
-async def get_sign():
-    sign = data.fileHandler.generate_presigned_url(f'temp/{random_id(10)}.jpg')  
+async def get_sign(token_id: int = Depends(get_token_id)):
+    sign = data.fileHandler.generate_presigned_url(f'temp/{token_id}/{random_id(10)}.jpg')  
     return   {'sign': sign}
 
 
