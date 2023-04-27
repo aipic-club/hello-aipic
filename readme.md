@@ -1,8 +1,12 @@
 
 ### install the requirements
-```
-pip install --no-cache-dir --upgrade -r requirements.txt
-```
+
+To activate this project's virtualenv, run pipenv shell.
+
+Alternatively, run a command inside the virtualenv with pipenv run.
+
+Generate a lock file  with pipenv lock
+
 
 ### start the executor
 ```
