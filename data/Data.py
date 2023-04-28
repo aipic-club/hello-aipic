@@ -221,7 +221,7 @@ class Data():
         try:
             # sql = "SELECT `taskId`,`prompt`,`raw`,`create_at` FROM `prompts` WHERE `token_id` = %s ORDER BY `id` DESC LIMIT %s, %s"
             sql =(
-                "SELECT p.id, p.prompt, p.raw, t.url_cn, t.url_global, p.create_at FROM prompts p"
+                "SELECT p.id,p.taskId, p.prompt, p.raw, t.url_cn, t.url_global, p.create_at FROM prompts p"
                 " LEFT JOIN ("
                 "    SELECT t1.taskId, t1.type, t1.status, t1.url_global, t1.url_cn"
                 "    FROM tasks t1"
