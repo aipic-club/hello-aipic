@@ -1,12 +1,17 @@
 import os
 from datetime import datetime
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer, SecurityScopes
 
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 from pydantic import ValidationError
+
+from wechatpy import parse_message, create_reply
+from wechatpy.crypto import WeChatCrypto
+from wechatpy.utils import check_signature
+from wechatpy.exceptions import InvalidSignatureException, InvalidAppIdException
 
 from . import models, schemas, database, crud
 
@@ -144,3 +149,51 @@ async def check_user_token(
                 headers={"Authorization": "Bearer"}
             )
     return user
+
+Token = "9A188CEF083EE647A9ABA9C5B636F29C"
+EncodingAESKey = "DTNe7y7EHBSMXVFwHobla1DzysCVYJbGnfxuSOOW95L"
+AppID = "wx65866ff2d0b16bb0"
+
+def check_wechat_signature(request: Request):
+    params = request.query_params._dict
+    signature = params["signature"]
+    timestamp = params["timestamp"]
+    nonce = params["nonce"]
+    try:
+        check_signature(Token, signature, timestamp, nonce)
+    except InvalidSignatureException:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invalid signature"
+        )
+    
+def receive_and_replay_wechat_message(params: dict, body: bytes):
+    msg_signature = params["msg_signature"]
+    timestamp = params["timestamp"]
+    nonce = params["nonce"]
+    crypto = WeChatCrypto(Token, EncodingAESKey, AppID)
+    try:
+        msg = crypto.decrypt_message(
+            body, 
+            msg_signature, 
+            timestamp,
+            nonce
+        )
+    except (InvalidSignatureException, InvalidAppIdException):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invalid signature or AppID"
+        )
+    msg = parse_message(msg)
+    print("recive", msg)
+    if msg.type == "text":
+        if (msg.content == "token"):
+            access_token = create_access_token(
+                data={ "sub": msg.source, "scopes": "users" }
+            )
+            reply = create_reply(access_token, msg)
+        else:
+            return ""
+    else:
+        reply = create_reply("该格式暂不支持", msg)
+    return crypto.encrypt_message(reply.render(), nonce, timestamp)

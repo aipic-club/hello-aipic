@@ -5,12 +5,13 @@ from datetime import datetime, timedelta
 from dotenv import find_dotenv, load_dotenv
 load_dotenv(find_dotenv(".env"))
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.dependencies import (
     get_db, create_admin, 
-    authenticate_admin, create_access_token
+    authenticate_admin, create_access_token,
+    check_wechat_signature, receive_and_replay_wechat_message
 )
 
 from app import schemas, crud
@@ -45,6 +46,17 @@ async def login(
         data={ "sub": form.username, "scopes": form.scopes, "exp": exp }
     )
     return { "access_token": access_token, "token_type": "bearer" }
+
+@app.get("/api/wechat", dependencies=[Depends(check_wechat_signature)])
+def wechat(echostr: int):
+    return echostr
+
+@app.post("/api/wechat", dependencies=[Depends(check_wechat_signature)])
+async def wechat(request: Request):
+    params = request.query_params._dict
+    body = await request.body()
+    reply = receive_and_replay_wechat_message(params, body)
+    return Response(content=reply.encode(), media_type="application/xml")
 
 if __name__ == "__main__":
     import uvicorn
