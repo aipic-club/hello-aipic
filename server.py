@@ -18,7 +18,15 @@ celery = Celery('tasks', broker=os.environ.get("CELERY.BROKER"))
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
-async def get_token_id(token: str = Depends(oauth2_scheme)):
+async def get_token_id(authorization: str = Header(None)):
+    if authorization is None:
+        #return {"error": "Authorization header is missing"}
+        raise HTTPException(401)
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        #return {"error": "Authorization header is invalid"}
+        raise HTTPException(401)
+    token = parts[1]
     temp = data.check_token_and_get_id(token= token)
     if type(temp) is SysError:
         raise HTTPException(401)
