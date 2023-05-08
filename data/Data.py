@@ -219,12 +219,31 @@ class Data():
         cursor = cnx.cursor(dictionary=True)
         records = None
         try:
-            sql = "SELECT `taskId`,`prompt`,`raw`,`create_at` FROM `prompts` WHERE `token_id` = %s ORDER BY `id` DESC LIMIT %s, %s"
+            # sql = "SELECT `taskId`,`prompt`,`raw`,`create_at` FROM `prompts` WHERE `token_id` = %s ORDER BY `id` DESC LIMIT %s, %s"
+            sql =(
+                "SELECT p.id,p.taskId, p.prompt, p.raw, t.url_cn, t.url_global, p.create_at FROM prompts p"
+                " LEFT JOIN ("
+                "    SELECT t1.taskId, t1.type, t1.status, t1.url_global, t1.url_cn"
+                "    FROM tasks t1"
+                "    INNER JOIN ("
+                "        SELECT MAX(id) as id"
+                "        FROM tasks"
+                "        WHERE status = %(status)s"
+                "        GROUP BY taskId"
+                "    ) t2 ON t1.id = t2.id"
+                ") t ON p.taskId = t.taskId"
+                " WHERE p.token_id = %(token_id)s "
+                " ORDER BY p.id DESC"                
+                " LIMIT %(page_size)s OFFSET %(offset)s"
+            )
             offset = (page - 1) * page_size
-            val = (token_id, offset, page_size, )
-            cursor.execute(sql, val)
+            cursor.execute(sql, {
+                'token_id': token_id,
+                'offset': offset,
+                'page_size': page_size,
+                'status': TaskStatus.FINISHED.value
+            })
             records = cursor.fetchall()
-            print(records)
         finally:
             cursor.close()
             cnx.close()
