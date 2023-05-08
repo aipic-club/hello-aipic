@@ -13,15 +13,18 @@ class FileHandler:
             aws_secret_access_key = s3config['aws_secret_access_key'],
             endpoint_url=s3config['endpoint_url'],
         )
-    def generate_presigned_url(self, key):
+    def generate_presigned_url(self, content_type, key):
+
         url = self.s3client.generate_presigned_url(
-            'put_object', 
+            'put_object',
             Params={
                 'Bucket': self.bucket_name, 
-                'Key':  key , # 'test.jpg'
-            }, 
-            ExpiresIn = 3600
+                'Key': key,
+                'ContentType': content_type,
+                'ContentLength': 5242880
+            }
         )
+
         return url
     async def copy_discord_img_to_bucket(self,  path: str | None, file_name: str | None,  url: str):
         _file_name = str(url.split("_")[-1]) if not file_name else file_name

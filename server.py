@@ -7,6 +7,7 @@ from fastapi import FastAPI,APIRouter, HTTPException, Depends,  Header, Request,
 from fastapi import BackgroundTasks
 from fastapi.routing import APIRoute
 from fastapi.responses import PlainTextResponse
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from celery import Celery
 from dotenv import load_dotenv, find_dotenv
 from data import Data, TaskStatus, SysError, random_id, uids
@@ -14,9 +15,11 @@ load_dotenv(find_dotenv())
 
 celery = Celery('tasks', broker=os.environ.get("CELERY.BROKER"))
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-async def get_token_id(authentication: str = Header(None)):
-    temp = data.check_token_and_get_id(token= authentication)
+
+async def get_token_id(token: str = Depends(oauth2_scheme)):
+    temp = data.check_token_and_get_id(token= token)
     if type(temp) is SysError:
         raise HTTPException(401)
     else:
@@ -134,8 +137,8 @@ async def variation(image_hash:str, index: int,  token_id: int = Depends(get_tok
 
 
 @router.post("/sign")
-async def get_sign(token_id: int = Depends(get_token_id)):
-    sign = data.fileHandler.generate_presigned_url(f'temp/{token_id}/{random_id(10)}.jpg')  
+async def get_sign(content_type :str, token_id: int = Depends(get_token_id)):
+    sign = data.fileHandler.generate_presigned_url(content_type, f'temp/{token_id}/{random_id(10)}.jpg')  
     return   {'sign': sign}
 
 
