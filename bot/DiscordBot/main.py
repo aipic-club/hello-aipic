@@ -5,7 +5,7 @@ import nextcord
 from .Bot import Bot, MJBotId
 from .Selfbot import Selfbot
 from .utils import get_taskId, output_type, is_committed
-from data import Data,TaskStatus,OutputType,users, is_user_in_channel
+from data import Data,TaskStatus,OutputType,users, is_user_in_channel,config
 
 
 
@@ -36,14 +36,19 @@ class DiscordBot():
         t.start()
 
 
-        
 
+    async def send_prompt_with_check(self,  taskId, prompt, new_prompt):
+        self.data.cache_task(taskId, prompt )
+        await self.userbot.send_prompt(new_prompt)
+        await asyncio.sleep(config['wait_time'] - 10)
+        self.data.check_task(taskId)
     def start(self, token: str) -> None:
         self.__startBot(token)
 
     def send_prompt(self, token_id, taskId, prompt, new_prompt):
         loop = asyncio.new_event_loop()
-        loop.run_until_complete(self.userbot.send_prompt(new_prompt))
+        # loop.run_until_complete(self.userbot.send_prompt(new_prompt))
+        loop.run_until_complete(self.send_prompt_with_check(taskId, prompt, new_prompt))
         loop.close()
     def send_variation(self, task: dict[str, str, str], index: str):
         loop = asyncio.new_event_loop()

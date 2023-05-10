@@ -18,7 +18,7 @@ class Bot(commands.Bot):
         super().__init__(*args, **kwargs)
         # start the task to run in the background
         self.data = data
-        self.my_background_task.start()
+        # self.my_background_task.start()
     async def on_ready(self):
         print(f' Logged in as {self.user} (ID: {self.user.id})')
     async def on_message(self, message):
@@ -28,11 +28,11 @@ class Bot(commands.Bot):
         channel_id = message.channel.id
         guild_id = message.guild.id
         content = message.content
-        print("===========")
-        print(message.application)
-        print("===========")
-        print(message.components)
-        print("===========")
+        # print("===========")
+        # print(message.application)
+        # print("===========")
+        # print(message.components)
+        # print("===========")
         if message.author == self.user:
             return
         if content == 'ping':
@@ -65,11 +65,11 @@ class Bot(commands.Bot):
                         )
                     )
 
-    @tasks.loop(seconds=10)  # task runs every 10 seconds
-    async def my_background_task(self):
-        ### TODO not work here
-        pass
+    # @tasks.loop(seconds=10)  # task runs every 10 seconds
+    # async def my_background_task(self):
+    #     ### TODO not work here
+    #     pass
 
-    @my_background_task.before_loop
-    async def before_my_task(self):
-        await self.wait_until_ready()  # wait until the bot logs in
+    # @my_background_task.before_loop
+    # async def before_my_task(self):
+    #     await self.wait_until_ready()  # wait until the bot logs in

@@ -4,7 +4,7 @@ import asyncio
 from urllib.parse import urlparse
 import mysql.connector.pooling
 from mysql.connector import errorcode
-from .values import  TaskStatus,OutputType,Cost, SysError
+from .values import  TaskStatus,OutputType,Cost, SysError,config
 from .utils import current_time,is_expired
 from .FileHandler import FileHandler
 
@@ -116,6 +116,25 @@ class Data():
         finally:
             cursor.close()
             cnx.close()
+    def cache_task(self, taskId: str,  prompt: str):
+        self.r.setex(taskId, config['wait_time'] , prompt )
+
+    def check_task(self, taskId: str):
+        if 1 == self.r.exists(taskId):
+            self.__insert_task({
+                'taskId': taskId,
+                'type': None,
+                'reference': None,
+                'v_index': None,
+                'u_index': None,
+                'status': TaskStatus.FAILED.value,
+                'message_id': None,
+                'message_hash': None,
+                'url_global': None,
+                'url_cn': None
+            })
+            self.r.delete(taskId)
+
     def add_task(self, 
             token_id: str,  
             prompt: str, 
@@ -123,7 +142,6 @@ class Data():
             taskId: str , 
             status: TaskStatus = TaskStatus.CREATED 
         ):
-        self.r.setex(taskId, 10 * 60 , prompt )
         self.__insert_prompt({
             'token_id': token_id, 
             'taskId': taskId, 
@@ -221,9 +239,9 @@ class Data():
         try:
             # sql = "SELECT `taskId`,`prompt`,`raw`,`create_at` FROM `prompts` WHERE `token_id` = %s ORDER BY `id` DESC LIMIT %s, %s"
             sql =(
-                "SELECT p.id,p.taskId, p.prompt, p.raw, t.url_cn, t.url_global, p.create_at FROM prompts p"
+                "SELECT p.taskId, p.prompt, p.raw, t.url_cn,  p.create_at FROM prompts p"
                 " LEFT JOIN ("
-                "    SELECT t1.taskId, t1.type, t1.status, t1.url_global, t1.url_cn"
+                "    SELECT t1.taskId, t1.type, t1.status, t1.url_cn"
                 "    FROM tasks t1"
                 "    INNER JOIN ("
                 "        SELECT MAX(id) as id"
@@ -259,7 +277,7 @@ class Data():
             cursor.execute(check_sql, val)
             record = cursor.fetchone()
             if record is not None:
-                sql = "SELECT v_index,u_index,type,status,reference,message_id,message_hash,url_global,url_cn,create_at FROM `tasks` WHERE `taskId` = %s LIMIT %s, %s"
+                sql = "SELECT v_index,u_index,type,status,reference,message_id,message_hash,url_cn,create_at FROM `tasks` WHERE `taskId` = %s LIMIT %s, %s"
                 offset = (page - 1) * page_size
                 val = (taskId, offset, page_size, )
                 cursor.execute(sql, val)

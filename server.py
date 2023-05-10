@@ -50,8 +50,7 @@ app = FastAPI()
 router = APIRouter(
     prefix="/api/v1.0",
     dependencies=[
-        Depends(get_token_id),
-        Depends(validate_pagination)
+        Depends(get_token_id)
     ]
 )
 

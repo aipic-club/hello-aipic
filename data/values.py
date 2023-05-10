@@ -34,4 +34,9 @@ class SysError(Enum):
     FATAL = 0
     TOKEN_NOT_EXIST = 1
     TOKEN_EXPIRED = 2
+
+
+config = {
+    'wait_time': 60 * 1
+}
     
