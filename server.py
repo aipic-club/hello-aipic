@@ -142,6 +142,17 @@ async def variation(image_hash:str, index: int,  token_id: int = Depends(get_tok
         )
     return {}
 
+@router.get("/profile")
+async def get_profile(token_id: int = Depends(get_token_id)):
+    count = data.sum_costs_by_tokenId(token_id)
+    info =  data.get_token_info_by_id(token_id)
+    return {
+        'cost': count['cost'],
+        'blance': info['blance'],
+        'expire_at': info['expire_at']
+    }
+
+
 
 @router.post("/sign")
 async def get_sign(content_type :str, token_id: int = Depends(get_token_id)):

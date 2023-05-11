@@ -227,8 +227,34 @@ class Data():
         finally:
             cursor.close()
             cnx.close()
-    def sum_costs_by_token_id(self):
-        pass
+    def sum_costs_by_tokenId(self, token_id):
+        cnx = self.pool.get_connection()
+        cursor = cnx.cursor(dictionary=True)
+        records = None
+        try:
+            sql = ("SELECT SUM(cost) as cost  FROM token_audit WHERE token_id=%(token_id)s")
+            cursor.execute(sql, {
+                'token_id': token_id
+            })
+            records = cursor.fetchone()
+        finally:
+            cursor.close()
+            cnx.close()
+        return records
+    def get_token_info_by_id(self, token_id):
+        cnx = self.pool.get_connection()
+        cursor = cnx.cursor(dictionary=True)
+        records = None
+        try:
+            sql = ("SELECT blance,expire_at FROM tokens where id = %(token_id)s")
+            cursor.execute(sql, {
+                'token_id': token_id
+            })
+            records = cursor.fetchone()
+        finally:
+            cursor.close()
+            cnx.close()
+        return records
     def sum_costs_by_taskID():
         # SELECT  t1.taskId, SUM(t2.cost) as cost FROM mj.tasks t1 LEFT JOIN mj.token_audit t2 ON t2.task_id = t1.id GROUP BY t1.taskId;
         pass
