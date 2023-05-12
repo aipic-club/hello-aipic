@@ -3,11 +3,18 @@ import random
 import string
 from typing import Annotated, Callable, Optional, Union
 from pydantic import BaseModel, Json
-from fastapi import FastAPI,APIRouter, HTTPException, Depends,  Header, Request, Response
+from fastapi import FastAPI,APIRouter, HTTPException, Depends,  Header, Request, Response, status
 from fastapi import BackgroundTasks
 from fastapi.routing import APIRoute
 from fastapi.responses import PlainTextResponse
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordBearer
+
+from wechatpy import parse_message, create_reply
+from wechatpy.crypto import WeChatCrypto
+from wechatpy.utils import check_signature
+from wechatpy.exceptions import InvalidSignatureException, InvalidAppIdException
+
+
 from celery import Celery
 from dotenv import load_dotenv, find_dotenv
 from data import Data, TaskStatus, SysError, random_id, uids
@@ -15,7 +22,41 @@ load_dotenv(find_dotenv())
 
 celery = Celery('tasks', broker=os.environ.get("CELERY.BROKER"))
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+
+Token = "8pM6MIBp6iy2sNFXp1VL"
+EncodingAESKey = "DmLSvkGhXQa5i8XWvD2ocRAg3eOgQ2BXBhiEEguyZCC"
+AppID = "wx2380e802013157b1"
+
+
+
+
+def check_wechat_signature(request: Request):
+    params = request.query_params._dict
+    signature = params["signature"]
+    timestamp = params["timestamp"]
+    nonce = params["nonce"]
+    try:
+        check_signature(Token, signature, timestamp, nonce)
+    except InvalidSignatureException:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invalid signature"
+        )
+    
+
+# def receive_and_replay_wechat_message(params: dict, body: bytes):
+#     msg = parse_message(msg)
+#     print("recive", msg)
+#     if msg.type == "text":
+#         if (msg.content == "试用"):
+#             access_token =  "1234"
+#             reply = create_reply(access_token, msg)
+#         else:
+#             return ""
+#     else:
+#         reply = create_reply("该格式暂不支持", msg)
+#     return reply
 
 
 async def get_token_id(authorization: str = Header(None)):
@@ -76,6 +117,28 @@ class Prompt(BaseModel):
 @app.get("/ping")
 async def ping():
     return PlainTextResponse(content="pong") 
+
+
+
+@app.get("/mp",  dependencies=[Depends(check_wechat_signature)])
+def mp(echostr: int):
+    return echostr
+
+
+@app.post("/mp", dependencies=[Depends(check_wechat_signature)])
+async def mp(request: Request):
+    params = request.query_params._dict
+    body = await request.body()
+    msg = parse_message(body)
+    print(msg)
+    if msg.type == "text":
+        if (msg.content == "试用"):
+            pass
+        pass
+    reply = create_reply("该格式暂不支持", msg)
+    # return reply.render()
+
+    return Response(content=reply.render(), media_type="application/xml")
 
 @router.get("/prompts")
 async def list_prompts( token_id: int = Depends(get_token_id), pagination = Depends(validate_pagination)):

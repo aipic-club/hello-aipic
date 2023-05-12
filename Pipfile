@@ -17,7 +17,7 @@ redis = "==4.5.4"
 websocket-client = "==1.5.1"
 uvicorn = "*"
 mysql-connector-python = "*"
-wechatpy = "*"
+wechatpy = {extras = ["cryptography"], version = "*"}
 
 [dev-packages]
 

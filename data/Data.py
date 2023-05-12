@@ -100,7 +100,7 @@ class Data():
         cnx = self.pool.get_connection()
         cursor = cnx.cursor()
         try:
-            sql = "SELECT `id`,`expire_at` FROM `tokens` WHERE token = %s"
+            sql = "SELECT `id`,`expire_at` FROM `tokens` WHERE token = %s and expire_at > current_timestamp()"
             val = (token,)
             cursor.execute(sql, val)
             record = cursor.fetchone()
@@ -312,6 +312,14 @@ class Data():
             cursor.close()
             cnx.close()
         return records
+    def create_trial_token(self, FromUserName):
+        # first check user exist or not
+
+        # check if have a trial
+
+        # generate a new trail
+        
+        pass
 
 
 
