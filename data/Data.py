@@ -313,8 +313,36 @@ class Data():
             cnx.close()
         return records
     def create_trial_token(self, FromUserName):
+        cnx = self.pool.get_connection()
+        cursor = cnx.cursor(dictionary=True)
+        records = None
         # first check user exist or not
-
+        
+        try:
+            user_sql = ("SELECT id FROM mp_users WHERE mp_user=%(user)s")
+            cursor.execute(user_sql, {
+                'user': FromUserName,
+            })
+            record = cursor.fetchone()
+            mp_userId = None
+            if record is None:
+                create_sql = ("INSERT INTO `mp_users` (`mp_user`) VALUES(%(user)s)")
+                cursor.execute(create_sql, {
+                    'user': FromUserName,
+                })
+                cnx.commit()
+                mp_userId = cursor.lastrowid
+                
+            else:
+                mp_userId = record['id']
+            
+        except:
+            pass
+        finally:
+            cursor.close()
+            cnx.close()
+        
+        return mp_userId
         # check if have a trial
 
         # generate a new trail

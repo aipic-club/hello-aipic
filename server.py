@@ -10,7 +10,6 @@ from fastapi.responses import PlainTextResponse
 from fastapi.security import OAuth2PasswordBearer
 
 from wechatpy import parse_message, create_reply
-from wechatpy.crypto import WeChatCrypto
 from wechatpy.utils import check_signature
 from wechatpy.exceptions import InvalidSignatureException, InvalidAppIdException
 
@@ -24,9 +23,9 @@ celery = Celery('tasks', broker=os.environ.get("CELERY.BROKER"))
 
 
 
-Token = "8pM6MIBp6iy2sNFXp1VL"
-EncodingAESKey = "DmLSvkGhXQa5i8XWvD2ocRAg3eOgQ2BXBhiEEguyZCC"
-AppID = "wx2380e802013157b1"
+Token = os.environ.get("MP.Token")
+EncodingAESKey = os.environ.get("MP.EncodingAESKey")
+AppID = os.environ.get("MP.AppID")
 
 
 
@@ -44,20 +43,6 @@ def check_wechat_signature(request: Request):
             detail="Invalid signature"
         )
     
-
-# def receive_and_replay_wechat_message(params: dict, body: bytes):
-#     msg = parse_message(msg)
-#     print("recive", msg)
-#     if msg.type == "text":
-#         if (msg.content == "试用"):
-#             access_token =  "1234"
-#             reply = create_reply(access_token, msg)
-#         else:
-#             return ""
-#     else:
-#         reply = create_reply("该格式暂不支持", msg)
-#     return reply
-
 
 async def get_token_id(authorization: str = Header(None)):
     if authorization is None:
@@ -130,9 +115,10 @@ async def mp(request: Request):
     params = request.query_params._dict
     body = await request.body()
     msg = parse_message(body)
-    print(msg)
     if msg.type == "text":
         if (msg.content == "试用"):
+            id = data.create_trial_token(msg.source)
+            print(id)
             pass
         pass
     reply = create_reply("该格式暂不支持", msg)
