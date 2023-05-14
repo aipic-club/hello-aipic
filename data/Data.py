@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 import mysql.connector.pooling
 from mysql.connector import errorcode
 from .values import  TaskStatus,OutputType,Cost, SysError,config
-from .utils import current_time,is_expired
+from .utils import random_id,current_time,is_expired
 from .FileHandler import FileHandler
 
 # logging.basicConfig(level=logging.DEBUG)
@@ -314,11 +314,10 @@ class Data():
         return records
     def create_trial_token(self, FromUserName):
         cnx = self.pool.get_connection()
-        cursor = cnx.cursor(dictionary=True)
-        records = None
-        # first check user exist or not
-        
+        cursor = cnx.cursor(dictionary=True)  
+        token = None      
         try:
+            # first check user exist or not
             user_sql = ("SELECT id FROM mp_users WHERE mp_user=%(user)s")
             cursor.execute(user_sql, {
                 'user': FromUserName,
@@ -326,28 +325,47 @@ class Data():
             record = cursor.fetchone()
             mp_userId = None
             if record is None:
-                create_sql = ("INSERT INTO `mp_users` (`mp_user`) VALUES(%(user)s)")
-                cursor.execute(create_sql, {
+                create_mpUser_sql = ("INSERT INTO `mp_users` (`mp_user`) VALUES(%(user)s)")
+                cursor.execute(create_mpUser_sql, {
                     'user': FromUserName,
                 })
-                cnx.commit()
                 mp_userId = cursor.lastrowid
-                
             else:
                 mp_userId = record['id']
-            
-        except:
-            pass
+                trial_sql = ("SELECT id,mp_user_id,token_id FROM mp_trial_history WHERE mp_user_id=%(user_id)s")
+                cursor.execute(trial_sql, {
+                    'user_id': mp_userId
+                })
+                record2 = cursor.fetchone()  
+                if record2 is not None:
+                    token_id = record['token_id']
+                    token_sql = ("SELECT token FROM tokens WHERE token_id=%(token_id)s AND expire_at > current_timestamp()")
+                    cursor.execute(token_sql, {
+                        'token_id': token_id
+                    })
+                    record3 = cursor.fetchone()
+                    if record3 is not None:
+                        token = record3['token']
+                else:
+                    token = random_id(20)
+                    create_token_sql = ("INSERT INTO `tokens` (`token`,`blance`,`type`,`expire_at`) VALUES( %(token)s, 100, 1 , DATE_ADD(NOW(), INTERVAL 7 DAY) )")
+                    cursor.execute(create_token_sql, {
+                        'token': token,
+                    })
+                    token_id = cursor.lastrowid
+                    create_trial_sql = ("INSERT INTO `mp_trial_history` (`mp_user_id`,`token_id`) VALUES( %(user_id)s, %(token_id)s) ")
+                    cursor.execute(create_trial_sql, {
+                        'user_id': mp_userId,
+                        'token_id': token_id
+                    })
+            cnx.commit()       
+        except Exception as e:
+            print(e)
+            cnx.rollback()
         finally:
             cursor.close()
             cnx.close()
-        
-        return mp_userId
-        # check if have a trial
-
-        # generate a new trail
-        
-        pass
+        return token
 
 
 
