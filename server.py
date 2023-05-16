@@ -112,16 +112,16 @@ def mp(echostr: int):
 
 @app.post("/mp", dependencies=[Depends(check_wechat_signature)])
 async def mp(request: Request):
-    params = request.query_params._dict
+    #params = request.query_params._dict
     body = await request.body()
     msg = parse_message(body)
-    if msg.type == "text":
-        if (msg.content == "试用"):
-            id = data.create_trial_token(msg.source)
-            print(id)
-            pass
-        pass
     reply = create_reply("该格式暂不支持", msg)
+    if msg.type == "text":
+        if (msg.content == "试用" or msg.content == "aipic"):
+            token = data.create_trial_token(msg.source)
+            print(token)            
+            reply = create_reply(token , msg)
+       
     # return reply.render()
 
     return Response(content=reply.render(), media_type="application/xml")

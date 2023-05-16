@@ -315,7 +315,8 @@ class Data():
     def create_trial_token(self, FromUserName):
         cnx = self.pool.get_connection()
         cursor = cnx.cursor(dictionary=True)  
-        token = None      
+        token = None 
+        days = 7     
         try:
             # first check user exist or not
             user_sql = ("SELECT id FROM mp_users WHERE mp_user=%(user)s")
@@ -332,25 +333,29 @@ class Data():
                 mp_userId = cursor.lastrowid
             else:
                 mp_userId = record['id']
-                trial_sql = ("SELECT id,mp_user_id,token_id FROM mp_trial_history WHERE mp_user_id=%(user_id)s")
+                trial_sql = ("SELECT id,mp_user_id,token_id FROM mp_trial_history WHERE mp_user_id=%(user_id)s ORDER BY id DESC LIMIT 1")
                 cursor.execute(trial_sql, {
                     'user_id': mp_userId
                 })
                 record2 = cursor.fetchone()  
                 if record2 is not None:
-                    token_id = record['token_id']
-                    token_sql = ("SELECT token FROM tokens WHERE token_id=%(token_id)s AND expire_at > current_timestamp()")
+   
+                    token_id = record2['token_id']
+                    print(token_id)
+                    token_sql = ("SELECT token,TIMESTAMPDIFF(DAY, NOW(), expire_at ) as days FROM tokens WHERE id=%(token_id)s AND expire_at > NOW()")
                     cursor.execute(token_sql, {
                         'token_id': token_id
                     })
                     record3 = cursor.fetchone()
                     if record3 is not None:
                         token = record3['token']
+                        days = record3['days']
                 else:
                     token = random_id(20)
-                    create_token_sql = ("INSERT INTO `tokens` (`token`,`blance`,`type`,`expire_at`) VALUES( %(token)s, 100, 1 , DATE_ADD(NOW(), INTERVAL 7 DAY) )")
+                    create_token_sql = ("INSERT INTO `tokens` (`token`,`blance`,`type`,`expire_at`) VALUES( %(token)s, 100, 1 , DATE_ADD(NOW(), INTERVAL %(days)s DAY) )")
                     cursor.execute(create_token_sql, {
                         'token': token,
+                        'days': days
                     })
                     token_id = cursor.lastrowid
                     create_trial_sql = ("INSERT INTO `mp_trial_history` (`mp_user_id`,`token_id`) VALUES( %(user_id)s, %(token_id)s) ")
@@ -365,7 +370,8 @@ class Data():
         finally:
             cursor.close()
             cnx.close()
-        return token
+        return f'{token}\n有效期剩余{days}天\n有效期后可继续获取试用'
+        # \n回复【教程】获取试用帮助\n您也可以点击下方链接\n<a href="https://cnjourney.pancrasxox.xyz/trial/{token}">在微信中试用AIPic</a>
 
 
 
