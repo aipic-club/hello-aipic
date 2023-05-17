@@ -32,8 +32,7 @@ class Cost(Enum):
     
 class SysError(Enum):
     FATAL = 0
-    TOKEN_NOT_EXIST = 1
-    TOKEN_EXPIRED = 2
+    TOKEN_NOT_EXIST_OR_EXPIRED = 1
 
 
 config = {

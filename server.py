@@ -103,8 +103,6 @@ class Prompt(BaseModel):
 async def ping():
     return PlainTextResponse(content="pong") 
 
-
-
 @app.get("/mp",  dependencies=[Depends(check_wechat_signature)])
 def mp(echostr: int):
     return echostr
@@ -115,15 +113,12 @@ async def mp(request: Request):
     #params = request.query_params._dict
     body = await request.body()
     msg = parse_message(body)
-    reply = create_reply("该格式暂不支持", msg)
+    reply = create_reply(None, msg)
     if msg.type == "text":
         if (msg.content == "试用" or msg.content == "aipic"):
-            token = data.create_trial_token(msg.source)
-            print(token)            
+            token = data.create_trial_token(msg.source)         
             reply = create_reply(token , msg)
        
-    # return reply.render()
-
     return Response(content=reply.render(), media_type="application/xml")
 
 @router.get("/prompts")

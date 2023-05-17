@@ -97,25 +97,25 @@ class Data():
             cursor.close()
             cnx.close()
     def check_token_and_get_id(self, token: str) -> int | SysError:
+        id = None
+        temp = self.r.get(f'token:{token}')
+        if temp:
+            return temp.decode('utf-8')
         cnx = self.pool.get_connection()
         cursor = cnx.cursor()
         try:
-            sql = "SELECT `id`,`expire_at` FROM `tokens` WHERE token = %s and expire_at > current_timestamp()"
+            sql = "SELECT `id`,TIMESTAMPDIFF(SECOND, NOW(), expire_at ) as ttl FROM `tokens` WHERE token = %s and expire_at > current_timestamp()"
             val = (token,)
             cursor.execute(sql, val)
             record = cursor.fetchone()
             if record is not None:
                 id = record[0]
-                expire_at = record[1]
-                if is_expired(expire_at):
-                    return SysError.TOKEN_EXPIRED
-                else:
-                    return id
-            else:
-                return SysError.TOKEN_NOT_EXIST
+                ttl = record[1]
+                self.r.setex(f'token:{token}', ttl, id )
         finally:
             cursor.close()
             cnx.close()
+        return id if id is not None else SysError.TOKEN_NOT_EXIST_OR_EXPIRED
     def cache_task(self, taskId: str,  prompt: str):
         self.r.setex(taskId, config['wait_time'] , prompt )
 
@@ -324,6 +324,8 @@ class Data():
                 'user': FromUserName,
             })
             record = cursor.fetchone()
+            record2 = None
+            record3 = None
             mp_userId = None
             if record is None:
                 create_mpUser_sql = ("INSERT INTO `mp_users` (`mp_user`) VALUES(%(user)s)")
@@ -337,11 +339,9 @@ class Data():
                 cursor.execute(trial_sql, {
                     'user_id': mp_userId
                 })
-                record2 = cursor.fetchone()  
+                record2 = cursor.fetchone()
                 if record2 is not None:
-   
                     token_id = record2['token_id']
-                    print(token_id)
                     token_sql = ("SELECT token,TIMESTAMPDIFF(DAY, NOW(), expire_at ) as days FROM tokens WHERE id=%(token_id)s AND expire_at > NOW()")
                     cursor.execute(token_sql, {
                         'token_id': token_id
@@ -350,19 +350,19 @@ class Data():
                     if record3 is not None:
                         token = record3['token']
                         days = record3['days']
-                else:
-                    token = random_id(20)
-                    create_token_sql = ("INSERT INTO `tokens` (`token`,`blance`,`type`,`expire_at`) VALUES( %(token)s, 100, 1 , DATE_ADD(NOW(), INTERVAL %(days)s DAY) )")
-                    cursor.execute(create_token_sql, {
-                        'token': token,
-                        'days': days
-                    })
-                    token_id = cursor.lastrowid
-                    create_trial_sql = ("INSERT INTO `mp_trial_history` (`mp_user_id`,`token_id`) VALUES( %(user_id)s, %(token_id)s) ")
-                    cursor.execute(create_trial_sql, {
-                        'user_id': mp_userId,
-                        'token_id': token_id
-                    })
+            if token is None:
+                token = random_id(20)
+                create_token_sql = ("INSERT INTO `tokens` (`token`,`blance`,`type`,`expire_at`) VALUES( %(token)s, 100, 1 , DATE_ADD(NOW(), INTERVAL %(days)s DAY) )")
+                cursor.execute(create_token_sql, {
+                    'token': token,
+                    'days': days
+                })
+                token_id = cursor.lastrowid
+                create_trial_sql = ("INSERT INTO `mp_trial_history` (`mp_user_id`,`token_id`) VALUES( %(user_id)s, %(token_id)s) ")
+                cursor.execute(create_trial_sql, {
+                    'user_id': mp_userId,
+                    'token_id': token_id
+                })
             cnx.commit()       
         except Exception as e:
             print(e)
