@@ -45,6 +45,13 @@ class DiscordBot():
         await self.userbot.send_prompt(new_prompt)
         await asyncio.sleep(config['wait_time'] - 10)
         self.data.check_task(taskId)
+    
+    async def send_variation_with_check(self, task: dict[str, str, str], index: str):
+        pass
+    
+    async def send_variation_with_check(self, task: dict[str, str, str], index: str):
+        pass    
+
     def start(self, token: str) -> None:
         self.__startBot(token)
 

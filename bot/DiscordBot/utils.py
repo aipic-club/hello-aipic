@@ -44,6 +44,8 @@ def is_committed(content: str) -> bool:
 def is_variations(content: str) -> bool:
     #Variations by
     return  "Variations by" in content
+def  is_remix(content: str) -> bool:
+    return "Remix by" in content
 def is_upsacle(content: str) -> bool:
     #Image #1
     return re.search(r"Image\s#\d", content)
@@ -57,8 +59,9 @@ def status_type(content: str):
         return TaskStatus.FINISHED
     
 def output_type(content: str):
-
-    if is_variations(content):
+    if is_remix(content):
+        return OutputType.REMIX
+    elif is_variations(content):
         return OutputType.VARIATION
     elif is_upsacle(content):
         return OutputType.UPSCALE

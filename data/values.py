@@ -14,6 +14,7 @@ class OutputType(Enum):
     DRAFT = 1
     VARIATION = 2
     UPSCALE = 3
+    REMIX = 4
 
 
 class Cost(Enum):

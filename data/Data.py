@@ -122,6 +122,8 @@ class Data():
         return id if id is not None else SysError.TOKEN_NOT_EXIST_OR_EXPIRED
     def cache_task(self, taskId: str,  prompt: str):
         self.r.setex(taskId, config['wait_time'] , prompt )
+    
+    
 
     def check_task(self, taskId: str):
         if 1 == self.r.exists(taskId):

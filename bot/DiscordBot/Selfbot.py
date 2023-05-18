@@ -82,6 +82,33 @@ class Selfbot():
                 }
             }
             response = await self.__send_interactions(user['authorization'],  payload)
+
+            # payload = {
+            #     "type":5,
+            #     "application_id":"936929561302675456",
+            #     "channel_id":"1096333900273426535",
+            #     "guild_id":"1096333899778490380",
+            #     "data":{
+            #         "id":"1108688218611789904",
+            #         "custom_id":"MJ::RemixModal::548034f0-49db-43fb-86f8-1ca09a72e786::1",
+            #         "components":[
+            #             {
+            #                 "type":1,
+            #                 "components":[
+            #                     {
+            #                         "type":4,
+            #                         "custom_id":"MJ::RemixModal::new_prompt",
+            #                         "value":"A serene waterfall in a lush tropical forest, with sunlight filtering through the canopy, painted in the style of Claude Monet. ::2 [Waterfall]::1 [Sunlight]::1 --ar 1:1 --v 5 --no a1.8zOPrRv0Q3 --v 5.1 --s 50"
+            #                     }
+            #                 ]
+            #             }
+            #         ]
+            #     },
+            #     "session_id":"cba2441e167d8aec7945844727bcb11f",
+            #     # "nonce":"1108688258952331264"
+            # }
+            
+
             return response
     def ReRoll(self):
         pass

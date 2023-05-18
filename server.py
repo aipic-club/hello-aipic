@@ -100,6 +100,12 @@ class Prompt(BaseModel):
     raw: Union[str , None] = None
     execute: Union[bool , None] = None
 
+class Upscale(BaseModel):
+    index: int
+class Remix(BaseModel):
+    prompt: str
+    index: int
+
 
 @app.get("/ping")
 async def ping():
@@ -165,7 +171,7 @@ async def send_prompt(token_id: int = Depends(get_token_id) ):
     return ""
 
 @router.post("/images/{image_hash}/upscale")
-async def upscale(image_hash:str, index: int, token_id: int = Depends(get_token_id)):
+async def upscale( item: Upscale, image_hash:str,token_id: int = Depends(get_token_id)):
     task = data.get_task_by_messageHash(token_id , image_hash)
     if task is None:
         raise HTTPException(404)    
@@ -173,13 +179,13 @@ async def upscale(image_hash:str, index: int, token_id: int = Depends(get_token_
         res = celery.send_task('upscale',
             (
                 task,
-                index
+                item.index
             )
         )
     return {}
 
 @router.post("/images/{image_hash}/variation")
-async def variation(image_hash:str, index: int,  token_id: int = Depends(get_token_id)):
+async def variation( item: Remix,  image_hash:str,  token_id: int = Depends(get_token_id)):
     task = data.get_task_by_messageHash(token_id , image_hash)
     if task is None:
         raise HTTPException(404)    
@@ -187,7 +193,8 @@ async def variation(image_hash:str, index: int,  token_id: int = Depends(get_tok
         res = celery.send_task('variation',
             (
                 task,
-                index
+                item.prompt,
+                item.index
             )
         )
     return {}

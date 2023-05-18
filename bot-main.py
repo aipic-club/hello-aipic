@@ -71,7 +71,7 @@ def add_task(self, token_id , taskId, prompt):
         return taskId
 
 @celery.task(name='variation',bind=True, base=BaseTask)
-def variation(self, task: dict[str, str, str], index: str):
+def variation(self, task: dict[str, str, str], prompt: str, index: str):
     discordBot.send_variation(task, index)
 @celery.task(name='upscale',bind=True, base=BaseTask)
 def upscale(self,  task: dict[str, str, str], index: str):
