@@ -4,6 +4,7 @@ import asyncio
 from urllib.parse import urlparse
 import mysql.connector.pooling
 from mysql.connector import errorcode
+from .DiscordUsers import DiscordUsers
 from .values import  TaskStatus,OutputType,Cost, SysError,config
 from .utils import random_id,current_time,is_expired
 from .FileHandler import FileHandler
@@ -45,6 +46,9 @@ class Data():
                 print(err)
         self.r = redis.from_url(redis_url)
         self.fileHandler = FileHandler(proxy= proxy, s3config=s3config)
+        self.discordUsers = None
+        self.get_discord_users()
+
     def close(self):
         if self.session:
             self.session.close()
@@ -312,6 +316,22 @@ class Data():
             cursor.close()
             cnx.close()
         return records
+    def get_discord_users(self) -> DiscordUsers:
+        if self.discordUsers is not None:
+            return self.discordUsers
+        cnx = self.pool.get_connection()
+        cursor = cnx.cursor(dictionary=True)  
+        records = None
+        try:
+            sql = ("SELECT uid,guild_id,channel_id,authorization FROM discord_users")
+            cursor.execute(sql)
+            records = cursor.fetchall()
+        finally:
+            cursor.close()
+            cnx.close()
+        self.discordUsers = DiscordUsers(records)
+        return self.discordUsers
+
     def create_trial_token(self, FromUserName):
         cnx = self.pool.get_connection()
         cursor = cnx.cursor(dictionary=True)  

@@ -36,6 +36,6 @@ class SysError(Enum):
 
 
 config = {
-    'wait_time': 60 * 1
+    'wait_time': 60 * 3
 }
     

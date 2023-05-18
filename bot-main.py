@@ -1,19 +1,13 @@
 
 
 import os
-import io
-import asyncio
-import random
 # import requests
 from PIL import Image
-import tempfile
-import redis
 from celery import Celery
 from celery.signals import worker_init
 from dotenv import load_dotenv, find_dotenv
 from bot import DiscordBot
 from bot.DiscordBot import refine_prompt
-from data import SysError, random_id, uids
 
 load_dotenv(find_dotenv())
 

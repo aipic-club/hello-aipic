@@ -1,17 +1,15 @@
 
-import json
 import random
 import aiohttp
-import asyncio
 from  .Bot import MJBotId
-from data.users import users,get_user_by_taskId
+from data import DiscordUsers
 
 class Selfbot():
     def __init__(self, proxy: str = False):
         self.proxy = proxy
-        self.users = users
-    def run(self):
-        asyncio.run(self.__keep_online())
+
+    def register_discord_users(self, discordUsers : DiscordUsers = None):
+        self.discordUsers = discordUsers
     async def __send_interactions(self, authorization, payload):
         
         headers = {
@@ -33,7 +31,7 @@ class Selfbot():
                 return status
 
     async def send_prompt(self, prompt):
-        user = random.choice(self.users)
+        user = random.choice(self.discordUsers.users)
         payload = {
             "type":2,
             "application_id": MJBotId,
@@ -50,7 +48,7 @@ class Selfbot():
         response = await self.__send_interactions(user['authorization'],  payload)
         return response
     async def send_upscale(self, taskId: str,  index : int, messageId : str, messageHash : str):
-        user = get_user_by_taskId(taskId)
+        user = self.discordUsers.get_user_by_taskId(taskId) 
         payload = {
             "type":3,
             "guild_id": user['guild_id'],
@@ -69,7 +67,7 @@ class Selfbot():
     def send_max_upscale(self, messageId : str, messageHash : str):
         pass
     async def send_variation(self, taskId: str,  index : int,messageId : str, messageHash : str):
-            user = get_user_by_taskId(taskId)
+            user = self.discordUsers.get_user_by_taskId(taskId)
             payload = {
                 "type":3, 
                 "guild_id": user['guild_id'],

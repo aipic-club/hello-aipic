@@ -16,7 +16,7 @@ from wechatpy.exceptions import InvalidSignatureException, InvalidAppIdException
 
 from celery import Celery
 from dotenv import load_dotenv, find_dotenv
-from data import Data, TaskStatus, SysError, random_id, uids
+from data import Data, TaskStatus, SysError, random_id
 load_dotenv(find_dotenv())
 
 celery = Celery('tasks', broker=os.environ.get("CELERY.BROKER"))
@@ -92,6 +92,8 @@ data = Data(
     }
 )
 
+discord_users = data.get_discord_users()
+
 
 class Prompt(BaseModel):
     prompt: str
@@ -135,7 +137,7 @@ async def prompt_detail(taskId: str, page: int = 1, size: int = 10, token_id: in
 
 @router.post("/prompts")
 async def send_prompt(item: Prompt, token_id: int = Depends(get_token_id) ):
-    user = random.choice(uids)
+    user = random.choice(discord_users.uids)
     taskId = f'{user}.{random_id(10)}'    
     prompt = item.prompt
     data.add_task(
@@ -157,6 +159,10 @@ async def send_prompt(item: Prompt, token_id: int = Depends(get_token_id) ):
     return {
         'id':  taskId
     }
+
+@router.get("/prompts/{taskId}")
+async def send_prompt(token_id: int = Depends(get_token_id) ):
+    return ""
 
 @router.post("/images/{image_hash}/upscale")
 async def upscale(image_hash:str, index: int, token_id: int = Depends(get_token_id)):

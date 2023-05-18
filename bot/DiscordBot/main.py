@@ -2,10 +2,9 @@ import asyncio
 import atexit
 from threading import Thread
 import nextcord
-from .Bot import Bot, MJBotId
+from .Bot import Bot
 from .Selfbot import Selfbot
-from .utils import get_taskId, output_type, is_committed
-from data import Data,TaskStatus,OutputType,users, is_user_in_channel,config
+from data import Data,config
 
 
 
@@ -26,7 +25,11 @@ class DiscordBot():
         intents.presences = True
         intents.members = True
         intents.message_content = True
+
+        discord_users = self.data.get_discord_users()
+        
         self.userbot = Selfbot( proxy = self.proxy)
+        self.userbot.register_discord_users(discord_users)
         
         loop = asyncio.new_event_loop()
         bot = Bot(self.data , intents=intents, proxy = self.proxy, loop = loop)

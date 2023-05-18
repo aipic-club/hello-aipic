@@ -1,7 +1,7 @@
 import asyncio
 from nextcord.ext import commands, tasks
 from .utils import get_taskId, output_type, is_committed
-from data import Data,TaskStatus,OutputType,users, is_user_in_channel
+from data import Data
 
 
 
@@ -37,9 +37,9 @@ class Bot(commands.Bot):
             return
         if content == 'ping':
             await message.channel.send('pong')
-        if author_id == MJBotId and is_user_in_channel(guild_id , channel_id ):
-            #print("-- new message form MJ --")
-            #print(message.content)
+        if author_id == MJBotId and self.data.get_discord_users().is_user_in_channel(guild_id , channel_id ):
+            # print("-- new message form MJ --")
+            # print(message.content)
             taskId = get_taskId(content)
             print(f'==⏰== taskId {taskId}')
             task_is_committed = is_committed(content)
