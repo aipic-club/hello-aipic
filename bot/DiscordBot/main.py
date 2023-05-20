@@ -30,7 +30,7 @@ class DiscordBot():
         
         self.userbot = Selfbot( proxy = self.proxy)
         self.userbot.register_discord_users(discord_users)
-        
+
         loop = asyncio.new_event_loop()
         bot = Bot(self.data , intents=intents, proxy = self.proxy, loop = loop)
         loop.create_task(bot.start(token))
@@ -41,10 +41,11 @@ class DiscordBot():
 
 
     async def send_prompt_with_check(self,  taskId, prompt, new_prompt):
+        print(f"==🔖== prompt {prompt}")
         self.data.cache_task(taskId, prompt )
         await self.userbot.send_prompt(new_prompt)
-        await asyncio.sleep(config['wait_time'] - 10)
-        self.data.check_task(taskId)
+        # await asyncio.sleep(config['wait_time'] - 10)
+        # self.data.check_task(taskId)
     
     async def send_variation_with_check(self, task: dict[str, str, str], index: str):
         pass
@@ -56,10 +57,11 @@ class DiscordBot():
         self.__startBot(token)
 
     def send_prompt(self, token_id, taskId, prompt, new_prompt):
-        loop = asyncio.new_event_loop()
-        # loop.run_until_complete(self.userbot.send_prompt(new_prompt))
-        loop.run_until_complete(self.send_prompt_with_check(taskId, prompt, new_prompt))
-        loop.close()
+        print(prompt)
+        # loop = asyncio.new_event_loop()
+        # # loop.run_until_complete(self.userbot.send_prompt(new_prompt))
+        # loop.run_until_complete(self.send_prompt_with_check(taskId, prompt, new_prompt))
+        # loop.close()
     def send_variation(self, task: dict[str, str, str], index: str):
         loop = asyncio.new_event_loop()
         loop.run_until_complete(

@@ -2,6 +2,8 @@
 
 import os
 # import requests
+import asyncio
+import concurrent.futures
 from PIL import Image
 from celery import Celery
 from celery.signals import worker_init
@@ -11,6 +13,7 @@ from bot.DiscordBot import refine_prompt
 
 load_dotenv(find_dotenv())
 
+pool = concurrent.futures.ThreadPoolExecutor(max_workers=10)
 celery = Celery('tasks', broker=os.environ.get("CELERY.BROKER"))
 
 
@@ -55,7 +58,7 @@ def worker_start(sender, **kwargs):
 class BaseTask(celery.Task):
     def __init__(self):
         pass
-    
+  
 @celery.task(name='ping')
 def ping():
     print('pong')
@@ -63,10 +66,11 @@ def ping():
 
 @celery.task(name='prompt',bind=True, base=BaseTask)
 def add_task(self, token_id , taskId, prompt):
-
-        # token is fine
+        
         new_prompt = refine_prompt(taskId, prompt)
-        discordBot.send_prompt(token_id, taskId, prompt, new_prompt)
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(pool, discordBot.send_prompt(token_id, taskId, prompt, new_prompt))
+
         # id = self.request.id
         return taskId
 

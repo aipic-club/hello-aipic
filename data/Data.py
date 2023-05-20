@@ -189,7 +189,6 @@ class Data():
         # copy to s3 bucket
         print("==🖼upload image ==")
         loop = asyncio.new_event_loop() 
-        asyncio.set_event_loop(loop)
         loop.run_until_complete(
             self.fileHandler.copy_discord_img_to_bucket(
                 path= taskId, 
