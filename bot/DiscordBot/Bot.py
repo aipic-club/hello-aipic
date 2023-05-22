@@ -2,7 +2,7 @@ import asyncio
 from nextcord.ext import commands, tasks
 from .utils import get_taskId, output_type, is_committed
 from data import Data
-
+from .pool import pool
 
 
 
@@ -44,18 +44,15 @@ class Bot(commands.Bot):
             print(f'==⏰== taskId {taskId}')
             task_is_committed = is_committed(content)
             if task_is_committed:
-                loop = asyncio.get_event_loop()
-                loop.run_in_executor(None, lambda: 
-                    self.data.commit_task(
-                        taskId = taskId
-                    )
+                self.data.commit_task(
+                    taskId = taskId
                 )
             else:
                 curType = output_type(content)
                 if curType is not None:
                     attachment = message.attachments[0].url
                     loop = asyncio.get_event_loop()
-                    loop.run_in_executor(None, lambda: 
+                    loop.run_in_executor(pool, lambda: 
                         self.data.process_task(
                             taskId = taskId, 
                             type= curType , 

@@ -1,5 +1,6 @@
 import redis
 import asyncio
+import time
 # import logging
 from urllib.parse import urlparse
 import mysql.connector.pooling
@@ -121,12 +122,13 @@ class Data():
             cnx.close()
         return id if id is not None else SysError.TOKEN_NOT_EXIST_OR_EXPIRED
     def cache_task(self, taskId: str,  prompt: str):
-        self.r.setex(taskId, config['wait_time'] , prompt )
+        self.r.setex(f'prompt:{taskId}', config['wait_time'] , prompt )
     
     
 
     def check_task(self, taskId: str):
-        if 1 == self.r.exists(taskId):
+        print("==check==")
+        if 1 == self.r.exists(f'prompt:{taskId}'):
             self.__insert_task({
                 'taskId': taskId,
                 'type': None,
@@ -139,7 +141,7 @@ class Data():
                 'url_global': None,
                 'url_cn': None
             })
-            self.r.delete(taskId)
+            self.r.delete(f'prompt:{taskId}')
 
     def add_task(self, 
             token_id: str,  
@@ -179,24 +181,24 @@ class Data():
             'url_global': None,
             'url_cn': None
         })
-        self.r.delete(taskId)
+        self.r.delete(f'prompt:{taskId}')
     def process_task(self, taskId: str ,  type: OutputType, reference: int | None,  message_id: str ,   url: str):
         # download file and upload image
         file_name = str(url.split("_")[-1])
         hash = str(file_name.split(".")[0])
         url_cn = f'/{taskId}/{file_name}'   
-        self.r.delete(taskId)
+        self.r.delete(f'prompt:{taskId}')
         # copy to s3 bucket
         print("==🖼upload image ==")
-        loop = asyncio.new_event_loop() 
+        loop = asyncio.new_event_loop()
         loop.run_until_complete(
             self.fileHandler.copy_discord_img_to_bucket(
                 path= taskId, 
                 file_name= file_name,
                 url = url 
             )
-        )    
-        loop.close()   
+        )  
+        loop.close()  
         # update mysql record
         self.__insert_task({
             'taskId': taskId,

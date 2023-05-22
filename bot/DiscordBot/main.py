@@ -2,10 +2,10 @@ import asyncio
 import atexit
 from threading import Thread
 import nextcord
+from .pool import pool
 from .Bot import Bot
 from .Selfbot import Selfbot
 from data import Data,config
-
 
 
 
@@ -40,7 +40,8 @@ class DiscordBot():
 
 
 
-    async def send_prompt_with_check(self,  taskId, prompt, new_prompt):
+
+    async def send_prompt_with_check(self, token_id, taskId, prompt, new_prompt):
         print(f"==🔖== prompt {prompt}")
         self.data.cache_task(taskId, prompt )
         await self.userbot.send_prompt(new_prompt)
@@ -51,17 +52,19 @@ class DiscordBot():
         pass
     
     async def send_variation_with_check(self, task: dict[str, str, str], index: str):
-        pass    
+        pass  
+
+
 
     def start(self, token: str) -> None:
         self.__startBot(token)
 
+
     def send_prompt(self, token_id, taskId, prompt, new_prompt):
-        print(prompt)
-        # loop = asyncio.new_event_loop()
-        # # loop.run_until_complete(self.userbot.send_prompt(new_prompt))
-        # loop.run_until_complete(self.send_prompt_with_check(taskId, prompt, new_prompt))
-        # loop.close()
+        loop = asyncio.get_event_loop()
+        loop.call_soon(self.send_prompt_with_check(token_id, taskId, prompt, new_prompt))
+
+
     def send_variation(self, task: dict[str, str, str], index: str):
         loop = asyncio.new_event_loop()
         loop.run_until_complete(

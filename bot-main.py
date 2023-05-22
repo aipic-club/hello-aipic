@@ -3,19 +3,20 @@
 import os
 # import requests
 import asyncio
-import concurrent.futures
 from PIL import Image
 from celery import Celery
 from celery.signals import worker_init
 from dotenv import load_dotenv, find_dotenv
 from bot import DiscordBot
-from bot.DiscordBot import refine_prompt
+from bot.DiscordBot import refine_prompt, pool
 
 load_dotenv(find_dotenv())
 
-pool = concurrent.futures.ThreadPoolExecutor(max_workers=10)
+
 celery = Celery('tasks', broker=os.environ.get("CELERY.BROKER"))
 
+loop = asyncio.new_event_loop()
+loop.run_forever()
 
 discordBot = DiscordBot( 
     os.environ.get("http_proxy"), 
@@ -65,10 +66,9 @@ def ping():
 
 
 @celery.task(name='prompt',bind=True, base=BaseTask)
-def add_task(self, token_id , taskId, prompt):
+def add_task(self,  token_id , taskId, prompt):
         
         new_prompt = refine_prompt(taskId, prompt)
-        loop = asyncio.get_event_loop()
         loop.run_in_executor(pool, discordBot.send_prompt(token_id, taskId, prompt, new_prompt))
 
         # id = self.request.id
@@ -82,8 +82,8 @@ def upscale(self,  task: dict[str, str, str], index: str):
     discordBot.send_upscale(task, index)
 
 
-
 discordBot.start(os.environ.get("DISCORD.BOT.TOKEN"))
+
 
 if __name__ == '__main__':
    pass
