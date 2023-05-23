@@ -10,7 +10,7 @@ from data import Data,config
 
 
 class DiscordBot():
-    def __init__(self,  proxy: str | None, redis_url: str, mysql_url: str, s3config: dict):
+    def __init__(self,  proxy: str | None, redis_url: str, mysql_url: str, s3config: dict, loop: asyncio.AbstractEventLoop):
         self.proxy = proxy
         self.data = Data(
             redis_url = redis_url,
@@ -18,9 +18,10 @@ class DiscordBot():
             proxy = proxy,
             s3config = s3config
         )
+        self.loop = loop
         atexit.register(self.data.close)
 
-    def __startBot(self, token):
+    async def __startBot(self, token):
         intents = nextcord.Intents.default()
         intents.presences = True
         intents.members = True
@@ -31,22 +32,29 @@ class DiscordBot():
         self.userbot = Selfbot( proxy = self.proxy)
         self.userbot.register_discord_users(discord_users)
 
-        loop = asyncio.new_event_loop()
-        bot = Bot(self.data , intents=intents, proxy = self.proxy, loop = loop)
-        loop.create_task(bot.start(token))
-        t= Thread(target=loop.run_forever)
-        t.daemon = True
-        t.start()
+        bot = Bot(self.data , intents=intents, proxy = self.proxy)
+        await bot.start(token)
+   
 
-
+    async def check(self, taskId):
+        await asyncio.sleep(10)
+        print(1)
+        self.data.check_task(taskId)
 
 
     async def send_prompt_with_check(self, token_id, taskId, prompt, new_prompt):
         print(f"==🔖== prompt {prompt}")
         self.data.cache_task(taskId, prompt )
-        await self.userbot.send_prompt(new_prompt)
-        # await asyncio.sleep(config['wait_time'] - 10)
-        # self.data.check_task(taskId)
+        #await self.userbot.send_prompt(new_prompt)
+
+
+        self.loop.create_task(self.check(taskId))
+
+        #await asyncio.sleep(config['wait_time'] - 10)
+
+
+ 
+
     
     async def send_variation_with_check(self, task: dict[str, str, str], index: str):
         pass
@@ -56,13 +64,19 @@ class DiscordBot():
 
 
 
-    def start(self, token: str) -> None:
-        self.__startBot(token)
+    async def start(self, token: str) -> None:
+        #self.__startBot(token)
+        #asyncio.run(self.__startBot(token))
+        await self.__startBot(token)
+        #pass
 
 
     def send_prompt(self, token_id, taskId, prompt, new_prompt):
-        loop = asyncio.get_event_loop()
-        loop.call_soon(self.send_prompt_with_check(token_id, taskId, prompt, new_prompt))
+        self.loop.create_task(self.send_prompt_with_check(token_id, taskId, prompt, new_prompt))
+        
+        # loop = asyncio.get_running_loop()
+        # loop.run_until_complete(self.send_prompt_with_check(token_id, taskId, prompt, new_prompt))
+
 
 
     def send_variation(self, task: dict[str, str, str], index: str):

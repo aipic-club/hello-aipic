@@ -2,6 +2,7 @@
 
 import os
 # import requests
+from threading import Thread
 import asyncio
 from PIL import Image
 from celery import Celery
@@ -14,9 +15,7 @@ load_dotenv(find_dotenv())
 
 
 celery = Celery('tasks', broker=os.environ.get("CELERY.BROKER"))
-
 loop = asyncio.new_event_loop()
-loop.run_forever()
 
 discordBot = DiscordBot( 
     os.environ.get("http_proxy"), 
@@ -26,8 +25,14 @@ discordBot = DiscordBot(
         'aws_access_key_id' : os.environ.get("AWS.ACCESS_KEY_ID"),
         'aws_secret_access_key' : os.environ.get("AWS.SECRET_ACCESS_KEY"),
         'endpoint_url' : os.environ.get("AWS.ENDPOINT")
-    }
+    },
+    loop=loop
 )
+
+loop.create_task(discordBot.start(os.environ.get("DISCORD.BOT.TOKEN")))
+t= Thread(target=loop.run_forever)
+t.daemon = True
+t.start()
 
 
 
@@ -67,24 +72,19 @@ def ping():
 
 @celery.task(name='prompt',bind=True, base=BaseTask)
 def add_task(self,  token_id , taskId, prompt):
-        
-        new_prompt = refine_prompt(taskId, prompt)
-        loop.run_in_executor(pool, discordBot.send_prompt(token_id, taskId, prompt, new_prompt))
+    new_prompt = refine_prompt(taskId, prompt)
+    discordBot.send_prompt(token_id, taskId, prompt, new_prompt)
+    
 
-        # id = self.request.id
-        return taskId
+    # id = self.request.id
+    return taskId
 
 @celery.task(name='variation',bind=True, base=BaseTask)
 def variation(self, task: dict[str, str, str], prompt: str, index: str):
     discordBot.send_variation(task, index)
+    return
 @celery.task(name='upscale',bind=True, base=BaseTask)
 def upscale(self,  task: dict[str, str, str], index: str):
     discordBot.send_upscale(task, index)
+    return
 
-
-discordBot.start(os.environ.get("DISCORD.BOT.TOKEN"))
-
-
-if __name__ == '__main__':
-   pass
-    
