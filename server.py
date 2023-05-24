@@ -146,13 +146,13 @@ async def send_prompt(item: Prompt, token_id: int = Depends(get_token_id) ):
     user = random.choice(discord_users.uids)
     taskId = f'{user}.{random_id(10)}'    
     prompt = item.prompt
-    data.add_task(
-        token_id = token_id,
-        prompt = prompt,
-        raw= item.raw,
-        taskId = taskId,
-        status = TaskStatus.CONFIRMED if item.execute else TaskStatus.CREATED
-    ) 
+    # data.add_task(
+    #     token_id = token_id,
+    #     prompt = prompt,
+    #     raw= item.raw,
+    #     taskId = taskId,
+    #     status = TaskStatus.CONFIRMED if item.execute else TaskStatus.CREATED
+    # ) 
 
     if item.execute:
          celery.send_task('prompt',
@@ -167,8 +167,22 @@ async def send_prompt(item: Prompt, token_id: int = Depends(get_token_id) ):
     }
 
 @router.get("/prompts/{taskId}")
-async def send_prompt(token_id: int = Depends(get_token_id) ):
-    return ""
+async def send_prompt(taskId: str, token_id: int = Depends(get_token_id) ):
+
+    imageStatus = data.image_task_status(taskId)
+    if len(imageStatus) > 0:
+        return  {
+            'status': TaskStatus.FINISHED.value,
+            'images': imageStatus
+        }
+    
+    status = data.prompt_task_status(token_id, taskId)
+    return {
+        'status': int(status) if status else None,
+        'images': []
+    }
+
+        
 
 @router.post("/images/{image_hash}/upscale")
 async def upscale( item: Upscale, image_hash:str,token_id: int = Depends(get_token_id)):
@@ -192,8 +206,8 @@ async def variation( item: Remix,  image_hash:str,  token_id: int = Depends(get_
     else:
         res = celery.send_task('variation',
             (
-                task,
                 item.prompt,
+                task,
                 item.index
             )
         )

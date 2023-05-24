@@ -16,11 +16,15 @@ class OutputType(Enum):
     UPSCALE = 3
     REMIX = 4
 
+class ImageOperationType(Enum):
+    VARIATION = 0
+    UPSCALE = 1
 
 class Cost(Enum):
     DRAFT = 4
     VARIATION = 4
-    UPSCALE = 2
+    UPSCALE = 4
+    REMIX = 4
     @staticmethod
     def get_cost(output: OutputType):
         if output == OutputType.DRAFT.value:

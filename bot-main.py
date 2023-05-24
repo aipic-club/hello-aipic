@@ -15,7 +15,7 @@ load_dotenv(find_dotenv())
 
 
 celery = Celery('tasks', broker=os.environ.get("CELERY.BROKER"))
-loop = asyncio.new_event_loop()
+
 
 discordBot = DiscordBot( 
     os.environ.get("http_proxy"), 
@@ -25,14 +25,17 @@ discordBot = DiscordBot(
         'aws_access_key_id' : os.environ.get("AWS.ACCESS_KEY_ID"),
         'aws_secret_access_key' : os.environ.get("AWS.SECRET_ACCESS_KEY"),
         'endpoint_url' : os.environ.get("AWS.ENDPOINT")
-    },
-    loop=loop
+    }
 )
 
-loop.create_task(discordBot.start(os.environ.get("DISCORD.BOT.TOKEN")))
-t= Thread(target=loop.run_forever)
-t.daemon = True
-t.start()
+#loop = asyncio.new_event_loop()
+# loop.create_task(discordBot.start(os.environ.get("DISCORD.BOT.TOKEN")))
+# loop.run_forever()
+# t= Thread(target=loop.run_forever)
+# t.daemon = True
+# t.start()
+
+
 
 
 
@@ -73,18 +76,27 @@ def ping():
 @celery.task(name='prompt',bind=True, base=BaseTask)
 def add_task(self,  token_id , taskId, prompt):
     new_prompt = refine_prompt(taskId, prompt)
-    discordBot.send_prompt(token_id, taskId, prompt, new_prompt)
-    
-
+    discordBot.loop.run_in_executor(pool, lambda: discordBot.send_prompt(token_id, taskId, prompt, new_prompt))
     # id = self.request.id
     return taskId
 
 @celery.task(name='variation',bind=True, base=BaseTask)
-def variation(self, task: dict[str, str, str], prompt: str, index: str):
-    discordBot.send_variation(task, index)
+def variation(self, prompt: str,  task: dict[str, str, str],  index: str):
+    discordBot.loop.run_in_executor(pool, lambda: discordBot.send_variation( prompt, task, index))
+    
     return
 @celery.task(name='upscale',bind=True, base=BaseTask)
 def upscale(self,  task: dict[str, str, str], index: str):
-    discordBot.send_upscale(task, index)
+    discordBot.loop.run_in_executor(pool, lambda: discordBot.send_upscale(task, index))
+    
     return
 
+
+#loop = asyncio.new_event_loop()
+discordBot.loop.create_task(discordBot.start(os.environ.get("DISCORD.BOT.TOKEN")))
+t= Thread(target=discordBot.loop.run_forever)
+t.daemon = True
+t.start()
+
+if __name__ == '__main__':
+    celery.worker_main(argv=['worker', '-l', 'info', '--pool=solo'])

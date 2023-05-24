@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 import mysql.connector.pooling
 from mysql.connector import errorcode
 from .DiscordUsers import DiscordUsers
-from .values import  TaskStatus,OutputType,Cost, SysError,config
+from .values import  TaskStatus,ImageOperationType,OutputType,Cost, SysError,config
 from .utils import random_id,current_time,is_expired
 from .FileHandler import FileHandler
 
@@ -121,14 +121,28 @@ class Data():
             cursor.close()
             cnx.close()
         return id if id is not None else SysError.TOKEN_NOT_EXIST_OR_EXPIRED
-    def cache_task(self, taskId: str,  prompt: str):
-        self.r.setex(f'prompt:{taskId}', config['wait_time'] , prompt )
+    def prompt_task(self, token_id, taskId: str, status: TaskStatus) -> None:
+        key = f'prompt:{token_id}:{taskId}' if token_id is not None else f'prompt:*:{taskId}'
+        ttl = self.r.ttl(key) if  self.r.exists(key) else config['wait_time'] 
+        # if ttl > 0:
+        self.r.setex(key, ttl , status.value )
+        
+    def prompt_task_status(self, token_id, taskId: str) -> bool:
+        return self.r.get(f'prompt:{token_id}:{taskId}')
     
-    
+    ### 
+    def image_task(self, taskId: str, imageHash: str, type: ImageOperationType, index: str):
+        self.r.setex(f'image:{taskId}:{imageHash}', config['wait_time'] ,  f'{imageHash}.{type.value}.{index}')
+
+    def image_task_status(self, taskId) -> list:
+        keys = self.r.keys(f'image:{taskId}:*')
+        return self.r.mget(keys)
+
+
 
     def check_task(self, taskId: str):
         print("==check==")
-        if 1 == self.r.exists(f'prompt:{taskId}'):
+        if TaskStatus.CONFIRMED == self.prompt_task_status(None, taskId):
             self.__insert_task({
                 'taskId': taskId,
                 'type': None,
@@ -141,7 +155,7 @@ class Data():
                 'url_global': None,
                 'url_cn': None
             })
-            self.r.delete(f'prompt:{taskId}')
+            self.r.delete(f'prompt:*:{taskId}')
 
     def add_task(self, 
             token_id: str,  
@@ -181,13 +195,12 @@ class Data():
             'url_global': None,
             'url_cn': None
         })
-        self.r.delete(f'prompt:{taskId}')
+        self.prompt_task(None , taskId, TaskStatus.COMMITTED )
     def process_task(self, taskId: str ,  type: OutputType, reference: int | None,  message_id: str ,   url: str):
         # download file and upload image
         file_name = str(url.split("_")[-1])
         hash = str(file_name.split(".")[0])
         url_cn = f'/{taskId}/{file_name}'   
-        self.r.delete(f'prompt:{taskId}')
         # copy to s3 bucket
         print("==🖼upload image ==")
         loop = asyncio.new_event_loop()
@@ -212,6 +225,7 @@ class Data():
             'url_global': url,
             'url_cn': url_cn
         })
+        self.prompt_task(None , taskId, TaskStatus.FINISHED )
     def get_task_by_messageHash(self, token_id: int, id: int) -> dict[str, str]:
         # https://stackoverflow.com/questions/29772337/python-mysql-connector-unread-result-found-when-using-fetchone
         cnx = self.pool.get_connection()
