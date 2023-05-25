@@ -146,13 +146,13 @@ async def send_prompt(item: Prompt, token_id: int = Depends(get_token_id) ):
     user = random.choice(discord_users.uids)
     taskId = f'{user}.{random_id(10)}'    
     prompt = item.prompt
-    # data.add_task(
-    #     token_id = token_id,
-    #     prompt = prompt,
-    #     raw= item.raw,
-    #     taskId = taskId,
-    #     status = TaskStatus.CONFIRMED if item.execute else TaskStatus.CREATED
-    # ) 
+    data.add_task(
+        token_id = token_id,
+        prompt = prompt,
+        raw= item.raw,
+        taskId = taskId,
+        status = TaskStatus.CONFIRMED if item.execute else TaskStatus.CREATED
+    ) 
 
     if item.execute:
          celery.send_task('prompt',

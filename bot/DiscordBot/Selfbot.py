@@ -1,6 +1,8 @@
 
 import random
+import asyncio
 import aiohttp
+from snowflake import Snowflake
 from  .Bot import MJBotId
 from data import DiscordUsers
 
@@ -26,8 +28,8 @@ class Selfbot():
                 headers= headers
             ) as response:
                 status =  response.status
-                # data = await response.text()
-                # print(response)
+                data = await response.text()
+                print(data)
                 return status
 
     async def send_prompt(self, prompt):
@@ -78,18 +80,25 @@ class Selfbot():
                 "session_id":"1f3dbdf09efdf93d81a3a6420882c92c",
                 "data":{
                     "component_type":2,
-                    "custom_id":"MJ::JOB::variation::{}::{}".format(index, messageHash)
+                    "custom_id": f"MJ::JOB::variation::{index}::{messageHash}"
                 }
             }
+        
+            snowflake = Snowflake()
+            print(snowflake.to_date)
+
             response = await self.__send_interactions(user['authorization'],  payload)
             print(response)
+
+            await asyncio.sleep(2)
+
             payload = {
                 "type":5,
                 "application_id": f"{MJBotId}",
                 "channel_id": user['channel_id'],
                 "guild_id": user['guild_id'],
                 "data":{
-                    "id": "1110882523577327626",
+                    "id": str(snowflake),
                     "custom_id": f"MJ::RemixModal::{messageHash}::{index}",  #  "MJ::RemixModal::548034f0-49db-43fb-86f8-1ca09a72e786::1",
                     "components":[
                         {
@@ -108,10 +117,9 @@ class Selfbot():
                 # "nonce":"1108688258952331264"
             }
             
-        
+            print(payload )
             response = await self.__send_interactions(user['authorization'],  payload)
-            print( payload )
-            print(response)
+
             return response
     def ReRoll(self):
         pass
