@@ -2,17 +2,17 @@
 import random
 import asyncio
 import aiohttp
-from snowflake import Snowflake
-from  .Bot import MJBotId
+from .utils import generate_snowflake_id
+from .Bot import MJBotId
 from data import DiscordUsers
 
-class Selfbot():
+class Selfbot:
     def __init__(self, proxy: str = False):
         self.proxy = proxy
 
     def register_discord_users(self, discordUsers : DiscordUsers = None):
         self.discordUsers = discordUsers
-    async def __send_interactions(self, authorization, payload):
+    async def __send_interactions(self, authorization, payload)  -> aiohttp.ClientResponse :
         
         headers = {
             'authorization' : authorization
@@ -27,10 +27,12 @@ class Selfbot():
                 json = payload,
                 headers= headers
             ) as response:
-                status =  response.status
-                data = await response.text()
-                print(data)
-                return status
+                # status =  response.status
+                # headers = response.headers
+                # # data = await response.text()
+                # # print(data)
+                # return status
+                return response
 
     async def send_prompt(self, prompt):
         user = random.choice(self.discordUsers.users)
@@ -84,42 +86,43 @@ class Selfbot():
                 }
             }
         
-            snowflake = Snowflake()
-            print(snowflake.to_date)
+     
+
 
             response = await self.__send_interactions(user['authorization'],  payload)
-            print(response)
 
-            await asyncio.sleep(2)
 
-            payload = {
-                "type":5,
-                "application_id": f"{MJBotId}",
-                "channel_id": user['channel_id'],
-                "guild_id": user['guild_id'],
-                "data":{
-                    "id": str(snowflake),
-                    "custom_id": f"MJ::RemixModal::{messageHash}::{index}",  #  "MJ::RemixModal::548034f0-49db-43fb-86f8-1ca09a72e786::1",
-                    "components":[
-                        {
-                            "type":1,
-                            "components":[
-                                {
-                                    "type":4,
-                                    "custom_id":"MJ::RemixModal::new_prompt",
-                                    "value": prompt
-                                }
-                            ]
-                        }
-                    ]
-                },
-                "session_id":"1f3dbdf09efdf93d81a3a6420882c92c",
-                # "nonce":"1108688258952331264"
-            }
-            
-            print(payload )
-            response = await self.__send_interactions(user['authorization'],  payload)
-
-            return response
+            if response.status >= 200 and response.status < 300:
+                d = response.headers.get('Date')
+                snowflake_id = generate_snowflake_id(d)
+                print(d, snowflake_id)
+                payload = {
+                    "type":5,
+                    "application_id": f"{MJBotId}",
+                    "channel_id": user['channel_id'],
+                    "guild_id": user['guild_id'],
+                    "data":{
+                        "id": f"{snowflake_id}",
+                        "custom_id": f"MJ::RemixModal::{messageHash}::{index}",  #  "MJ::RemixModal::548034f0-49db-43fb-86f8-1ca09a72e786::1",
+                        "components":[
+                            {
+                                "type":1,
+                                "components":[
+                                    {
+                                        "type":4,
+                                        "custom_id":"MJ::RemixModal::new_prompt",
+                                        "value": prompt
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "session_id":"1f3dbdf09efdf93d81a3a6420882c92c",
+                    # "nonce":"1108688258952331264"
+                }
+                print(payload )
+                response = await self.__send_interactions(user['authorization'],  payload)
+                print(response.status)
+                return response.status
     def ReRoll(self):
         pass
