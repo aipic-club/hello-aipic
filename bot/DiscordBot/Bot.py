@@ -21,6 +21,8 @@ class Bot(commands.Bot):
         # self.my_background_task.start()
     async def on_ready(self):
         print(f' Logged in as {self.user} (ID: {self.user.id})')
+    # async def on_interaction(interaction):
+    #     print(interaction)
     async def on_message(self, message):
         reference_id = getattr(message.reference, 'message_id', None) 
         message_id = message.id

@@ -18,7 +18,9 @@ websocket-client = "==1.5.1"
 uvicorn = "*"
 mysql-connector-python = "*"
 wechatpy = {extras = ["cryptography"], version = "*"}
-snowflake = {git = "https://github.com/Madscientiste/Snowflake.git"}
+pytz = "*"
+websocket = "*"
+websockets = "*"
 
 [dev-packages]
 
