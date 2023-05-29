@@ -4,6 +4,7 @@ from enum import Enum
 
 class Enum(Enum):
     def __str__(self) -> str:
+        print(self)
         return self.name
     def __repr__(self) -> str:
         return self.name
@@ -23,5 +24,18 @@ class Opcodes(Enum):
 
 
 class Events(Enum):
+    READY = 'READY',
     INTERACTION_CREATE = 'INTERACTION_CREATE',
     INTERACTION_SUCCESS = 'INTERACTION_SUCCESS',
+
+
+
+browser = {
+    "browser": "Chrome",
+    "browser_user_agent":  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36",
+    "browser_version": "113.0.0.0",
+    "client_build_number": 199933,
+    "device": "",
+    "os": "Mac OS X",
+    "os_version": "10.15.7"
+}

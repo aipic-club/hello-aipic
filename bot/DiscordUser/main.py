@@ -4,10 +4,11 @@ import time
 import asyncio
 import aiohttp
 import zlib
-from .values import Opcodes, Events
+from .values import Opcodes, Events, browser
 
 
 class DiscordUser:
+    APIURL = ""
     WSSURL = "wss://gateway.discord.gg/?v=9&encoding=json&compress=zlib-stream"
     def __init__(self, token: str, proxy : str) -> None:
         self.token = token
@@ -17,9 +18,18 @@ class DiscordUser:
         self.hb = None
         self.loop = None
         self.sequence_number = None
+
+    @property
+    def header(self):
+        return {
+            'authorization' : self.token,
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36'
+        }
+        pass
+    
     async def run(self) -> None:
         self.loop = asyncio.get_event_loop()
-        self.session = aiohttp.ClientSession(loop= self.loop)
+        self.session = aiohttp.ClientSession(loop = self.loop)
 
         self.ws = await  self.session.ws_connect(DiscordUser.WSSURL, proxy= self.proxy)
 
@@ -39,7 +49,7 @@ class DiscordUser:
                 data = inflator.decompress(buffer)
                 buffer.clear()
                 data = json.loads(data)
-                print(data)
+                #print(data)
                 op = data.get("op")
                 d = data.get("d")
                 s = data.get("s")
@@ -54,27 +64,28 @@ class DiscordUser:
     async def identify(self):
         identify_data = {
             "token": self.token,
-            "properties": {
-                "$os": "Windows 11",
-                "$browser": "Google Chrome",
-                "$device": "Windows",
-            },
+            "properties": browser,
             "presence": {"status": "online", "afk": False},
         }
+
         await self.send(Opcodes.IDENTIFY ,  identify_data)
 
-    async def on_message(self, op: Opcodes , data: dict, sequence_number: int, event_name: str):
+    async def on_message(self, op: Opcodes , data: dict, sequence_number: int, event_name: str | None):
         self.sequence_number = sequence_number
+
+        #print(data, event_name)
         if op is Opcodes.HELLO:
             self.hb = self.loop.create_task(self.send_heartbeat(data['heartbeat_interval']))
             await self.identify()
         elif op is Opcodes.INVALID_SESSION:
             await self.identify()
+
+        # if type(event_name) == str:
+            # print(event_name, type(event_name), Events(event_name))
+            # if Events(event_name) is Events.INTERACTION_SUCCESS:
+            #     print(data)
         
-        if event_name is Events.INTERACTION_SUCCESS:
-            print(data)
-        
-        pass
+
 
     async def send_heartbeat(self, heartbeat_interval):
         while True:
@@ -91,3 +102,8 @@ class DiscordUser:
         if sequences is not None:
             ready_data["s"] = sequences
         await self.ws.send_json(ready_data)
+
+################
+
+    async  def __send_interactions(self, authorization, payload)  -> aiohttp.ClientResponse :
+        pass
