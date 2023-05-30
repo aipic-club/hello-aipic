@@ -138,6 +138,11 @@ class Data():
     def image_task_status(self, taskId) -> list:
         keys = self.r.keys(f'image:{taskId}:*')
         return self.r.mget(keys)
+    
+
+    def add_interaction(self, key, value ) -> bool:
+
+        return self.r.setex(f'interaction:{key}', 60,  value)
 
 
 
@@ -334,7 +339,7 @@ class Data():
             cursor.close()
             cnx.close()
         return records
-    def get_discord_users(self) -> DiscordUsers:
+    def get_discord_users(self) :
         if self.discordUsers is not None:
             return self.discordUsers
         cnx = self.pool.get_connection()
@@ -347,8 +352,9 @@ class Data():
         finally:
             cursor.close()
             cnx.close()
-        self.discordUsers = DiscordUsers(records)
-        return self.discordUsers
+        return records
+        #self.discordUsers = DiscordUsers(records)
+        #return self.discordUsers
 
     def create_trial_token(self, FromUserName):
         cnx = self.pool.get_connection()

@@ -10,4 +10,7 @@ class DiscordUsers():
     def get_user_by_taskId(self, taskId : str):
         uid = taskId.split(".")[0]
         us =  list(filter(lambda u:  u['uid'] == uid, self.users))
-        return us[0]    
+        return us[0]   
+    @property
+    def authorizations(self):
+        return list(map(lambda u: u['authorization'], self.users))

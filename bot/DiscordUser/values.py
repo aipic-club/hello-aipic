@@ -1,10 +1,10 @@
 
 from enum import Enum
+from typing import Any
 
 
 class Enum(Enum):
     def __str__(self) -> str:
-        print(self)
         return self.name
     def __repr__(self) -> str:
         return self.name
@@ -24,9 +24,15 @@ class Opcodes(Enum):
 
 
 class Events(Enum):
-    READY = 'READY',
-    INTERACTION_CREATE = 'INTERACTION_CREATE',
-    INTERACTION_SUCCESS = 'INTERACTION_SUCCESS',
+    READY = 'READY'
+    INTERACTION_CREATE = 'INTERACTION_CREATE'
+    INTERACTION_SUCCESS = 'INTERACTION_SUCCESS'
+    MESSAGE_CREATE = 'MESSAGE_CREATE'
+    MESSAGE_ACK = 'MESSAGE_ACK'
+    MESSAGE_DELETE = 'MESSAGE_DELETE'
+    CHANNEL_UNREAD_UPDATE = 'CHANNEL_UNREAD_UPDATE'
+
+    
 
 
 
@@ -39,3 +45,5 @@ browser = {
     "os": "Mac OS X",
     "os_version": "10.15.7"
 }
+
+MJBotId = 936929561302675456
