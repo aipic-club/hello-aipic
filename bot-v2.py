@@ -1,42 +1,39 @@
 
 
 import os
+import atexit
 # import requests
 from threading import Thread
+import concurrent.futures
 import asyncio
 from PIL import Image
 from celery import Celery
 from celery.signals import worker_init
-from dotenv import load_dotenv, find_dotenv
-from bot import Users
+from bot.DiscordUser.Gateway import Gateway
 from bot.DiscordBot import refine_prompt, pool
+from data import Data
+from config import *
 
-load_dotenv(find_dotenv())
 
 
-celery = Celery('tasks', broker=os.environ.get("CELERY.BROKER"))
+pool = concurrent.futures.ThreadPoolExecutor(max_workers=10)
+
+celery = Celery('tasks', broker= celery_broker)
+data = Data(
+        redis_url = redis_url,
+        mysql_url= mysql_url,
+        proxy = proxy,
+        s3config = s3config
+)
+atexit.register(data.close)
+
+gateway = Gateway( data = data , pool = pool)
 
 loop = asyncio.new_event_loop()
-users = Users( 
-    os.environ.get("http_proxy"), 
-    redis_url = os.environ.get("REDIS"),
-    mysql_url = os.environ.get("MYSQL"),
-    s3config= {
-        'aws_access_key_id' : os.environ.get("AWS.ACCESS_KEY_ID"),
-        'aws_secret_access_key' : os.environ.get("AWS.SECRET_ACCESS_KEY"),
-        'endpoint_url' : os.environ.get("AWS.ENDPOINT")
-    },
-    loop= loop
-)
-
-#loop = asyncio.new_event_loop()
-# loop.create_task(discordBot.start(os.environ.get("DISCORD.BOT.TOKEN")))
-# loop.run_forever()
-# t= Thread(target=loop.run_forever)
-# t.daemon = True
-# t.start()
-
-
+gateway.create(loop = loop)
+t= Thread(target=loop.run_forever)
+t.daemon = True
+t.start()
 
 
 
@@ -77,9 +74,9 @@ def ping():
 @celery.task(name='prompt',bind=True, base=BaseTask)
 def add_task(self, token_id , taskId, prompt):
     new_prompt = refine_prompt(taskId, prompt)
-    users.create_prompt(token_id, taskId, prompt, new_prompt)
-    #discordBot.loop.run_in_executor(pool, lambda: discordBot.send_prompt(token_id, taskId, prompt, new_prompt))
-    # id = self.request.id
+    
+    loop.run_in_executor(pool, lambda: gateway.create_prompt(token_id, taskId, prompt, new_prompt))
+
     return taskId
 
 @celery.task(name='variation',bind=True, base=BaseTask)
@@ -92,14 +89,6 @@ def upscale(self,  task: dict[str, str, str], index: str):
     #discordBot.loop.run_in_executor(pool, lambda: discordBot.send_upscale(task, index))
     
     return
-
-
-
-loop.create_task(users.start())
-t= Thread(target=loop.run_forever)
-t.daemon = True
-t.start()
-
 
 
 

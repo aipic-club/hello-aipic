@@ -27,9 +27,19 @@ def main():
         loop= loop
     )
 
+    user2= DiscordUser(
+        token = "MTAyMTYxMjYyODk4MTg0NjAzOA.GYfbDm.7WAlyPCSlemnPK6zSI1ZT2xBozEE_g2td9MeRw", 
+        proxy= os.environ.get("http_proxy"),
+        loop= loop
+    )
 
-    loop.create_task(user.run())
+
+
+    asyncio.run_coroutine_threadsafe(user.run(), loop)
+    asyncio.run_coroutine_threadsafe(user2.run(), loop)
+
     loop.run_forever()
+    #loop.run_forever()
 
 
 asyncio.run(main())

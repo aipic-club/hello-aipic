@@ -121,9 +121,13 @@ class Data():
             cursor.close()
             cnx.close()
         return id if id is not None else SysError.TOKEN_NOT_EXIST_OR_EXPIRED
-    # 有bug
     def prompt_task(self, token_id, taskId: str, status: TaskStatus) -> None:
-        key = f'prompt:{token_id}:{taskId}' if token_id is not None else f'prompt:*:{taskId}'
+        key = f'prompt:{token_id}:{taskId}'
+        if token_id is None:
+            keys = self.r.keys(f'prompt:*:{taskId}')
+            if len(keys) != 1:
+                return
+            key = keys[0]
         ttl = self.r.ttl(key) if  self.r.exists(key) else config['wait_time'] 
         # if ttl > 0:
         self.r.setex(key, ttl , status.value )

@@ -2,6 +2,8 @@ import asyncio
 import atexit
 from threading import Thread
 import nextcord
+
+from nextcord.ext import commands
 from .pool import pool
 from .Bot import Bot
 from .Selfbot import Selfbot
@@ -21,6 +23,8 @@ class DiscordBot():
         self.loop = asyncio.new_event_loop()
         atexit.register(self.data.close)
 
+
+
     async def __startBot(self, token):
         intents = nextcord.Intents.default()
         intents.presences = True
@@ -32,7 +36,17 @@ class DiscordBot():
         self.userbot = Selfbot( proxy = self.proxy)
         self.userbot.register_discord_users(discord_users)
 
-        bot = Bot(self.data , intents=intents, proxy = self.proxy)
+        bot = Bot( self.data , command_prefix='/', intents=intents, proxy = self.proxy)
+
+
+
+        @bot.command()
+        async def test(ctx):
+            print(12344444)
+            await ctx.send("some random text")
+
+
+
         await bot.start(token)
    
 

@@ -7,18 +7,21 @@ import zlib
 from typing import Callable
 from .utils import get_dict_value
 from .values import Opcodes, Events, browser, MJBotId
+from config import proxy
 
 
 class DiscordUser:
     APIURL = "https://discord.com/api/v9/interactions"
     WSSURL = "wss://gateway.discord.gg/?v=9&encoding=json&compress=zlib-stream"
     def __init__(
-            self, token: str, 
-            proxy : str, 
-            loop : asyncio.AbstractEventLoop
+            self, 
+            token: str, 
+            on_message: Callable | None,
+            loop: asyncio.AbstractEventLoop
         ) -> None:
         self.token = token
         self.proxy = proxy
+        self.on_message = on_message
         self.session =  None
         self.ws = None
         self.hb = None
@@ -31,10 +34,10 @@ class DiscordUser:
             'authorization' : self.token,
             'User-Agent': browser["browser_user_agent" ]
         }
-    
 
-    
+
     async def run(self) -> None:
+        await asyncio.sleep(5)
         self.session = aiohttp.ClientSession(loop = self.loop)
 
         self.ws = await  self.session.ws_connect(DiscordUser.WSSURL, proxy= self.proxy )
@@ -78,9 +81,6 @@ class DiscordUser:
         await self.__send(Opcodes.IDENTIFY ,  identify_data)
 
     async def __on_message(self, op: Opcodes , data: dict, sequence_number: int, event_name: str | None):
-        print("======")
-        print(op, data, event_name)
-        print("======")
         #print(op, event_name)
         self.sequence_number = sequence_number
         if op is Opcodes.HELLO:
@@ -89,13 +89,16 @@ class DiscordUser:
         elif op is Opcodes.INVALID_SESSION:
             await self.__identify()
         
+        # print("=====")
+        # print(op, event_name, data)
+        # print("=====")
         ##########
-
-        # if event_name == Events.INTERACTION_SUCCESS.value:
-        #     await self.msg_handler(Events.INTERACTION_SUCCESS, data)
-        # elif event_name == Events.MESSAGE_CREATE.value:
-        #     if get_dict_value(data, 'author.id')  == str(MJBotId):
-        #         # await self.msg_handler(Events.MESSAGE_CREATE, data)
+        if self.on_message is not None:
+            if event_name == Events.INTERACTION_SUCCESS.value:
+                self.on_message(Events.INTERACTION_SUCCESS, data)
+            elif event_name == Events.MESSAGE_CREATE.value:
+                if get_dict_value(data, 'author.id')  == str(MJBotId):
+                    self.on_message(Events.MESSAGE_CREATE, data)
 
 
 

@@ -1,0 +1,50 @@
+import asyncio
+from typing import Callable
+from .DiscordUser import DiscordUser
+from .values import MJBotId
+from .payloads import payloads
+from .values import Events
+
+
+accept_events = [Events.INTERACTION_SUCCESS.value, Events.MESSAGE_CREATE.value]
+
+
+class UserProxy:
+    def __init__(
+            self, 
+            token: str , 
+            guild_id: str,
+            channel_id: str, 
+            on_message: Callable | None,
+            loop: asyncio.AbstractEventLoop 
+        ) -> None:
+        self.guild_id = guild_id
+        self.channel_id = channel_id
+        self.on_mesage = on_message
+        self.user = DiscordUser(token= token, on_message= self.__on_message, loop= loop)
+        loop.create_task(self.user.run())
+    @property
+    def ids(self) -> dict[str, str]:
+        return {
+            "guild_id": self.guild_id,
+            "channel_id": self.channel_id,
+            "application_id": MJBotId,
+        }
+    def __on_message(self, event: Events, data: dict) -> None:
+        try:
+            if self.on_mesage is not None:
+                if event.value == Events.MESSAGE_CREATE.value:
+                    channel_id = data['channel_id'] 
+                    guild_id = data['guild_id']
+                    if self.channel_id != channel_id or self.guild_id != guild_id:
+                        return
+                self.on_mesage(event, data)
+        except Exception as e:
+            print("error when handle message", e)
+
+    async def send_prompt(self, prompt):
+        payload = payloads.prompt(self.ids, prompt)
+        print(payload)
+        await self.user.send_interactions(payload)
+    
+

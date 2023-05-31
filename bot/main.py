@@ -184,7 +184,7 @@ class Users:
                 user= DiscordUser(
                     token = token, 
                     proxy= self.proxy, 
-                    msg_handler = self.messages_handler
+                    loop = self.loop
                 )
             )
 
@@ -192,9 +192,9 @@ class Users:
 
         print(self.users['a1'])
 
-        #await  self.users['a1'].user.run()    
-        # for uid in self.users:
-        #     asyncio.run_coroutine_threadsafe( self.users[uid].user.run()  , loop= self.loop)
+        await  self.users['a1'].user.run()    
+        for uid in self.users:
+            asyncio.run_coroutine_threadsafe( self.users[uid].user.run()  , loop= self.loop)
 
     def get_user_by_taskId(self, taskId) -> UserProxy | None:
         uid = get_uid_by_taskId(taskId)
@@ -202,8 +202,6 @@ class Users:
             return  self.users[uid]
         else:
             return None
-
-
     def create_prompt(self, token_id, taskId, prompt, new_prompt) -> None:
         user  = self.get_user_by_taskId(taskId)
         if user is not None:
