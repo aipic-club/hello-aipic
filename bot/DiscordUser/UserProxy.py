@@ -13,8 +13,8 @@ accept_events = [Events.INTERACTION_SUCCESS.value, Events.MESSAGE_CREATE.value]
 class UserProxy:
     def __init__(
             self, 
+            id : int,
             token: str , 
-            id: str,
             guild_id: str,
             channel_id: str, 
             on_message: Callable | None,
@@ -26,8 +26,8 @@ class UserProxy:
         self.on_mesage = on_message
         self.score = 100
         self.snowflake = Snowflake(id, None)
-        self.user = DiscordUser(token= token, on_message= self.__on_message, loop= loop)
-        #loop.create_task(self.user.run())
+        self.user = DiscordUser( token= token, on_message= self.__on_message, loop= loop)
+        loop.create_task(self.user.run())
     @property
     def ids(self) -> dict[str, str]:
         return {
@@ -37,22 +37,25 @@ class UserProxy:
             "nonce": self.snowflake.generate_id()
         }
     def __on_message(self, event: Events, data: dict) -> None:
-        try:
+        # try:
             if self.on_mesage is not None:
+                message_worker_id = None
                 if event.value == Events.MESSAGE_CREATE.value:
+              
                     channel_id = data['channel_id'] 
                     guild_id = data['guild_id']
+                    nonce = data.get('nonce', None)
+                    message_worker_id = self.snowflake.get_worker_id(int(nonce)) if nonce else None
+
                     if self.channel_id != channel_id or self.guild_id != guild_id:
                         return
-                self.on_mesage(event, data)
-        except Exception as e:
-            print("error when handle message", e)
+                self.on_mesage(self.id,  message_worker_id ,  event, data)
+        # except Exception as e:
+        #     print("error when handle message", e)
 
     async def send_prompt(self, prompt):
-        print(12345)
         nonce = self.snowflake.generate_id()
         payload = payloads.prompt(self.ids, prompt, nonce)
-        print(payload)
         await self.user.send_interactions(payload)
     
 

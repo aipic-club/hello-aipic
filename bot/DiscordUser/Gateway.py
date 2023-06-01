@@ -37,8 +37,8 @@ class Gateway:
             guild_id= user['guild_id']
             channel_id=  user['channel_id']
             self.users[worker_id] = UserProxy( 
-                token = token, 
                 id = worker_id,
+                token = token, 
                 guild_id=guild_id,
                 channel_id=channel_id,
                 on_message= messageHandler.on_message,
@@ -62,31 +62,11 @@ class Gateway:
         else:
             return None
 
-    async def test(self):
-        while True:
-            print(1)
-            asyncio.sleep(1)
-
-
     def create_prompt(self, token_id, taskId, prompt, new_prompt) -> None:
         
-        # uid  = self.get_user_by_taskId(taskId)
-
-        # if uid is not None:
-        #     user = self.users[uid]
-        #     self.loop.create_task(user.send_prompt(new_prompt))
         worker_id = self.pick_a_worker_id()
-
-        print(worker_id, self.users[worker_id])
-        user = self.users[worker_id]
-        print(user.channel_id)
-        if user is not None:
-            print(asyncio.current_task(self.loop))
-            print(self.loop.is_running())
-            for item in asyncio.all_tasks(self.loop):
-                print(item)
-            self.loop.create_task(self.test())
-            #self.loop.create_task(user.send_prompt(new_prompt))
+        if self.users[worker_id] is not None:
+            self.loop.create_task(self.users[worker_id].send_prompt(new_prompt))
 
 
     def send_variation(self, prompt: str, task: dict[str, str], index: str):

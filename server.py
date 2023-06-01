@@ -141,18 +141,6 @@ async def prompt_detail(taskId: str, page: int = 1, size: int = 10, token_id: in
 
 @router.post("/prompts")
 async def send_prompt(item: Prompt, token_id: int = Depends(get_token_id) ):
-    # user = random.choice(discord_users.uids)
-    # user = 'a1'
-    # taskId = f'{user}.{random_id(10)}'      
-    # prompt = item.prompt
-    # data.add_task(
-    #     token_id = token_id,
-    #     prompt = prompt,
-    #     raw= item.raw,
-    #     taskId = taskId,
-    #     status = TaskStatus.CONFIRMED if item.execute else TaskStatus.CREATED
-    # ) 
-    # create a task id and save it t db
     taskId = random_id(11)
     prompt = item.prompt
     data.save_prompt(token_id= token_id, prompt=prompt, raw= item.raw, taskId= taskId)

@@ -60,6 +60,8 @@ class Data():
         try:
             add_prompt = ("INSERT INTO `prompts` (`token_id`, `taskId`,`prompt`, `raw`) VALUES( %(token_id)s, %(taskId)s, %(prompt)s, %(raw)s)")
             cursor.execute(add_prompt, params)
+            insertd_prompt_id = cursor.lastrowid
+            self.r.setex(f'taskId:{params.get("taskId")}', 60 * 5, insertd_prompt_id)
             cnx.commit()
         finally:
             cursor.close()
@@ -167,8 +169,36 @@ class Data():
             self.r.delete(f'prompt:*:{taskId}')
 
     def save_prompt(self, token_id: str,  prompt: str, raw: str,taskId: str  ):
-        pass
+        self.__insert_prompt({
+            'token_id': token_id, 
+            'taskId': taskId, 
+            'prompt': prompt,
+            'raw': raw
+        })
 
+    def update_prompt_worker_id(self, taskId: str , worker_id: int):
+        cnx = self.pool.get_connection()
+        cursor = cnx.cursor()
+        try:
+            temp = self.r.get(f'taskId:{taskId}')
+            if temp:
+                id = int(temp.decode('utf-8'))
+            else:
+                select_sql = "SELECT id `prompts` FROM `prompts` WHERE taskId=%(taskId)s"
+                cursor.execute(select_sql, {
+                    'taskId': taskId
+                })
+                record = cursor.fetchone()
+                if record is not None:
+                    id = record['id']
+            update_sql = "UPDATE `prompts` SET worker_id= %(worker_id)s  WHERE id = %(id)s"
+            cursor.execute(update_sql, {
+                'worker_id': worker_id, 
+                'id': id
+            })
+        finally:
+            cursor.close()
+            cnx.close()
 
     def add_task(self, 
             token_id: str,  
@@ -195,20 +225,15 @@ class Data():
             'url_global': None,
             'url_cn': None
         })
-    def commit_task(self, taskId: str ):
-        self.__insert_task({
-            'taskId': taskId,
-            'type': None,
-            'reference': None,
-            'v_index': None,
-            'u_index': None,
-            'status': TaskStatus.COMMITTED.value,
-            'message_id': None,
-            'message_hash': None,
-            'url_global': None,
-            'url_cn': None
-        })
+    def commit_task(self, taskId: str , worker_id: int ):
+        self.r.setex(f'worker:{worker_id}:{taskId}', 60 * 5 , '')
+        self.update_prompt_worker_id(taskId, worker_id)
         self.prompt_task(None , taskId, TaskStatus.COMMITTED )
+
+    def get_task(self, taskId: str , worker_id: int):
+        pass
+
+
     def process_task(self, taskId: str ,  type: OutputType, reference: int | None,  message_id: str ,   url: str):
         # download file and upload image
         file_name = str(url.split("_")[-1])
