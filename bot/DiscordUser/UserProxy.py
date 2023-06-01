@@ -4,6 +4,7 @@ from .DiscordUser import DiscordUser
 from .values import MJBotId
 from .payloads import payloads
 from .values import Events
+from data import Snowflake
 
 
 accept_events = [Events.INTERACTION_SUCCESS.value, Events.MESSAGE_CREATE.value]
@@ -13,22 +14,27 @@ class UserProxy:
     def __init__(
             self, 
             token: str , 
+            id: str,
             guild_id: str,
             channel_id: str, 
             on_message: Callable | None,
             loop: asyncio.AbstractEventLoop 
         ) -> None:
+        self.id = id
         self.guild_id = guild_id
         self.channel_id = channel_id
         self.on_mesage = on_message
+        self.score = 100
+        self.snowflake = Snowflake(id, None)
         self.user = DiscordUser(token= token, on_message= self.__on_message, loop= loop)
-        loop.create_task(self.user.run())
+        #loop.create_task(self.user.run())
     @property
     def ids(self) -> dict[str, str]:
         return {
             "guild_id": self.guild_id,
             "channel_id": self.channel_id,
             "application_id": MJBotId,
+            "nonce": self.snowflake.generate_id()
         }
     def __on_message(self, event: Events, data: dict) -> None:
         try:
@@ -43,7 +49,9 @@ class UserProxy:
             print("error when handle message", e)
 
     async def send_prompt(self, prompt):
-        payload = payloads.prompt(self.ids, prompt)
+        print(12345)
+        nonce = self.snowflake.generate_id()
+        payload = payloads.prompt(self.ids, prompt, nonce)
         print(payload)
         await self.user.send_interactions(payload)
     

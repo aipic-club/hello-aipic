@@ -19,6 +19,7 @@ from config import *
 pool = concurrent.futures.ThreadPoolExecutor(max_workers=10)
 
 celery = Celery('tasks', broker= celery_broker)
+
 data = Data(
         redis_url = redis_url,
         mysql_url= mysql_url,
@@ -27,15 +28,28 @@ data = Data(
 )
 atexit.register(data.close)
 
-gateway = Gateway( data = data , pool = pool)
+gateway = Gateway( 
+    id = int(celery_worker_id) , 
+    data = data, 
+    pool = pool
+)
+
+
+
 
 loop = asyncio.new_event_loop()
-gateway.create(loop = loop)
-t= Thread(target=loop.run_forever)
+loop.create_task(gateway.create(loop))
+
+t= Thread(target= loop.run_forever)
 t.daemon = True
 t.start()
 
+# loop = asyncio.new_event_loop()
 
+async def test():
+    while True:
+        print(1)
+        await asyncio.sleep(10)
 
 @worker_init.connect
 def worker_start(sender, **kwargs):
@@ -64,6 +78,7 @@ def worker_start(sender, **kwargs):
 #     buffer.close() 
 class BaseTask(celery.Task):
     def __init__(self):
+        self.loop = asyncio.new_event_loop()
         pass
   
 @celery.task(name='ping')
@@ -74,12 +89,10 @@ def ping():
 @celery.task(name='prompt',bind=True, base=BaseTask)
 def add_task(self, token_id , taskId, prompt):
     new_prompt = refine_prompt(taskId, prompt)
-    
-    loop.run_in_executor(pool, lambda: gateway.create_prompt(token_id, taskId, prompt, new_prompt))
-
+    gateway.loop.run_in_executor(pool, lambda: gateway.create_prompt(token_id, taskId, prompt, new_prompt))
     return taskId
 
-@celery.task(name='variation',bind=True, base=BaseTask)
+@celery.task(name='variation', bind=True,  base=BaseTask)
 def variation(self, prompt: str,  task: dict[str, str, str],  index: str):
     #discordBot.loop.run_in_executor(pool, lambda: discordBot.send_variation( prompt, task, index))
     
@@ -91,6 +104,6 @@ def upscale(self,  task: dict[str, str, str], index: str):
     return
 
 
-
 if __name__ == '__main__':
-    celery.worker_main(argv=['worker', '-l', 'info', '--pool=solo'])
+
+    celery.worker_main(argv=['worker', '--pool=solo',  '-l', 'info', '-Q' , f'queue_{celery_worker_id},celery'])

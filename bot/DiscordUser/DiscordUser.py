@@ -102,11 +102,7 @@ class DiscordUser:
 
 
 
-        
-
-
-
-
+    
     async def __send_heartbeat(self, heartbeat_interval):
         while True:
             print("♥️ send heartbeat")

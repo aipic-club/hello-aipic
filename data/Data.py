@@ -9,6 +9,7 @@ from .DiscordUsers import DiscordUsers
 from .values import  TaskStatus,ImageOperationType,OutputType,Cost, SysError,config
 from .utils import random_id,current_time,is_expired
 from .FileHandler import FileHandler
+from .Snowflake import Snowflake
 
 # logging.basicConfig(level=logging.DEBUG)
 # logger = logging.getLogger(__name__)
@@ -47,8 +48,6 @@ class Data():
                 print(err)
         self.r = redis.from_url(redis_url)
         self.fileHandler = FileHandler(proxy= proxy, s3config=s3config)
-        self.discordUsers = None
-        self.get_discord_users()
 
     def close(self):
         if self.session:
@@ -166,6 +165,10 @@ class Data():
                 'url_cn': None
             })
             self.r.delete(f'prompt:*:{taskId}')
+
+    def save_prompt(self, token_id: str,  prompt: str, raw: str,taskId: str  ):
+        pass
+
 
     def add_task(self, 
             token_id: str,  
@@ -343,22 +346,21 @@ class Data():
             cursor.close()
             cnx.close()
         return records
-    def get_discord_users(self) :
-        if self.discordUsers is not None:
-            return self.discordUsers
+    def get_discord_users(self, celery_worker_id: int):
         cnx = self.pool.get_connection()
         cursor = cnx.cursor(dictionary=True)  
         records = None
         try:
-            sql = ("SELECT uid,guild_id,channel_id,authorization FROM discord_users")
-            cursor.execute(sql)
+            sql = ("SELECT worker_id,guild_id,channel_id,authorization FROM discord_users WHERE worker_id >= %(start_id)s AND worker_id <= %(end_id)s")
+            cursor.execute(sql,{
+                'start_id': Snowflake.snowflake_worker_id(celery_worker_id, 0),
+                'end_id': Snowflake.snowflake_worker_id(celery_worker_id, 31),
+            })
             records = cursor.fetchall()
         finally:
             cursor.close()
             cnx.close()
         return records
-        #self.discordUsers = DiscordUsers(records)
-        #return self.discordUsers
 
     def create_trial_token(self, FromUserName):
         cnx = self.pool.get_connection()

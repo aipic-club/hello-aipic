@@ -1,8 +1,7 @@
 from .values import MJBotId
-from .utils import generate_snowflake_id
 class payloads:
     @staticmethod
-    def prompt(ids: dict[str, str], prompt):
+    def prompt(ids: dict[str, str], prompt, nonce):
         return {
             **ids,
             "type":2,
@@ -14,5 +13,5 @@ class payloads:
                 "application_command":{"id":"994261739745050684","application_id": MJBotId,"version":"994261739745050685","default_member_permissions": None,"type":1,"nsfw":False,"name":"ask","description":"Get an answer to a question.","dm_permission":True,"options":[{"type":3,"name":"question","description":"What is the question?","required":True}]},
                 "attachments":[]
             },
-            "nonce": str(generate_snowflake_id(None))
+            "nonce": nonce
         }
