@@ -11,6 +11,10 @@ timezone = pytz.timezone('Asia/Shanghai')
 date_object = datetime.now(timezone)
 utc_offset_seconds = date_object.utcoffset().total_seconds()
 
+def get_worker_id(snowflake_id):
+    return (snowflake_id >> 12) & 0x3FF
+
+
 def generate_snowflake_id(date_string: str | None):
     # 41 bits for time in units of 10 msec
     # 10 bits for a sequence number
