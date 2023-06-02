@@ -42,8 +42,8 @@ class UserProxy:
                 message_worker_id = None
                 if event.value == Events.MESSAGE_CREATE.value:
               
-                    channel_id = data['channel_id'] 
-                    guild_id = data['guild_id']
+                    channel_id = data.get('channel_id', None) 
+                    guild_id = data.get('guild_id', None)
                     nonce = data.get('nonce', None)
                     message_worker_id = self.snowflake.get_worker_id(int(nonce)) if nonce else None
 

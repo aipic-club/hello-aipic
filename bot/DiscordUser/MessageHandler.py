@@ -45,7 +45,7 @@ class MessageHandler:
             else:
                 curType = output_type(content)
 
-                if curType is not None and self.data.get_task( taskId = taskId, worker_id= worker_id):
+                if curType is not None and self.data.check_task_ower( taskId = taskId, worker_id= worker_id):
                     attachments =  data.get('attachments',[])
                     url =  attachments[0].get("url") if len(attachments) > 0  else None
                     self.loop.run_in_executor(self.pool, lambda: 

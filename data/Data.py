@@ -238,8 +238,9 @@ class Data():
         self.update_prompt_worker_id(taskId, worker_id)
         self.prompt_task(None , taskId, TaskStatus.COMMITTED )
 
-    def get_task(self, taskId: str, worker_id: int):
-        pass
+    def check_task_ower(self, taskId: str, worker_id: int):
+        keys = self.r.keys(f'worker:*:{worker_id}:{taskId}')
+        return len(keys) > 0
 
 
     def process_task(self, taskId: str ,  type: OutputType, reference: int | None,  message_id: str ,   url: str):
