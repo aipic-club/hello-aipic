@@ -5,7 +5,7 @@ import concurrent.futures
 from . import UserProxy
 from .MessageHandler import MessageHandler
 from .utils import *
-from data import Data,Snowflake
+from data import Data,Snowflake, config
 
 
 pool = concurrent.futures.ThreadPoolExecutor(max_workers=10)
@@ -29,7 +29,9 @@ class Gateway:
         
         self.loop = loop
         dbusers =  self.data.get_discord_users(self.id)
-        messageHandler = MessageHandler(data= self.data, pool= pool, loop= self.loop)
+        messageHandler = MessageHandler(id = self.id, data= self.data, pool= pool, loop= self.loop)
+        if len(dbusers) == 0:
+            raise Exception("not available users!!!")
         for user in dbusers:
             worker_id = user['worker_id']
             self.picked_worker_id = worker_id
@@ -44,7 +46,8 @@ class Gateway:
                 on_message= messageHandler.on_message,
                 loop =  self.loop
             )
- 
+
+
 
     def pick_a_worker_id(self) -> int:
         score = 0
@@ -63,9 +66,10 @@ class Gateway:
             return None
 
     def create_prompt(self, token_id, taskId, prompt, new_prompt) -> None:
-        
+
         worker_id = self.pick_a_worker_id()
         if self.users[worker_id] is not None:
+            self.data.prompt_task(token_id, taskId, TaskStatus.CONFIRMED, config['wait_time'])
             self.loop.create_task(self.users[worker_id].send_prompt(new_prompt))
 
 

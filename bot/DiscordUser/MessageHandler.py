@@ -8,10 +8,12 @@ from data import Snowflake
 class MessageHandler:
     def __init__(
             self, 
+            id: int,
             data: Data, 
             pool: concurrent.futures.ProcessPoolExecutor,
             loop: asyncio.AbstractEventLoop
         ):
+        self.id = id
         self.data = data
         self.pool = pool
         self.loop = loop
@@ -31,13 +33,13 @@ class MessageHandler:
             taskId = get_taskId(content)
             print(f'==⏰== taskId {taskId}')
             task_is_committed = is_committed(content)
-
             if task_is_committed:
                 #### check the worker id
       
                 if  worker_id == message_worker_id:
                         self.data.commit_task(
                             taskId = taskId,
+                            broker_id= self.id,
                             worker_id= worker_id
                         )
             else:

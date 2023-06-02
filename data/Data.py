@@ -122,16 +122,19 @@ class Data():
             cursor.close()
             cnx.close()
         return id if id is not None else SysError.TOKEN_NOT_EXIST_OR_EXPIRED
-    def prompt_task(self, token_id, taskId: str, status: TaskStatus) -> None:
+    def prompt_task(self, token_id, taskId: str, status: TaskStatus, ttl: int = None ) -> None:
         key = f'prompt:{token_id}:{taskId}'
         if token_id is None:
             keys = self.r.keys(f'prompt:*:{taskId}')
             if len(keys) != 1:
                 return
             key = keys[0]
-        ttl = self.r.ttl(key) if  self.r.exists(key) else config['wait_time'] 
-        # if ttl > 0:
-        self.r.setex(key, ttl , status.value )
+        if ttl is not None:
+            _ttl = ttl
+        else:
+            _ttl = self.r.ttl(key) if  self.r.exists(key) else config['wait_time'] 
+        if _ttl > 0:
+            self.r.setex(key, _ttl , status.value )
         
     def prompt_task_status(self, token_id, taskId: str) -> bool:
         return self.r.get(f'prompt:{token_id}:{taskId}')
@@ -147,7 +150,7 @@ class Data():
 
     def add_interaction(self, key, value ) -> bool:
 
-        return self.r.setex(f'interaction:{key}', 60,  value)
+        return self.r.setex(f'interaction:{key}', config['wait_time'] ,  value)
 
 
 
@@ -175,6 +178,7 @@ class Data():
             'prompt': prompt,
             'raw': raw
         })
+        self.prompt_task(token_id , taskId, TaskStatus.CREATED )
 
     def update_prompt_worker_id(self, taskId: str , worker_id: int):
         cnx = self.pool.get_connection()
@@ -225,12 +229,16 @@ class Data():
             'url_global': None,
             'url_cn': None
         })
-    def commit_task(self, taskId: str , worker_id: int ):
-        self.r.setex(f'worker:{worker_id}:{taskId}', 60 * 5 , '')
+
+    # worker: broker_id : account_id: taks_id
+
+
+    def commit_task(self, taskId: str , broker_id: int,  worker_id: int ):
+        self.r.setex(f'worker:{broker_id}:{worker_id}:{taskId}', config['wait_time']  , '')
         self.update_prompt_worker_id(taskId, worker_id)
         self.prompt_task(None , taskId, TaskStatus.COMMITTED )
 
-    def get_task(self, taskId: str , worker_id: int):
+    def get_task(self, taskId: str, worker_id: int):
         pass
 
 
@@ -238,9 +246,10 @@ class Data():
         # download file and upload image
         file_name = str(url.split("_")[-1])
         hash = str(file_name.split(".")[0])
-        url_cn = f'/{taskId}/{file_name}'   
+        url_cn = f'https://imgcdn.aipic.club/{taskId}/{file_name}'   
         # copy to s3 bucket
         print("==🖼upload image ==")
+        print(asyncio.get_event_loop())
         loop = asyncio.new_event_loop()
         loop.run_until_complete(
             self.fileHandler.copy_discord_img_to_bucket(

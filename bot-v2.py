@@ -28,6 +28,7 @@ data = Data(
 )
 atexit.register(data.close)
 
+
 gateway = Gateway( 
     id = int(celery_worker_id) , 
     data = data, 
@@ -44,41 +45,14 @@ t= Thread(target= loop.run_forever)
 t.daemon = True
 t.start()
 
-# loop = asyncio.new_event_loop()
-
-async def test():
-    while True:
-        print(1)
-        await asyncio.sleep(10)
 
 @worker_init.connect
 def worker_start(sender, **kwargs):
     print('worker started')
     # discordBot.start(os.environ.get("DISCORD.BOT.TOKEN"))
 
-
-#https://stackoverflow.com/questions/37751877/downloading-image-with-pil-and-requests
-# def downloadImage(img_url, id):
-#     buffer = tempfile.SpooledTemporaryFile(max_size=1e9)
-#     r = requests.get(img_url, stream=True)
-#     if r.status_code == 200:
-#         downloaded = 0
-#         filesize = int(r.headers['content-length'])
-#         for chunk in r.iter_content(chunk_size=1024):
-#             downloaded += len(chunk)
-#             buffer.write(chunk)
-#             print(downloaded/filesize)
-#         buffer.seek(0)
-#         i = Image.open(io.BytesIO(buffer.read()))
-#         i.save(os.path.join(
-#             os.getcwd(), 
-#             'tmp',
-#             f'{id}.jpg'
-#         ), quality=100)
-#     buffer.close() 
 class BaseTask(celery.Task):
     def __init__(self):
-        self.loop = asyncio.new_event_loop()
         pass
   
 @celery.task(name='ping')
@@ -105,5 +79,4 @@ def upscale(self,  task: dict[str, str, str], index: str):
 
 
 if __name__ == '__main__':
-
     celery.worker_main(argv=['worker', '--pool=solo',  '-l', 'info', '-Q' , f'queue_{celery_worker_id},celery'])
