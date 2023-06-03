@@ -41,6 +41,8 @@ class SysError(Enum):
 
 
 config = {
-    'wait_time': 60 * 10
+    'wait_time': 60 * 10,  # 10 minutes
+    'cache_time': 6 * 60 * 60  # half day
 }
     
+image_hostname = 'https://imgcdn.aipic.club'

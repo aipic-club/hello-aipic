@@ -65,12 +65,14 @@ class Gateway:
         else:
             return None
 
+
     def create_prompt(self, token_id, taskId, prompt, new_prompt) -> None:
 
         worker_id = self.pick_a_worker_id()
         if self.users[worker_id] is not None:
             self.data.prompt_task(token_id, taskId, TaskStatus.CONFIRMED, config['wait_time'])
             self.loop.create_task(self.users[worker_id].send_prompt(new_prompt))
+            self.loop.create_task(self.check_task(taskId= taskId))
 
 
     def send_variation(self, prompt: str, task: dict[str, str], index: str):
@@ -78,7 +80,11 @@ class Gateway:
         if uid is not None:
             pass
 
-    def send_upscale(self, task: dict[str, str, str], index: str):
+    def send_upscale(self, task: dict[str, str], index: str):
         uid  = self.get_user_by_taskId(task['taskId'])
         if uid is not None:
             pass
+
+    async def check_task(self, taskId: str):
+        await config['wait_time'] - 10
+        self.data.check_task(taskId= taskId)

@@ -56,6 +56,10 @@ class UserProxy:
     async def send_prompt(self, prompt):
         nonce = self.snowflake.generate_id()
         payload = payloads.prompt(self.ids, prompt, nonce)
-        await self.user.send_interactions(payload)
+        
+        try:
+            await self.user.send_interactions(payload)
+        except Exception as e:
+            print("error when handle message", e)
     
 

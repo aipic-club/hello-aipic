@@ -183,11 +183,13 @@ async def upscale( item: Upscale, image_hash:str,token_id: int = Depends(get_tok
     if task is None:
         raise HTTPException(404)    
     else:
+        broker_id = data.get_broker_id(task['worker_id'])
         res = celery.send_task('upscale',
             (
                 task,
                 item.index
-            )
+            ),
+            queue= f"queue_{broker_id}"
         )
     return {}
 
@@ -197,12 +199,14 @@ async def variation( item: Remix,  image_hash:str,  token_id: int = Depends(get_
     if task is None:
         raise HTTPException(404)    
     else:
+        broker_id = data.get_broker_id(task['worker_id'])
         res = celery.send_task('variation',
             (
                 item.prompt,
                 task,
-                item.index
-            )
+                item.index,
+            ),
+            queue= f"queue_{broker_id}"
         )
     return {}
 
@@ -215,8 +219,6 @@ async def get_profile(token_id: int = Depends(get_token_id)):
         'blance': info['blance'],
         'expire_at': info['expire_at']
     }
-
-
 
 @router.post("/sign")
 async def get_sign(content_type :str, token_id: int = Depends(get_token_id)):

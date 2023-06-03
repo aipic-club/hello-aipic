@@ -56,16 +56,16 @@ class Snowflake:
         return worker_id
 
 
-    # _ _ _ _ _ / _ _ _ _ _ 5 bits for bot id and 5 bits for account id
+    # _ _ _ _ _ / _ _ _ _ _ 5 bits for broker id and 5 bits for account id
     # bot id and account id max value are both 31
     @staticmethod
-    def snowflake_worker_id( celery_worker_id: int, account_id) -> int:
-        return (celery_worker_id << 5) | account_id
+    def snowflake_worker_id( broker_id: int, account_id) -> int:
+        return (broker_id << 5) | account_id
     @staticmethod
     def parse_worker_id( worker_id):
-        celery_worker_id  = worker_id >> 5
+        broker_id  = worker_id >> 5
         account_id = worker_id & 0x1f
-        return celery_worker_id , account_id
+        return broker_id , account_id
 
 
 

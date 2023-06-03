@@ -31,7 +31,12 @@ class MessageHandler:
                 return
             reference_id = get_dict_value(data, 'message_reference.message_id')
             taskId = get_taskId(content)
-            print(f'==⏰== taskId {taskId}')
+   
+
+            if taskId is None:
+                return
+            print(f'⏰ taskId {taskId}')
+
             task_is_committed = is_committed(content)
             if task_is_committed:
                 #### check the worker id
@@ -44,7 +49,7 @@ class MessageHandler:
                         )
             else:
                 curType = output_type(content)
-
+                print(f'type {curType}, worker id {worker_id}')
                 if curType is not None and self.data.check_task_ower( taskId = taskId, worker_id= worker_id):
                     attachments =  data.get('attachments',[])
                     url =  attachments[0].get("url") if len(attachments) > 0  else None
