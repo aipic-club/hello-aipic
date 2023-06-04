@@ -1,13 +1,16 @@
 import redis
 import asyncio
+import json
+import time
 # import logging
 from urllib.parse import urlparse
 import mysql.connector.pooling
 from mysql.connector import errorcode
 from .DiscordUsers import DiscordUsers
-from .values import  TaskStatus,OutputType,Cost, SysError,config
+from .values import  TaskStatus,ImageOperationType,OutputType,Cost, SysError,config,image_hostname
 from .utils import random_id,current_time,is_expired
 from .FileHandler import FileHandler
+from .Snowflake import Snowflake
 
 # logging.basicConfig(level=logging.DEBUG)
 # logger = logging.getLogger(__name__)
@@ -46,27 +49,43 @@ class Data():
                 print(err)
         self.r = redis.from_url(redis_url)
         self.fileHandler = FileHandler(proxy= proxy, s3config=s3config)
-        self.discordUsers = None
-        self.get_discord_users()
 
     def close(self):
         if self.session:
             self.session.close()
         if self.client:
             self.client.close()
-    def __insert_prompt(self, params: dict):
+    def __insert_prompt(self, params: dict) -> int | None:
         cnx = self.pool.get_connection()
         cursor = cnx.cursor()
+        insertd_prompt_id = None
         try:
             add_prompt = ("INSERT INTO `prompts` (`token_id`, `taskId`,`prompt`, `raw`) VALUES( %(token_id)s, %(taskId)s, %(prompt)s, %(raw)s)")
             cursor.execute(add_prompt, params)
+            insertd_prompt_id = cursor.lastrowid
             cnx.commit()
         finally:
             cursor.close()
             cnx.close()
+        return insertd_prompt_id
+    
+    def __set_task_cache(self, taskId: str, prompt_id: int,  worker_id: int | None):
+        json_data = json.dumps({
+            'prompt_id': prompt_id,
+            'worker_id': worker_id
+        })
+        self.r.setex(f'task:{taskId}', config['cache_time'], json_data)
+
+    def __get_task_cache(self, taskId: str):
+        temp = self.r.get(f'task:{taskId}')
+        data = None
+        if temp is not None:
+            data = json.loads(temp.decode('utf-8'))
+        return data
+
     def __insert_task(self, params: dict):
         cnx = self.pool.get_connection()
-        cursor = cnx.cursor()
+        cursor = cnx.cursor(dictionary=True)
         try:
             cnx.start_transaction()
             #### get token_id ###
@@ -75,7 +94,7 @@ class Data():
             cursor.execute(sql, val)
             record = cursor.fetchone()
             if record is not None:
-                token_id = record[0]
+                token_id = record['token_id']
                 add_sql = (
                     "INSERT INTO `tasks` "
                     "(`taskID`,`type`,`reference`,`v_index`,`u_index`,`status`,`message_id`,`message_hash`,`url_global`,`url_cn`) "
@@ -120,13 +139,47 @@ class Data():
             cursor.close()
             cnx.close()
         return id if id is not None else SysError.TOKEN_NOT_EXIST_OR_EXPIRED
-    def cache_task(self, taskId: str,  prompt: str):
-        self.r.setex(taskId, config['wait_time'] , prompt )
+    def prompt_task(self, token_id, taskId: str, status: TaskStatus, ttl: int = None ) -> None:
+        key = f'prompt:{token_id}:{taskId}'
+        if token_id is None:
+            keys = self.r.keys(f'prompt:*:{taskId}')
+            if len(keys) != 1:
+                return
+            key = keys[0]
+        if ttl is not None:
+            _ttl = ttl
+        else:
+            _ttl = self.r.ttl(key) if  self.r.exists(key) else config['wait_time'] 
+        if _ttl > 0:
+            self.r.setex(key, _ttl , status.value )
+
+    def prompt_task_status(self, token_id, taskId: str):
+        key = f'prompt:{token_id}:{taskId}' 
+        return self.r.get(key)
     
+    ### 
+    def image_task(self, taskId: str, imageHash: str, type: ImageOperationType, index: str):
+        self.r.setex(f'image:{taskId}:{imageHash}', config['wait_time'] ,  f'{imageHash}.{type.value}.{index}')
+
+    def image_task_status(self, taskId) -> list:
+        keys = self.r.keys(f'image:{taskId}:*')
+        return self.r.mget(keys)
     
 
+    def add_interaction(self, key, value ) -> bool:
+
+        return self.r.setex(f'interaction:{key}', config['wait_time'] ,  value)
+    
+    def get_interaction(self, key)-> int:
+        value = self.r.get(f'interaction:{key}')
+        return int(value) if value is not None else None
+
+
+
+
     def check_task(self, taskId: str):
-        if 1 == self.r.exists(taskId):
+        print(f'✔️ check task {taskId}')
+        if TaskStatus.CONFIRMED == self.r.get(f'prompt*:{taskId}'):
             self.__insert_task({
                 'taskId': taskId,
                 'type': None,
@@ -139,65 +192,138 @@ class Data():
                 'url_global': None,
                 'url_cn': None
             })
-            self.r.delete(taskId)
+            self.r.delete(f'prompt:*:{taskId}')
+            self.r.delete(f'worker:*:*:{taskId}')
 
-    def add_task(self, 
-            token_id: str,  
-            prompt: str, 
-            raw: str,
-            taskId: str , 
-            status: TaskStatus = TaskStatus.CREATED 
-        ):
-        self.__insert_prompt({
+    def save_prompt(self, token_id: str,  prompt: str, raw: str,taskId: str  ):
+        prompt_id = self.__insert_prompt({
             'token_id': token_id, 
             'taskId': taskId, 
             'prompt': prompt,
             'raw': raw
         })
-        self.__insert_task({
-            'taskId': taskId,
-            'type': None,
-            'reference': None,
-            'v_index': None,
-            'u_index': None,
-            'status': status.value,
-            'message_id': None,
-            'message_hash': None,
-            'url_global': None,
-            'url_cn': None
-        })
-    def commit_task(self, taskId: str ):
-        self.__insert_task({
-            'taskId': taskId,
-            'type': None,
-            'reference': None,
-            'v_index': None,
-            'u_index': None,
-            'status': TaskStatus.COMMITTED.value,
-            'message_id': None,
-            'message_hash': None,
-            'url_global': None,
-            'url_cn': None
-        })
-        self.r.delete(taskId)
+        self.__set_task_cache(taskId=taskId, prompt_id=prompt_id, worker_id= None)
+        self.prompt_task(token_id , taskId, TaskStatus.CREATED )
+
+    def get_prompt_by_taskId(self, taskId: str):
+        cnx = self.pool.get_connection()
+        cursor = cnx.cursor(dictionary=True)
+        record = None
+        try:
+            select_sql = "SELECT id, worker_id FROM `prompts` WHERE taskId=%(taskId)s"
+            cursor.execute(select_sql, {
+                'taskId': taskId
+            })
+            record = cursor.fetchone()
+        finally:
+            cursor.close()
+            cnx.close()
+        return record
+
+    def update_prompt_worker_id(self, taskId: str , worker_id: int):
+        cnx = self.pool.get_connection()
+        cursor = cnx.cursor()
+        try:
+            task_data = self.__get_task_cache(taskId=taskId)
+            if task_data is not None:
+                id = task_data['prompt_id']
+            else:
+                item = self.get_prompt_by_taskId(taskId)
+                id = item['id']
+            update_sql = "UPDATE `prompts` SET worker_id=%(worker_id)s  WHERE id=%(id)s"
+            cursor.execute(update_sql, {
+                'worker_id': worker_id, 
+                'id': id
+            })
+            cnx.commit()
+            self.__set_task_cache(taskId=taskId, prompt_id= id, worker_id= worker_id)
+        finally:
+            cursor.close()
+            cnx.close()
+    def get_task_worker_id(self, taskId: str):
+        worker_id = None
+        task_data = self.__get_task_cache(taskId=taskId)
+        if task_data is not None:
+            worker_id = task_data['worker_id']
+        if worker_id is None:
+            item = self.get_prompt_by_taskId(taskId)
+            worker_id = item['worker_id']
+        return worker_id
+    def get_broker_id(self, worker_id: int):
+        broker_id , _ = Snowflake.parse_worker_id(worker_id=worker_id)
+        return broker_id
+
+
+
+
+    # def add_task(self, 
+    #         token_id: str,  
+    #         prompt: str, 
+    #         raw: str,
+    #         taskId: str , 
+    #         status: TaskStatus = TaskStatus.CREATED 
+    #     ):
+    #     self.__insert_prompt({
+    #         'token_id': token_id, 
+    #         'taskId': taskId, 
+    #         'prompt': prompt,
+    #         'raw': raw
+    #     })
+    #     self.__insert_task({
+    #         'taskId': taskId,
+    #         'type': None,
+    #         'reference': None,
+    #         'v_index': None,
+    #         'u_index': None,
+    #         'status': status.value,
+    #         'message_id': None,
+    #         'message_hash': None,
+    #         'url_global': None,
+    #         'url_cn': None
+    #     })
+
+    # worker: broker_id : account_id: taks_id
+
+
+    def commit_task(self, taskId: str , broker_id: int,  worker_id: int ):
+        self.r.setex(f'worker:{broker_id}:{worker_id}:{taskId}', config['wait_time']  , '')
+        self.update_prompt_worker_id(taskId, worker_id)
+        self.prompt_task(None , taskId, TaskStatus.COMMITTED )
+
+    def is_task_onwer(self, taskId: str, worker_id: int) -> bool:
+        print("check task onwer")
+        data =  self.__get_task_cache(taskId=taskId)
+
+        if data is not None and data.get('worker_id') == worker_id:
+            return True
+        data =  self.get_prompt_by_taskId(taskId=taskId)
+        
+        if data is not None and worker_id == data['worker_id']:
+            self.__set_task_cache(taskId=taskId, prompt_id= data['id'], worker_id=worker_id)
+            return True
+        
+        return False
+
+
+
     def process_task(self, taskId: str ,  type: OutputType, reference: int | None,  message_id: str ,   url: str):
+        
+
         # download file and upload image
         file_name = str(url.split("_")[-1])
         hash = str(file_name.split(".")[0])
-        url_cn = f'/{taskId}/{file_name}'   
-        self.r.delete(taskId)
+        url_cn = f'{image_hostname}/{taskId}/{file_name}'   
         # copy to s3 bucket
-        print("==🖼upload image ==")
-        loop = asyncio.new_event_loop() 
-        asyncio.set_event_loop(loop)
+        print("🖼upload image")
+        loop = asyncio.new_event_loop()
         loop.run_until_complete(
             self.fileHandler.copy_discord_img_to_bucket(
                 path= taskId, 
                 file_name= file_name,
                 url = url 
             )
-        )    
-        loop.close()   
+        )  
+        loop.close()  
         # update mysql record
         self.__insert_task({
             'taskId': taskId,
@@ -211,22 +337,23 @@ class Data():
             'url_global': url,
             'url_cn': url_cn
         })
+        self.prompt_task(None , taskId, TaskStatus.FINISHED )
     def get_task_by_messageHash(self, token_id: int, id: int) -> dict[str, str]:
-        # https://stackoverflow.com/questions/29772337/python-mysql-connector-unread-result-found-when-using-fetchone
         cnx = self.pool.get_connection()
         cursor = cnx.cursor()
         try:
             ### check the id is belong to the token
             ### sql = "SELECT t1.taskId,t1.message_id,t1.message_hash FROM `tasks` t1 LEFT JOIN `prompts` t2  ON t1.taskId = t2.taskId WHERE t2.token_id = %s AND t1.id = %s LIMT 1"
-            sql = " SELECT t1.taskId,t1.message_id,t1.message_hash FROM `tasks` t1 LEFT JOIN (SELECT taskId FROM `prompts` WHERE id = %s) t2 ON t1.taskId = t2.taskId WHERE t1.message_hash = %s LIMIT 1"
+            sql = " SELECT t2.worker_id,t1.taskId,t1.message_id,t1.message_hash FROM `tasks` t1 LEFT JOIN (SELECT worker_id,taskId FROM `prompts` WHERE token_id = %s) t2 ON t1.taskId = t2.taskId WHERE t1.message_hash = %s LIMIT 1"
             val = (token_id, id,)
             cursor.execute(sql, val)
             record = cursor.fetchone()
             if record is not None: 
                 return {
-                    'taskId': record[0],
-                    'message_id' : record[1],
-                    'message_hash' : record[2]
+                    'worker_id': record[0],
+                    'taskId': record[1],
+                    'message_id' : record[2],
+                    'message_hash' : record[3]
                 }
             else:
                 return None
@@ -318,21 +445,21 @@ class Data():
             cursor.close()
             cnx.close()
         return records
-    def get_discord_users(self) -> DiscordUsers:
-        if self.discordUsers is not None:
-            return self.discordUsers
+    def get_discord_users(self, celery_worker_id: int):
         cnx = self.pool.get_connection()
         cursor = cnx.cursor(dictionary=True)  
         records = None
         try:
-            sql = ("SELECT uid,guild_id,channel_id,authorization FROM discord_users")
-            cursor.execute(sql)
+            sql = ("SELECT worker_id,guild_id,channel_id,authorization FROM discord_users WHERE worker_id >= %(start_id)s AND worker_id <= %(end_id)s")
+            cursor.execute(sql,{
+                'start_id': Snowflake.snowflake_worker_id(celery_worker_id, 0),
+                'end_id': Snowflake.snowflake_worker_id(celery_worker_id, 31),
+            })
             records = cursor.fetchall()
         finally:
             cursor.close()
             cnx.close()
-        self.discordUsers = DiscordUsers(records)
-        return self.discordUsers
+        return records
 
     def create_trial_token(self, FromUserName):
         cnx = self.pool.get_connection()
@@ -371,7 +498,7 @@ class Data():
                     record3 = cursor.fetchone()
                     if record3 is not None:
                         token = record3['token']
-                        days = record3['days']
+                        days = record3['days'] 
             if token is None:
                 token = random_id(20)
                 create_token_sql = ("INSERT INTO `tokens` (`token`,`blance`,`type`,`expire_at`) VALUES( %(token)s, 100, 1 , DATE_ADD(NOW(), INTERVAL %(days)s DAY) )")
@@ -392,8 +519,8 @@ class Data():
         finally:
             cursor.close()
             cnx.close()
-        return f'{token}\n有效期剩余{days}天\n有效期后可继续获取试用'
-        # \n回复【教程】获取试用帮助\n您也可以点击下方链接\n<a href="https://cnjourney.pancrasxox.xyz/trial/{token}">在微信中试用AIPic</a>
+        expire = '一天内到期' if days == 0 else f'{token}\n有效期剩余{days}天'
+        return f'{expire}\n有效期后可继续获取试用 \n点击下方链接\n<a href="https://aipic.club/trial/{token}">在微信中试用AIPic</a>'
 
 
 

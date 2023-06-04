@@ -18,6 +18,9 @@ websocket-client = "==1.5.1"
 uvicorn = "*"
 mysql-connector-python = "*"
 wechatpy = {extras = ["cryptography"], version = "*"}
+pytz = "*"
+websocket = "*"
+websockets = "*"
 
 [dev-packages]
 

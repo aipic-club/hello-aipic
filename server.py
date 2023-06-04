@@ -92,8 +92,6 @@ data = Data(
     }
 )
 
-discord_users = data.get_discord_users()
-
 
 class Prompt(BaseModel):
     prompt: str
@@ -143,32 +141,41 @@ async def prompt_detail(taskId: str, page: int = 1, size: int = 10, token_id: in
 
 @router.post("/prompts")
 async def send_prompt(item: Prompt, token_id: int = Depends(get_token_id) ):
-    user = random.choice(discord_users.uids)
-    taskId = f'{user}.{random_id(10)}'    
+    taskId = random_id(11)
     prompt = item.prompt
-    data.add_task(
-        token_id = token_id,
-        prompt = prompt,
-        raw= item.raw,
-        taskId = taskId,
-        status = TaskStatus.CONFIRMED if item.execute else TaskStatus.CREATED
-    ) 
-
+    data.save_prompt(token_id= token_id, prompt=prompt, raw= item.raw, taskId= taskId)
     if item.execute:
          celery.send_task('prompt',
             (
                 token_id,
                 taskId,
                 prompt
-            )
+            ),
+            task_id= taskId,
+            # queue="queue_1"
         )
+         
     return {
         'id':  taskId
     }
 
 @router.get("/prompts/{taskId}")
-async def send_prompt(token_id: int = Depends(get_token_id) ):
-    return ""
+async def send_prompt(taskId: str, token_id: int = Depends(get_token_id) ):
+
+    imageStatus = data.image_task_status(taskId)
+    if len(imageStatus) > 0:
+        return  {
+            'status': TaskStatus.FINISHED.value,
+            'images': imageStatus
+        }
+    
+    status = data.prompt_task_status(token_id, taskId)
+    return {
+        'status': int(status) if status else None,
+        'images': []
+    }
+
+        
 
 @router.post("/images/{image_hash}/upscale")
 async def upscale( item: Upscale, image_hash:str,token_id: int = Depends(get_token_id)):
@@ -176,11 +183,13 @@ async def upscale( item: Upscale, image_hash:str,token_id: int = Depends(get_tok
     if task is None:
         raise HTTPException(404)    
     else:
+        broker_id = data.get_broker_id(task['worker_id'])
         res = celery.send_task('upscale',
             (
                 task,
                 item.index
-            )
+            ),
+            queue= f"queue_{broker_id}"
         )
     return {}
 
@@ -190,12 +199,15 @@ async def variation( item: Remix,  image_hash:str,  token_id: int = Depends(get_
     if task is None:
         raise HTTPException(404)    
     else:
+        broker_id = data.get_broker_id(task['worker_id'])
+        print(broker_id)
         res = celery.send_task('variation',
             (
-                task,
                 item.prompt,
-                item.index
-            )
+                task,
+                item.index,
+            ),
+            queue= f"queue_{broker_id}"
         )
     return {}
 
@@ -208,8 +220,6 @@ async def get_profile(token_id: int = Depends(get_token_id)):
         'blance': info['blance'],
         'expire_at': info['expire_at']
     }
-
-
 
 @router.post("/sign")
 async def get_sign(content_type :str, token_id: int = Depends(get_token_id)):

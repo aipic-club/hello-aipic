@@ -1,48 +1,55 @@
-import os
-import time
-import asyncio
-import yaml
-# from threading import Thread
-# from bot.DiscordBot.Selfbot import Selfbot
-from bot import SelfOnline
-from dotenv import load_dotenv, find_dotenv
-# from bot.DiscordBot import DiscordBot
-# from bot.DiscordBot.users import users, is_user_in_channel
+from snowflake import Snowflake
+from datetime import datetime
+import pytz
+
+timezone = pytz.timezone('Asia/Shanghai')
+
+date_object = datetime.now(timezone)
+utc_offset_seconds = date_object.utcoffset().total_seconds()
 
 
 
 
-file = open( os.path.join( os.getcwd(), 'users.yaml') , 'r', encoding="utf-8")
-file_data = file.read()
-file.close()
-users = yaml.safe_load(file_data)
+def generate_snowflake_id(date_string: str ):
+    # 41 bits for time in units of 10 msec
+    # 10 bits for a sequence number
+    # 12 bits for machine id
 
-proxy =  os.environ.get("http_proxy")
+    epoch = 1420070400000
+    gmt_dt = datetime.strptime(date_string, '%a, %d %b %Y %H:%M:%S %Z')
+    timestamp_ms = int((gmt_dt.timestamp() + utc_offset_seconds) * 1000 + 125)
+    timestamp = timestamp_ms - epoch
+    return (timestamp << 22) ^ (1 << 18)     
 
-
-# selfbot = Selfbot(proxy = proxy, users= users)
-
-
-print('bot test')
-
-selfOnline = SelfOnline( users )
-
-selfOnline.run()
+# Example usage:
 
 
+snowflake = Snowflake(1111703206368378880)
+snowflake2 = Snowflake(1111703207668887634)
+
+# snowflake3 = Snowflake(1111682555272503356)
+
+print(snowflake.to_date)
+print(snowflake2.to_date)
+print(snowflake.timestamp)
+print(snowflake2.timestamp)
 
 
-# loop.run_in_executor(None, selfbot.keep_online())
+print("====")
+snowflake_id = generate_snowflake_id("Fri, 26 May 2023 17:02:27 GMT")
+
+print(snowflake_id)
+s = Snowflake(snowflake_id)
+
+print(s.to_date)
 
 
 
-# # good
-# response  = selfbot.sendPrompt("an Asian girl jumps into a river, full body --v 5 --no .1qwsdf")
-# print(response)
-# #bad 
-# response  = selfbot.sendPrompt("a nude Asian girl jumps into a river, full body --v 5 --no .1dflxe")
-# print(response)
 
 
-# response  = selfbot.sendPrompt("nikon RAW photo,8 k,Fujifilm XT3,masterpiece, best quality, 1girl,solo,realistic, photorealistic,ultra detailed, diamond stud earrings, long straight black hair, hazel eyes, serious expression, slender figure, wearing a black blazer and white blouse, standing against a city skyline at night iu1, <lora:iu_v35:1><lora:lightAndShadow_v10:0.7>, --v 5")
-# print(response)
+# print(format(snowflake_id , "08b"))
+# print(snowflake.to_binary)
+
+# snowflake2 = Snowflake(snowflake_id)
+# print(snowflake.to_date)
+# print(snowflake2.to_date)

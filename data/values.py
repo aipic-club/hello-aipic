@@ -4,7 +4,7 @@ from enum import Enum
 class TaskStatus(Enum):
     
     ABORTED = 0 # 经过 server 的初筛，认为包含不合适的内容，不会向MJ 发送
-    CREATED = 1 # 保存为草稿，但并不向MJ 发送
+    CREATED = 1 # 已创建
     CONFIRMED = 2 # 向MJ 发送
     COMMITTED = 3 # 已经送达至MJ 
     FINISHED = 4 # MJ 已经成功返回图像
@@ -16,11 +16,15 @@ class OutputType(Enum):
     UPSCALE = 3
     REMIX = 4
 
+class ImageOperationType(Enum):
+    VARIATION = 0
+    UPSCALE = 1
 
 class Cost(Enum):
     DRAFT = 4
     VARIATION = 4
-    UPSCALE = 2
+    UPSCALE = 4
+    REMIX = 4
     @staticmethod
     def get_cost(output: OutputType):
         if output == OutputType.DRAFT.value:
@@ -37,6 +41,8 @@ class SysError(Enum):
 
 
 config = {
-    'wait_time': 60 * 3
+    'wait_time': 60 * 10,  # 10 minutes
+    'cache_time': 6 * 60 * 60  # half day
 }
     
+image_hostname = 'https://imgcdn.aipic.club'
