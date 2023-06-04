@@ -10,7 +10,7 @@ from PIL import Image
 from celery import Celery
 from celery.signals import worker_init
 from bot.DiscordUser.Gateway import Gateway
-from bot.DiscordBot import refine_prompt, pool
+from bot.DiscordUser.utils import refine_prompt
 from data import Data
 from config import *
 
@@ -63,20 +63,28 @@ def ping():
 @celery.task(name='prompt',bind=True, base=BaseTask)
 def add_task(self, token_id , taskId, prompt):
     new_prompt = refine_prompt(taskId, prompt)
-    gateway.loop.run_in_executor(pool, lambda: gateway.create_prompt(token_id, taskId, prompt, new_prompt))
-    return taskId
+    gateway.loop.run_in_executor(
+        pool, 
+        lambda: gateway.create_prompt(token_id, taskId, prompt, new_prompt)
+    )
+    return
 
 @celery.task(name='variation', bind=True,  base=BaseTask)
 def variation(self, prompt: str,  task: dict[str, str, str],  index: str):
-    #discordBot.loop.run_in_executor(pool, lambda: discordBot.send_variation( prompt, task, index))
-    
+    new_prompt = refine_prompt(task['taskId'], prompt)
+    gateway.loop.run_in_executor(
+        pool, 
+        lambda: gateway.create_variation(new_prompt, task=task, index= index)
+    )    
     return
 @celery.task(name='upscale',bind=True, base=BaseTask)
 def upscale(self,  task: dict[str, str, str], index: str):
-    #discordBot.loop.run_in_executor(pool, lambda: discordBot.send_upscale(task, index))
-    
-    return
 
+    gateway.loop.run_in_executor(
+        pool, 
+        lambda: gateway.create_upscale( task=task, index= index)
+    )   
+    return
 
 if __name__ == '__main__':
     celery.worker_main(argv=['worker', '--pool=solo',  '-l', 'info', '-Q' , f'queue_{celery_worker_id},celery'])

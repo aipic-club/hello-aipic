@@ -200,6 +200,7 @@ async def variation( item: Remix,  image_hash:str,  token_id: int = Depends(get_
         raise HTTPException(404)    
     else:
         broker_id = data.get_broker_id(task['worker_id'])
+        print(broker_id)
         res = celery.send_task('variation',
             (
                 item.prompt,

@@ -85,7 +85,7 @@ class Data():
 
     def __insert_task(self, params: dict):
         cnx = self.pool.get_connection()
-        cursor = cnx.cursor()
+        cursor = cnx.cursor(dictionary=True)
         try:
             cnx.start_transaction()
             #### get token_id ###
@@ -94,7 +94,7 @@ class Data():
             cursor.execute(sql, val)
             record = cursor.fetchone()
             if record is not None:
-                token_id = record[0]
+                token_id = record['token_id']
                 add_sql = (
                     "INSERT INTO `tasks` "
                     "(`taskID`,`type`,`reference`,`v_index`,`u_index`,`status`,`message_id`,`message_hash`,`url_global`,`url_cn`) "
@@ -169,6 +169,11 @@ class Data():
     def add_interaction(self, key, value ) -> bool:
 
         return self.r.setex(f'interaction:{key}', config['wait_time'] ,  value)
+    
+    def get_interaction(self, key)-> int:
+        value = self.r.get(f'interaction:{key}')
+        return int(value) if value is not None else None
+
 
 
 
@@ -202,7 +207,7 @@ class Data():
 
     def get_prompt_by_taskId(self, taskId: str):
         cnx = self.pool.get_connection()
-        cursor = cnx.cursor()
+        cursor = cnx.cursor(dictionary=True)
         record = None
         try:
             select_sql = "SELECT id, worker_id FROM `prompts` WHERE taskId=%(taskId)s"
@@ -285,9 +290,20 @@ class Data():
         self.update_prompt_worker_id(taskId, worker_id)
         self.prompt_task(None , taskId, TaskStatus.COMMITTED )
 
-    def check_task_ower(self, taskId: str, worker_id: int):
-        keys = self.r.keys(f'worker:*:{worker_id}:{taskId}')
-        return len(keys) > 0
+    def is_task_onwer(self, taskId: str, worker_id: int) -> bool:
+        print("check task onwer")
+        data =  self.__get_task_cache(taskId=taskId)
+
+        if data is not None and data.get('worker_id') == worker_id:
+            return True
+        data =  self.get_prompt_by_taskId(taskId=taskId)
+        
+        if data is not None and worker_id == data['worker_id']:
+            self.__set_task_cache(taskId=taskId, prompt_id= data['id'], worker_id=worker_id)
+            return True
+        
+        return False
+
 
 
     def process_task(self, taskId: str ,  type: OutputType, reference: int | None,  message_id: str ,   url: str):

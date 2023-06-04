@@ -44,10 +44,12 @@ class Gateway:
                 guild_id=guild_id,
                 channel_id=channel_id,
                 on_message= messageHandler.on_message,
+                get_interaction_id = self.get_interaction_id,
                 loop =  self.loop
             )
 
-
+    def get_interaction_id(self, key) -> int | None:
+        return self.data.get_interaction(key)
 
     def pick_a_worker_id(self) -> int:
         score = 0
@@ -56,15 +58,13 @@ class Gateway:
                 score = self.users[id].score
                 self.picked_worker_id = id
         return self.picked_worker_id
-
-
-    def get_user_by_taskId(self, taskId) -> str:
-        uid = get_uid_by_taskId(taskId)
-        if self.users[uid] is not None:
-            return  uid
+    
+    def get_task_worker_id(self,  task: dict[str, str]) -> int | None:
+        worker_id = task['worker_id']
+        if worker_id is not None and self.users[worker_id] is not None:
+            return worker_id
         else:
             return None
-
 
     def create_prompt(self, token_id, taskId, prompt, new_prompt) -> None:
 
@@ -74,17 +74,29 @@ class Gateway:
             self.loop.create_task(self.users[worker_id].send_prompt(new_prompt))
             self.loop.create_task(self.check_task(taskId= taskId))
 
+    def create_variation(self, prompt: str, task: dict[str, str], index: str):
+        worker_id =  self.get_task_worker_id(task)
+        if worker_id is not None:
+            self.loop.create_task(
+                self.users[worker_id].send_variation(
+                    prompt = prompt,
+                    index = index,
+                    messageId = task['message_id'],
+                    messageHash = task['message_hash'], 
+                )
+            )
 
-    def send_variation(self, prompt: str, task: dict[str, str], index: str):
-        uid  = self.get_user_by_taskId(task['taskId'])
-        if uid is not None:
-            pass
-
-    def send_upscale(self, task: dict[str, str], index: str):
-        uid  = self.get_user_by_taskId(task['taskId'])
-        if uid is not None:
-            pass
+    def create_upscale(self, task: dict[str, str], index: str):
+        worker_id =  self.get_task_worker_id(task)
+        if worker_id is not None:
+            self.loop.create_task(
+                self.users[worker_id].send_upscale(
+                    index = index,
+                    messageId = task['message_id'],
+                    messageHash = task['message_hash'], 
+                )
+            )
 
     async def check_task(self, taskId: str):
-        await config['wait_time'] - 10
+        await asyncio.sleep(config['wait_time'] - 10)
         self.data.check_task(taskId= taskId)

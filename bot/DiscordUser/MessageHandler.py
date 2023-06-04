@@ -22,8 +22,8 @@ class MessageHandler:
     def on_message(self, worker_id: int, message_worker_id: int, event: Events, data: dict):
         print(event, data)
         if event.value == Events.INTERACTION_SUCCESS.value:
-            if data['nonce'] is not None:
-                self.data.add_interaction(data['nonce'], data['id'])
+            if data.get('nonce') is not None and data.get('id') is not None:
+                self.data.add_interaction(data.get('nonce'), data.get('id'))
         elif  event.value == Events.MESSAGE_CREATE.value:
             message_id =  data.get("id")
             content = data.get('content', None)
@@ -50,7 +50,7 @@ class MessageHandler:
             else:
                 curType = output_type(content)
                 print(f'type {curType}, worker id {worker_id}')
-                if curType is not None and self.data.check_task_ower( taskId = taskId, worker_id= worker_id):
+                if curType is not None and self.data.is_task_onwer( taskId = taskId, worker_id= worker_id):
                     attachments =  data.get('attachments',[])
                     url =  attachments[0].get("url") if len(attachments) > 0  else None
                     self.loop.run_in_executor(self.pool, lambda: 

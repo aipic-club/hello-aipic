@@ -4,7 +4,7 @@ from .DiscordUser import DiscordUser
 from .values import MJBotId
 from .payloads import payloads
 from .values import Events
-from data import Snowflake
+from data import  Data, Snowflake
 
 
 accept_events = [Events.INTERACTION_SUCCESS.value, Events.MESSAGE_CREATE.value]
@@ -18,12 +18,14 @@ class UserProxy:
             guild_id: str,
             channel_id: str, 
             on_message: Callable | None,
+            get_interaction_id: Callable | None,
             loop: asyncio.AbstractEventLoop 
         ) -> None:
         self.id = id
         self.guild_id = guild_id
         self.channel_id = channel_id
         self.on_mesage = on_message
+        self.get_interaction_id = get_interaction_id
         self.score = 100
         self.snowflake = Snowflake(id, None)
         self.user = DiscordUser( token= token, on_message= self.__on_message, loop= loop)
@@ -33,8 +35,7 @@ class UserProxy:
         return {
             "guild_id": self.guild_id,
             "channel_id": self.channel_id,
-            "application_id": MJBotId,
-            "nonce": self.snowflake.generate_id()
+            "application_id": MJBotId
         }
     def __on_message(self, event: Events, data: dict) -> None:
         # try:
@@ -62,4 +63,25 @@ class UserProxy:
         except Exception as e:
             print("error when handle message", e)
     
+    async def send_variation(self,  prompt: str,  index : int, messageId : str, messageHash : str):
+        nonce = self.snowflake.generate_id()
+        payload = payloads.variation(self.ids, messageId= messageId, messageHash=messageHash, index=index, nonce=nonce)
+        try:
+            await self.user.send_interactions(payload)
+            await asyncio.sleep(3)
+            data_id = self.get_interaction_id(nonce)
+            if data_id is not None:
+                payload = payloads.remix(self.ids, prompt= prompt,data_id= str(data_id), messageHash= messageHash, index= index )
+                print(payload)
+                await self.user.send_interactions(payload)
+            
+        except Exception as e:
+            print("error when variation message", e)
+    async def send_upscale(self, index : int, messageId : str, messageHash : str):
+        nonce = self.snowflake.generate_id()
+        payload = payloads.upscale(self.ids, messageId= messageId, messageHash=messageHash, index=index, nonce=nonce)
+        try:
+            await self.user.send_interactions(payload)
+        except Exception as e:
+            print("error when upscale message", e)
 

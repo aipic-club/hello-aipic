@@ -11,6 +11,32 @@ timezone = pytz.timezone('Asia/Shanghai')
 date_object = datetime.now(timezone)
 utc_offset_seconds = date_object.utcoffset().total_seconds()
 
+
+
+def refine_prompt(taskId: str, prompt: str):
+    params = prompt.split()
+    unique_params = {}
+    new_prompt = ""
+    for param in params:
+        if param.startswith("--"):
+            if " " in param:
+                key, value = param.split(" ", 1)
+            else:
+                key = param
+                value = ""
+            if key not in unique_params:
+                unique_params[key] = value
+                new_prompt += f"{param} "
+        else:
+            new_prompt += f"{param} "
+    if "--no" in new_prompt:
+        new_prompt = new_prompt.replace("--no", f"--no {taskId},")
+    else:
+        new_prompt += f"--no {taskId}"
+    return new_prompt.strip()
+
+
+
 def get_worker_id(snowflake_id):
     return (snowflake_id >> 12) & 0x3FF
 
