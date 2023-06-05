@@ -156,11 +156,11 @@ async def send_prompt(item: Prompt, token_id: int = Depends(get_token_id) ):
 @router.get("/prompts/{taskId}")
 async def send_prompt(taskId: str, token_id: int = Depends(get_token_id) ):
 
-    imageStatus = data.image_task_status(taskId)
-    if len(imageStatus) > 0:
+    image_status = data.image_task_status(taskId)
+    if len(image_status) > 0:
         return  {
-            'status': TaskStatus.FINISHED.value,
-            'images': imageStatus
+            'status': None,
+            'images': image_status
         }
     
     status = data.prompt_task_status(token_id, taskId)

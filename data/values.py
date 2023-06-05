@@ -19,6 +19,8 @@ class OutputType(Enum):
 class ImageOperationType(Enum):
     VARIATION = 0
     UPSCALE = 1
+    REROLL = 2
+    DESCRIBE = 3
 
 class Cost(Enum):
     DRAFT = 4
@@ -29,11 +31,14 @@ class Cost(Enum):
     def get_cost(output: OutputType):
         if output == OutputType.DRAFT.value:
             return Cost.DRAFT.value
-        if output == OutputType.VARIATION.value:
+        elif output == OutputType.VARIATION.value:
             return Cost.VARIATION.value
-        if output == OutputType.UPSCALE.value:
-            return Cost.UPSCALE.value  
-        return 0
+        elif output == OutputType.UPSCALE.value:
+            return Cost.UPSCALE.value 
+        elif output == OutputType.REMIX.value:
+            return Cost.REMIX.value 
+        else:
+            return 0
     
 class SysError(Enum):
     FATAL = 0
