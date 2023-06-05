@@ -19,8 +19,6 @@ uvicorn = "*"
 mysql-connector-python = "*"
 wechatpy = {extras = ["cryptography"], version = "*"}
 pytz = "*"
-websocket = "*"
-websockets = "*"
 
 [dev-packages]
 

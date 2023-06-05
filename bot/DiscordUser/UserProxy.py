@@ -72,7 +72,6 @@ class UserProxy:
             data_id = self.get_interaction_id(nonce)
             if data_id is not None:
                 payload = payloads.remix(self.ids, prompt= prompt,data_id= str(data_id), messageHash= messageHash, index= index )
-                print(payload)
                 await self.user.send_interactions(payload)
             
         except Exception as e:

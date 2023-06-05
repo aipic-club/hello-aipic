@@ -86,5 +86,15 @@ def upscale(self,  task: dict[str, str, str], index: str):
     )   
     return
 
+@celery.task(name='reroll',bind=True, base=BaseTask)
+def reroll(self, task: dict[str, str, str]):
+    return
+
+
+@celery.task(name="describe",bind=True, base=BaseTask)
+def describe(self, task: dict[str, str, str]):
+    return
+
+
 if __name__ == '__main__':
     celery.worker_main(argv=['worker', '--pool=solo',  '-l', 'info', '-Q' , f'queue_{celery_worker_id},celery'])
