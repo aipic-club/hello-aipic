@@ -81,6 +81,9 @@ class Data():
         if temp is not None:
             data = json.loads(temp.decode('utf-8'))
         return data
+    
+    ### TODO rename table names
+
 
     def __insert_task(self, params: dict):
         cnx = self.pool.get_connection()
@@ -88,7 +91,7 @@ class Data():
         try:
             cnx.start_transaction()
             #### get token_id ###
-            sql = "SELECT `token_id` FROM `prompts` WHERE taskId = %s"
+            sql = "SELECT `id`,`token_id` FROM `prompts` WHERE taskId = %s"
             val = (params['taskId'],)
             cursor.execute(sql, val)
             record = cursor.fetchone()
@@ -96,10 +99,13 @@ class Data():
                 token_id = record['token_id']
                 add_sql = (
                     "INSERT INTO `tasks` "
-                    "(`taskID`,`type`,`reference`,`v_index`,`u_index`,`status`,`message_id`,`message_hash`,`url_global`,`url_cn`) "
-                    "VALUES ( %(taskId)s, %(type)s, %(reference)s, %(v_index)s, %(u_index)s, %(status)s, %(message_id)s, %(message_hash)s, %(url_global)s, %(url_cn)s)"
+                    "( `taskId`, `prompt_id`, `prompt`, `type`,`reference`,`v_index`,`u_index`,`status`,`message_id`,`message_hash`,`url_global`,`url_cn`) "
+                    "VALUES ( %{taskId}%, %{prompt_id}s, %{prompt}s,  %(type)s, %(reference)s, %(v_index)s, %(u_index)s, %(status)s, %(message_id)s, %(message_hash)s, %(url_global)s, %(url_cn)s)"
                 )
-                cursor.execute(add_sql, params)
+                cursor.execute(add_sql, {
+                    **params,
+                    'prompt_id': record['id']
+                })
                 insertd_task_id = cursor.lastrowid
                 ##### add the cost ####
                 if params['status'] == TaskStatus.FINISHED.value:
@@ -191,6 +197,7 @@ class Data():
         if TaskStatus.CONFIRMED == self.r.get(f'prompt*:{taskId}'):
             self.__insert_task({
                 'taskId': taskId,
+                'prompt': None,
                 'type': None,
                 'reference': None,
                 'v_index': None,
@@ -307,6 +314,7 @@ class Data():
         # update mysql record
         self.__insert_task({
             'taskId': taskId,
+            'prompt': None,
             'type': type.value,
             'reference': reference,
             'v_index': None,
@@ -509,6 +517,16 @@ class Data():
         return f'{expire}\n有效期后可继续获取试用 \n点击下方链接\n<a href="https://aipic.club/trial/{token}">在微信中试用AIPic</a>'
 
 
+
+    
+
+
+        def __create_input():
+
+
+            pass
+        def __create_output():
+            pass
 
 
 

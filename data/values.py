@@ -10,11 +10,30 @@ class TaskStatus(Enum):
     FINISHED = 4 # MJ 已经成功返回图像
     FAILED = 5 # 一定时间内没有收到 MJ 的响应， 标记为失败
 
+
 class OutputType(Enum):
     DRAFT = 1
     VARIATION = 2
     UPSCALE = 3
     REMIX = 4
+
+
+class DetailType(Enum):
+    ## MIDJOURNEY INPUT 
+    INPUT_MJ_PROMPT = 11
+    INPUT_MJ_VARIATION = 12
+    INPUT_MJ_REMIX = 13
+    INPUT_MJ_UPSCALE = 14
+    INPUT_MJ_REROLL = 11
+    ## MIDJOURNEY OUTPUT 
+    OUTPUT_MJ_PROMPT = 11
+    OUTPUT_MJ_VARIATION = 22
+    OUTPUT_MJ_REMIX = 23
+    OUTPUT_MJ_UPSCALE = 24
+    OUTPUT_MJ_DESCRIBE = 24
+
+
+    
 
 class ImageOperationType(Enum):
     VARIATION = 0
