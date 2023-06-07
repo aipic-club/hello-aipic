@@ -1,11 +1,10 @@
 
 import asyncio
-import threading
 import concurrent.futures
 from . import UserProxy
 from .MessageHandler import MessageHandler
 from .utils import *
-from data import Data,Snowflake, config
+from data import Data, config, ImageOperationType, Snowflake
 
 
 pool = concurrent.futures.ThreadPoolExecutor(max_workers=10)
@@ -77,6 +76,18 @@ class Gateway:
     def create_variation(self, prompt: str, task: dict[str, str], index: str):
         worker_id =  self.get_task_worker_id(task)
         if worker_id is not None:
+            broker_id, _ =  Snowflake.parse_worker_id(worker_id)
+            self.data.image_task(
+                taskId=task['taskId'], 
+                imageHash= task['message_hash'], 
+                type= ImageOperationType.VARIATION, 
+                index= index 
+            )
+            self.data.broker_task_status(
+                broker_id=broker_id, 
+                worker_id=worker_id, 
+                taskId= task['taskId']
+            )
             self.loop.create_task(
                 self.users[worker_id].send_variation(
                     prompt = prompt,
@@ -89,6 +100,18 @@ class Gateway:
     def create_upscale(self, task: dict[str, str], index: str):
         worker_id =  self.get_task_worker_id(task)
         if worker_id is not None:
+            broker_id, _ =  Snowflake.parse_worker_id(worker_id)
+            self.data.image_task(
+                taskId=task['taskId'], 
+                imageHash= task['message_hash'], 
+                type= ImageOperationType.UPSCALE, 
+                index= index 
+            )
+            self.data.broker_task_status(
+                broker_id=broker_id, 
+                worker_id=worker_id, 
+                taskId= task['taskId']
+            )
             self.loop.create_task(
                 self.users[worker_id].send_upscale(
                     index = index,

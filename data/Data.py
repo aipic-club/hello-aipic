@@ -6,7 +6,6 @@ import time
 from urllib.parse import urlparse
 import mysql.connector.pooling
 from mysql.connector import errorcode
-from .DiscordUsers import DiscordUsers
 from .values import  TaskStatus,ImageOperationType,OutputType,Cost, SysError,config,image_hostname
 from .utils import random_id,current_time,is_expired
 from .FileHandler import FileHandler
@@ -157,14 +156,27 @@ class Data():
         key = f'prompt:{token_id}:{taskId}' 
         return self.r.get(key)
     
+    def prompt_task_cleanup(self, taskId):
+        keys = self.r.keys(f'prompt:*:{taskId}')
+        self.r.delete(*keys)
+
     ### 
     def image_task(self, taskId: str, imageHash: str, type: ImageOperationType, index: str):
-        self.r.setex(f'image:{taskId}:{imageHash}', config['wait_time'] ,  f'{imageHash}.{type.value}.{index}')
+        self.r.setex(f'image:{taskId}:{imageHash}', config['wait_time'] ,  f'{imageHash}.{type.name}.{index}')
 
     def image_task_status(self, taskId) -> list:
         keys = self.r.keys(f'image:{taskId}:*')
         return self.r.mget(keys)
     
+    def image_task_cleanup(self, taskId: str, imageHash: str, ):
+        self.r.delete(f'image:{taskId}:{imageHash}' )
+    
+    def broker_task_status(self, broker_id: int, worker_id: int, taskId: int):
+        self.r.setex(f'broker:{broker_id}:{worker_id}:{taskId}', config['wait_time']  , '')
+
+    def broker_task_cleanup(self, taskId):
+        keys = self.r.keys(f'broker:*:*:{taskId}')
+        self.r.delete(*keys)
 
     def add_interaction(self, key, value ) -> bool:
 
@@ -173,9 +185,6 @@ class Data():
     def get_interaction(self, key)-> int:
         value = self.r.get(f'interaction:{key}')
         return int(value) if value is not None else None
-
-
-
 
     def check_task(self, taskId: str):
         print(f'✔️ check task {taskId}')
@@ -192,8 +201,10 @@ class Data():
                 'url_global': None,
                 'url_cn': None
             })
-            self.r.delete(f'prompt:*:{taskId}')
-            self.r.delete(f'worker:*:*:{taskId}')
+            self.prompt_task_cleanup(taskId=taskId)
+            image_status = self.image_task_status(taskId=taskId)
+            if len(image_status) == 0:
+                self.broker_task_cleanup(taskId= taskId)
 
     def save_prompt(self, token_id: str,  prompt: str, raw: str,taskId: str  ):
         prompt_id = self.__insert_prompt({
@@ -253,38 +264,6 @@ class Data():
         broker_id , _ = Snowflake.parse_worker_id(worker_id=worker_id)
         return broker_id
 
-
-
-
-    # def add_task(self, 
-    #         token_id: str,  
-    #         prompt: str, 
-    #         raw: str,
-    #         taskId: str , 
-    #         status: TaskStatus = TaskStatus.CREATED 
-    #     ):
-    #     self.__insert_prompt({
-    #         'token_id': token_id, 
-    #         'taskId': taskId, 
-    #         'prompt': prompt,
-    #         'raw': raw
-    #     })
-    #     self.__insert_task({
-    #         'taskId': taskId,
-    #         'type': None,
-    #         'reference': None,
-    #         'v_index': None,
-    #         'u_index': None,
-    #         'status': status.value,
-    #         'message_id': None,
-    #         'message_hash': None,
-    #         'url_global': None,
-    #         'url_cn': None
-    #     })
-
-    # worker: broker_id : account_id: taks_id
-
-
     def commit_task(self, taskId: str , broker_id: int,  worker_id: int ):
         self.r.setex(f'worker:{broker_id}:{worker_id}:{taskId}', config['wait_time']  , '')
         self.update_prompt_worker_id(taskId, worker_id)
@@ -313,6 +292,7 @@ class Data():
         file_name = str(url.split("_")[-1])
         hash = str(file_name.split(".")[0])
         url_cn = f'{image_hostname}/{taskId}/{file_name}'   
+
         # copy to s3 bucket
         print("🖼upload image")
         loop = asyncio.new_event_loop()
@@ -337,7 +317,13 @@ class Data():
             'url_global': url,
             'url_cn': url_cn
         })
-        self.prompt_task(None , taskId, TaskStatus.FINISHED )
+        #### clean up
+        if type is OutputType.DRAFT:
+            self.prompt_task_cleanup(taskId = taskId)
+        else:
+            self.image_task_cleanup(taskId=taskId, imageHash= hash)
+        self.broker_task_cleanup(taskId= taskId)
+
     def get_task_by_messageHash(self, token_id: int, id: int) -> dict[str, str]:
         cnx = self.pool.get_connection()
         cursor = cnx.cursor()

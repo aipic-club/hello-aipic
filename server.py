@@ -132,12 +132,6 @@ async def list_prompts( token_id: int = Depends(get_token_id), pagination = Depe
     records = data.get_prompts_by_token_id(token_id=token_id, page= pagination['page'] , page_size= pagination['size'])
     return records
 
-@router.get("/images/{taskId}")
-async def prompt_detail(taskId: str, page: int = 1, size: int = 10, token_id: int = Depends(get_token_id)):
-    if page < 1 or size < 10:
-        raise HTTPException(500)
-    records = data.get_tasks_by_taskId(token_id=token_id, taskId= taskId, page= page, page_size= size)
-    return records
 
 @router.post("/prompts")
 async def send_prompt(item: Prompt, token_id: int = Depends(get_token_id) ):
@@ -162,11 +156,11 @@ async def send_prompt(item: Prompt, token_id: int = Depends(get_token_id) ):
 @router.get("/prompts/{taskId}")
 async def send_prompt(taskId: str, token_id: int = Depends(get_token_id) ):
 
-    imageStatus = data.image_task_status(taskId)
-    if len(imageStatus) > 0:
+    image_status = data.image_task_status(taskId)
+    if len(image_status) > 0:
         return  {
-            'status': TaskStatus.FINISHED.value,
-            'images': imageStatus
+            'status': None,
+            'images': image_status
         }
     
     status = data.prompt_task_status(token_id, taskId)
@@ -175,7 +169,12 @@ async def send_prompt(taskId: str, token_id: int = Depends(get_token_id) ):
         'images': []
     }
 
-        
+@router.get("/images/{taskId}")
+async def prompt_detail(taskId: str, page: int = 1, size: int = 10, token_id: int = Depends(get_token_id)):
+    if page < 1 or size < 10:
+        raise HTTPException(500)
+    records = data.get_tasks_by_taskId(token_id=token_id, taskId= taskId, page= page, page_size= size)
+    return records      
 
 @router.post("/images/{image_hash}/upscale")
 async def upscale( item: Upscale, image_hash:str,token_id: int = Depends(get_token_id)):
