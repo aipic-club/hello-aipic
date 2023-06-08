@@ -19,19 +19,43 @@ class OutputType(Enum):
 
 
 class DetailType(Enum):
+    ## SYSTEM MESSAGE
+    SYS_ABORTED = 0
+    SYS_FAILED = 5
     ## MIDJOURNEY INPUT 
     INPUT_MJ_PROMPT = 11
     INPUT_MJ_VARIATION = 12
     INPUT_MJ_REMIX = 13
     INPUT_MJ_UPSCALE = 14
-    INPUT_MJ_REROLL = 11
+    INPUT_MJ_REROLL = 15
     ## MIDJOURNEY OUTPUT 
-    OUTPUT_MJ_PROMPT = 11
+    OUTPUT_MJ_PROMPT = 21
     OUTPUT_MJ_VARIATION = 22
     OUTPUT_MJ_REMIX = 23
     OUTPUT_MJ_UPSCALE = 24
-    OUTPUT_MJ_DESCRIBE = 24
+    OUTPUT_MJ_DESCRIBE = 25
 
+output_type = [
+    DetailType.OUTPUT_MJ_DESCRIBE.value,
+    DetailType.OUTPUT_MJ_REMIX.value,
+    DetailType.OUTPUT_MJ_UPSCALE.value,
+    DetailType.OUTPUT_MJ_VARIATION.value,
+    DetailType.OUTPUT_MJ_DESCRIBE.value,
+]
+
+def get_cost(type: DetailType):
+    if type is DetailType.OUTPUT_MJ_PROMPT:
+        return 4
+    elif type is DetailType.OUTPUT_MJ_REMIX:
+        return 4    
+    elif type is DetailType.OUTPUT_MJ_UPSCALE:
+        return 4       
+    elif type is DetailType.OUTPUT_MJ_VARIATION:
+        return 4        
+    elif type is DetailType.OUTPUT_MJ_DESCRIBE:
+        return 4        
+    else:
+        return 4
 
     
 

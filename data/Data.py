@@ -516,11 +516,6 @@ class Data():
         expire = '一天内到期' if days == 0 else f'{token}\n有效期剩余{days}天'
         return f'{expire}\n有效期后可继续获取试用 \n点击下方链接\n<a href="https://aipic.club/trial/{token}">在微信中试用AIPic</a>'
 
-
-
-    
-
-
         def __create_input():
 
 
