@@ -1,10 +1,9 @@
 import asyncio
 from typing import Callable
 from .DiscordUser import DiscordUser
-from .values import MJBotId
 from .payloads import payloads
-from .values import Events
-from data import  Data, Snowflake
+from .values import Events, MJBotId
+from data import  Snowflake
 
 
 accept_events = [Events.INTERACTION_SUCCESS.value, Events.MESSAGE_CREATE.value]
@@ -24,7 +23,7 @@ class UserProxy:
         self.id = id
         self.guild_id = guild_id
         self.channel_id = channel_id
-        self.on_mesage = on_message
+        self.on_mesage  = on_message
         self.get_interaction_id = get_interaction_id
         self.score = 100
         self.snowflake = Snowflake(id, None)
@@ -37,6 +36,8 @@ class UserProxy:
             "channel_id": self.channel_id,
             "application_id": MJBotId
         }
+    def generate_id(self) -> int:
+        return self.snowflake.generate_id()
     def __on_message(self, event: Events, data: dict) -> None:
         # try:
             if self.on_mesage is not None:
@@ -47,17 +48,15 @@ class UserProxy:
                     guild_id = data.get('guild_id', None)
                     nonce = data.get('nonce', None)
                     message_worker_id = self.snowflake.get_worker_id(int(nonce)) if nonce else None
-
                     if self.channel_id != channel_id or self.guild_id != guild_id:
                         return
-                self.on_mesage(self.id,  message_worker_id ,  event, data)
+                id = self.generate_id()   
+                self.on_mesage(id, self.id, message_worker_id ,  event, data)
         # except Exception as e:
         #     print("error when handle message", e)
 
-    async def send_prompt(self, prompt):
-        nonce = self.snowflake.generate_id()
+    async def send_prompt(self, prompt, nonce):
         payload = payloads.prompt(self.ids, prompt, nonce)
-        
         try:
             await self.user.send_interactions(payload)
         except Exception as e:

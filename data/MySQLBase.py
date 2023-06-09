@@ -68,6 +68,8 @@ class MySQLBase(MySQLInterface):
             _id = cursor.lastrowid if lastrowid else None
             if _cnx is None:
                 cnx.commit()
+        except Exception as e:
+            print(e)
         finally:
             if _cnx is None:
                 cursor.close()

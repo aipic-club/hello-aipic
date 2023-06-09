@@ -11,7 +11,7 @@ from celery import Celery
 from celery.signals import worker_init
 from bot.DiscordUser.Gateway import Gateway
 from bot.DiscordUser.utils import refine_prompt
-from data import Data
+from data import Data_v2
 from config import *
 
 
@@ -20,7 +20,7 @@ pool = concurrent.futures.ThreadPoolExecutor(max_workers=10)
 
 celery = Celery('tasks', broker= celery_broker)
 
-data = Data(
+data = Data_v2(
         redis_url = redis_url,
         mysql_url= mysql_url,
         proxy = proxy,
@@ -61,24 +61,32 @@ def ping():
 
 
 @celery.task(name='prompt',bind=True, base=BaseTask)
-def add_task(self, token_id , taskId, prompt):
+def add_task(self, token_id , taskId, prompt, raw, execute):
     new_prompt = refine_prompt(taskId, prompt)
     gateway.loop.run_in_executor(
         pool, 
-        lambda: gateway.create_prompt(token_id, taskId, prompt, new_prompt)
+        lambda: gateway.create_prompt(
+            token_id,
+            taskId, 
+            prompt, 
+            new_prompt,
+            raw,
+            execute
+        )
     )
     return
 
 @celery.task(name='variation', bind=True,  base=BaseTask)
-def variation(self, prompt: str,  task: dict[str, str, str],  index: str):
+def variation(self, prompt: str,  task: dict[str, str],  index: str):
     new_prompt = refine_prompt(task['taskId'], prompt)
+
     gateway.loop.run_in_executor(
         pool, 
-        lambda: gateway.create_variation(new_prompt, task=task, index= index)
+        lambda: gateway.create_variation(prompt, new_prompt, task=task, index= index)
     )    
     return
 @celery.task(name='upscale',bind=True, base=BaseTask)
-def upscale(self,  task: dict[str, str, str], index: str):
+def upscale(self,  task: dict[str, str], index: str):
 
     gateway.loop.run_in_executor(
         pool, 

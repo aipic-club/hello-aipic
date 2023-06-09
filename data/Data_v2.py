@@ -1,11 +1,12 @@
+import asyncio
 import json
-from data import Snowflake
+from .Snowflake import Snowflake
 from .utils import random_id
 from .values import TaskStatus
 from .MySQLBase import MySQLBase
 from .RedisBase import RedisBase
 from .FileBase import FileBase
-from .values import DetailType,output_type,get_cost
+from .values import DetailType,output_type,get_cost, image_hostname, config
 
 class Data_v2(MySQLBase, RedisBase, FileBase):
     def __init__(self, 
@@ -17,30 +18,32 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         super().__init__(url = mysql_url)
         RedisBase.__init__(self, url = redis_url)
         FileBase.__init__(self, config= s3config, proxy= proxy)
-    def __insert_task(self, params: dict) -> int | None:
-        sql = ("INSERT INTO `task` (`token_id`, `taskId` ,`prompt`, `raw`) VALUES( %(token_id)s, %(taskId)s,%(prompt)s, %(raw)s)")
-        return self.mysql_execute(sql, params= params, lastrowid= None)
-    def __insert_detail(self, type: DetailType, params: dict):
+    def __insert_detail(self, id: int, taskId: str, type: DetailType, detail: dict):
         cnx = self.pool.get_connection()
         cursor = cnx.cursor(dictionary=True)
         try:
             cnx.start_transaction()
-            sql = "SELECT `id`,`token_id` FROM `task` WHERE taskId = %s"
-            new_params = (params['taskId'],)
+            sql = "SELECT `id`,`token_id` FROM `task` WHERE taskId = %(taskId)s"
+            new_params = {
+                'taskId': taskId
+            }
             record = self.mysql_fetchone(sql=sql, params= new_params, _cnx = cnx)
             if record is not None:
                 token_id = record['token_id']
                 sql = (
                     "INSERT INTO `detail` "
-                    "( `id`, `task_id`, `type`,  `prompt`,`detail`) "
-                    "VALUES ( %{id}%, %{task_id}s, %{type}s,  %(prompt)s, %(detail)s)"
+                    "( `id`, `task_id`, `type`, `detail`) "
+                    "VALUES ( %(id)s, %(task_id)s, %(type)s, %(detail)s)"
                 )
                 new_params = {
-                    **params,
+                    'id': id,
                     'task_id': record['id'],
+                    'type': type.value,
+                    'detail': json.dumps(detail)
                 }
                 insertd_detail_id = self.mysql_execute(sql=sql, params= new_params, lastrowid= True, _cnx = cnx )
-                if output_type.index(type.value) > -1:
+                if type.value in output_type:
+                    print("add audit")
                     sql = ("INSERT INTO `token_audit` (`token_id`, `task_id`, `cost`) VALUES (%(token_id)s, %(task_id)s,%(cost)s)")
                     new_params = {
                         'token_id' : token_id,
@@ -48,6 +51,7 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
                         'cost': get_cost(type= type)
                     }
                     self.mysql_execute(sql=sql, params= new_params, _cnx = cnx )
+            cnx.commit()
         except Exception as e:
             print(e)
             cnx.rollback()
@@ -71,38 +75,112 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
                 return recod['id']
         else:
             return temp
-    def save_task(self, token_id: str, prompt: str, raw: str, taskId: str):
-        prompt_id = self.__insert_task({
+    def create_task(self, token_id: str, taskId: str):
+        sql = ("INSERT INTO `task` (`token_id`, `taskId` ) VALUES( %(token_id)s, %(taskId)s)")
+        self.mysql_execute(sql, params= {
             'token_id': token_id, 
-            'taskId': taskId,
-            'prompt': prompt,
-            'raw': raw
-        })
-        self.redis_set_task(taskId= taskId, prompt_id= prompt_id, worker_id= None)
-    def save_input(self, id: int, task_id: int, type: DetailType , prompt: str ):
-        self.__insert_detail({
-            'id': id,
-            'task_id': task_id,
-            'type': type.value,
-            'prompt': prompt,
-            'detail': None
-        })
-    def save_output(self, id: int, task_id: int, type: DetailType , detail: dict):
-       self.__insert_detail({
-            'id': id,
-            'task_id': task_id,
-            'type': type.value,
-            'detail': json.dumps(detail)
-        })
-    def get_task(self, token_id: str, taskId: str ):
+            'taskId': taskId
+        }, lastrowid= True)
+    def verify_task(self, token_id: str, taskId: str) -> bool:
+        sql = ("SELECT 1 FROM `task` WHERE token_id = %(token_id)s AND taskId = %(taskId)s")
+        params= {
+            'token_id': token_id, 
+            'taskId': taskId
+        }
+        record = self.mysql_fetchone(sql=sql, params= params)
+        return record is None
+    def get_detail(self, task_id: int, page: int = 0, page_size: int = 10):
         sql = (
-            "SELECT 1  FROM `task`  WHERE status = 1 AND taskId=%(taskId)s AND token_id=%(token_id)s" 
+            "SELECT  `id`, `type`, `detail`,`create_at` FROM detail WHERE task_id=%(task_id)s"
+            " LIMIT %(page_size)s OFFSET %(offset)s"
+        )
+        offset = (page - 1) * page_size
+        params = {
+            'task_id': task_id,
+            'offset': offset,
+            'page_size': page_size,
+        }
+        return self.mysql_fetchall(sql=sql, params= params)
+    
+    def save_input(self, id: int, taskId: int, type: DetailType , detail: dict ):
+        self.__insert_detail(
+            id=id,
+            taskId= taskId, 
+            type= type, 
+            detail= detail
+        )
+    def add_interaction(self, key, value ) -> bool:
+        self.redis_set_interaction(key=key, value=value)
+    def get_interaction(self, key)-> int:
+        return self.redis_get_interaction(key=key)
+    
+    def update_task_status(self, taskId: str, status:TaskStatus , token_id = None) -> None:
+        self.redis_task(token_id= token_id,  taskId=taskId, status= status, ttl= config['wait_time'] )
+
+    def commit_task(self,  taskId: str ,  worker_id: int):
+        self.redis_set_task(taskId=taskId, worker_id=worker_id)
+        self.update_task_status(taskId=taskId, status=TaskStatus.COMMITTED)
+
+    def is_task_onwer(self, taskId: str ,  worker_id: int) -> bool:
+        id = self.redis_get_task(taskId=taskId)
+        return id is not None and id == worker_id
+    def process_output(
+            self, 
+            id: int,
+            taskId: str ,  
+            type: DetailType, 
+            reference: int | None,  
+            message_id: str,  
+            url: str
+        ):
+        file_name = str(url.split("_")[-1])
+        hash = str(file_name.split(".")[0])
+        url_cn = f'{image_hostname}/{taskId}/{file_name}' 
+        # copy to s3 bucket
+        print("🖼upload image")
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(
+            self.file_copy_url_to_bucket(
+                url = url,
+                path =  taskId,
+                file_name = file_name
+            )
+        )  
+        loop.close()  
+        
+        detail = {
+            'id': message_id,
+            'hash': hash,
+            'reference': reference,
+            'url': url_cn
+        }
+
+        self.__insert_detail(
+            id=id,
+            taskId= taskId, 
+            type= type, 
+            detail= detail
+        )
+        self.redis_task_cleanup(taskId=taskId)
+    def get_task(self, token_id: int, taskId: str ):
+        sql = (
+            "SELECT id  FROM `task`  WHERE status = 1 AND taskId=%(taskId)s AND token_id=%(token_id)s" 
         )
         params = {
             'taskId': taskId,
             'token_id': token_id
         }
         return self.mysql_fetchone(sql=sql, params= params)
+    def get_detail_by_id(self, token_id: int, detail_id: int):
+        sql = (
+            "SELECT t.taskId, d.detail, d.type FROM detail d LEFT JOIN task t ON d.task_id = t.id WHERE t.token_id = %(token_id)s AND  d.id=%(id)s"
+        )
+        params = {
+            'token_id': token_id,
+            'id': detail_id
+        }
+        return self.mysql_fetchone(sql=sql,params=params)
+
     def delete_task(self, token_id: str, taskId: str):
         sql = (
             "UPDATE `task` SET status=0  WHERE taskId=%(taskId)s AND token_id=%(token_id)s"
@@ -112,17 +190,9 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
             'token_id': token_id
         }
         return self.mysql_execute(sql = sql, params= params, lastrowid= True)
-    def get_detail_by_task_id(self):
-        cnx = self.pool.get_connection()
-        cursor = cnx.cursor(dictionary=True)
-        try:
-            pass
-        finally:
-            cursor.close()
-            cnx.close()
     def get_tasks_by_token_id(self, token_id,  page: int = 0, page_size: int = 10):
         sql =(
-            "SELECT t.taskId as id, t.prompt as topic, t.raw, t.create_at FROM task t"
+            "SELECT t.taskId as id, t.create_at FROM task t"
             #"SELECT t.taskId, t.prompt, t.raw, d.url_cn,  t.create_at FROM task t"
             # " LEFT JOIN ("
             # "    SELECT d1.taskId, d1.type, d1.status, d1.url_cn"
@@ -146,11 +216,11 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
             'status': TaskStatus.FINISHED.value
         }
         return self.mysql_fetchall(sql, params)
-    def get_discord_users(self, celery_worker_id: int):
+    def get_discord_users(self, broker_id: int):
         sql = ("SELECT worker_id,guild_id,channel_id,authorization FROM discord_users WHERE worker_id >= %(start_id)s AND worker_id <= %(end_id)s")
         params = {
-            'start_id': Snowflake.snowflake_worker_id(celery_worker_id, 0),
-            'end_id': Snowflake.snowflake_worker_id(celery_worker_id, 31),
+            'start_id': Snowflake.generate_snowflake_worker_id(broker_id, 0),
+            'end_id': Snowflake.generate_snowflake_worker_id(broker_id, 31),
         }
         return self.mysql_fetchall(sql, params)
     def create_trial_token(self, FromUserName):

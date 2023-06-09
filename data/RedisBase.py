@@ -21,21 +21,17 @@ class RedisBase(RedisInterface):
         return int(val) if val is not None else None
     def redis_set_token(self, token: str, ttl: int, id: int):
         self.redis.setex(f'token:{token}', ttl, id )
-    def redis_set_task(self, taskId: str, prompt_id: int,  worker_id: int | None):
-        json_data = json.dumps({
-            'prompt_id': prompt_id,
-            'worker_id': worker_id
-        })
-        self.redis.setex(f'task:{taskId}', config['cache_time'], json_data)
+    def redis_set_task(self, taskId: str, worker_id: int | None):
+        self.redis.setex(f'task:{taskId}', config['cache_time'], worker_id)
     def redis_get_task(self, taskId: str,):
         temp = self.redis.get(f'task:{taskId}')
         if temp is not None:
-            return json.loads(temp.decode('utf-8'))
+            return int(temp)
         return None
-    def redis_prompt(self, token_id: int, taskId: str, status: TaskStatus, ttl: int = None) -> None:
-        key = f'prompt:{token_id}:{taskId}'
+    def redis_task(self, token_id: int, taskId: str, status: TaskStatus, ttl: int = None) -> None:
+        key = f'task:{token_id}:{taskId}'
         if token_id is None:
-            keys = self.redis.keys(f'prompt:*:{taskId}')
+            keys = self.redis.keys(f'task:*:{taskId}')
             if len(keys) != 1:
                 return
             key = keys[0]
@@ -45,11 +41,11 @@ class RedisBase(RedisInterface):
             _ttl = self.redis.ttl(key) if  self.redis.exists(key) else config['wait_time'] 
         if _ttl > 0:
             self.redis.setex(key, _ttl , status.value )
-    def redis_prompt_status(self, token_id, taskId: str):
-        key = f'prompt:{token_id}:{taskId}' 
+    def redis_task_status(self, token_id, taskId: str):
+        key = f'task:{token_id}:{taskId}' 
         return self.redis.get(key)
-    def prompt_task_cleanup(self, taskId):
-        self.__remove_keys(f'prompt:*:{taskId}')
+    def redis_task_cleanup(self, taskId):
+        self.__remove_keys(f'task:*:{taskId}')
     def redis_image(self,  taskId: str, imageHash: str, type: ImageOperationType, index: str):
         self.redis.setex(f'image:{taskId}:{imageHash}', config['wait_time'] ,  f'{imageHash}.{type.name}.{index}')
     def redis_image_status(self, taskId) -> list:

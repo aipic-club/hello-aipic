@@ -1,7 +1,7 @@
 from functools import reduce
 from datetime import datetime
 import pytz
-from data import TaskStatus,OutputType
+from data import TaskStatus,OutputType,DetailType
 import re
 
 
@@ -69,7 +69,7 @@ def get_taskId(content: str) -> str | None:
     return None
 def is_committed(content: str) -> bool:
     return "(Waiting to start)" in content
-def is_variations(content: str) -> bool:
+def is_variation(content: str) -> bool:
     #Variations by
     return  "Variations by" in content
 def  is_remix(content: str) -> bool:
@@ -86,14 +86,14 @@ def status_type(content: str):
     elif output_type(content) is not None:
         return TaskStatus.FINISHED
     
-def output_type(content: str):
+def output_type(content: str) -> DetailType | None:
     if is_remix(content):
-        return OutputType.REMIX
-    elif is_variations(content):
-        return OutputType.VARIATION
+        return DetailType.OUTPUT_MJ_REMIX
+    elif is_variation(content):
+        return DetailType.OUTPUT_MJ_VARIATION
     elif is_upsacle(content):
-        return OutputType.UPSCALE
+        return DetailType.OUTPUT_MJ_UPSCALE
     elif is_draft(content):
-        return OutputType.DRAFT
+        return DetailType.OUTPUT_MJ_PROMPT
     else:
         return None

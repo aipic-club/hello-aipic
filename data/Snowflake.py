@@ -55,14 +55,23 @@ class Snowflake:
         _, worker_id = self.parse_id(snowflake_id)
         return worker_id
 
+    @staticmethod
+    def parse_snowflake_id( snowflake_id: int) -> int:
+        worker_id = Snowflake.parse_snowflake_worker_id(snowflake_id=snowflake_id)
+        broker_id , account_id = Snowflake.parse_worker_id(worker_id=worker_id)
+        return broker_id , account_id
 
+    @staticmethod
+    def parse_snowflake_worker_id( snowflake_id: int) -> int:
+        worker_id = (snowflake_id >> 12) & 0x3FF
+        return worker_id
     # _ _ _ _ _ / _ _ _ _ _ 5 bits for broker id and 5 bits for account id
     # bot id and account id max value are both 31
     @staticmethod
-    def snowflake_worker_id( broker_id: int, account_id) -> int:
+    def generate_snowflake_worker_id( broker_id: int, account_id:int) -> int:
         return (broker_id << 5) | account_id
     @staticmethod
-    def parse_worker_id( worker_id):
+    def parse_worker_id( worker_id: int):
         broker_id  = worker_id >> 5
         account_id = worker_id & 0x1f
         return broker_id , account_id

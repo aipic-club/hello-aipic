@@ -4,7 +4,7 @@ import concurrent.futures
 from . import UserProxy
 from .MessageHandler import MessageHandler
 from .utils import *
-from data import Data, config, ImageOperationType, Snowflake
+from data import Data_v2, config, ImageOperationType, Snowflake, DetailType
 
 
 pool = concurrent.futures.ThreadPoolExecutor(max_workers=10)
@@ -13,7 +13,7 @@ class Gateway:
     def __init__(
             self,
             id: int,
-            data: Data,
+            data: Data_v2,
             pool: concurrent.futures.ProcessPoolExecutor
         ) -> None:
             self.id = id
@@ -58,42 +58,56 @@ class Gateway:
                 self.picked_worker_id = id
         return self.picked_worker_id
     
-    def get_task_worker_id(self,  task: dict[str, str]) -> int | None:
-        worker_id = task['worker_id']
+    def get_task_account_id(self,  task: dict[str, str]) -> int | None:
+        worker_id = task['account_id']
         if worker_id is not None and self.users[worker_id] is not None:
             return worker_id
         else:
             return None
 
-    def create_prompt(self, token_id, taskId, prompt, new_prompt) -> None:
+    def create_prompt(self, token_id, taskId, prompt, new_prompt, raw, execute) -> None:
 
         worker_id = self.pick_a_worker_id()
         if self.users[worker_id] is not None:
-            self.data.prompt_task(token_id, taskId, TaskStatus.CONFIRMED, config['wait_time'])
-            self.loop.create_task(self.users[worker_id].send_prompt(new_prompt))
-            self.loop.create_task(self.check_task(taskId= taskId))
+            id = self.users[worker_id].generate_id()
+            detail = {
+                'prompt': prompt,
+                'raw':  raw
+            }
+            self.data.update_task_status(taskId=taskId, status= TaskStatus.CREATED, token_id= token_id)
+            self.data.save_input(id=id, taskId= taskId, type= DetailType.INPUT_MJ_PROMPT , detail= detail )
+            if execute:
+                self.loop.create_task(self.users[worker_id].send_prompt(new_prompt, id))
+                self.data.update_task_status(taskId=taskId, status= TaskStatus.CONFIRMED, token_id= token_id)
+                # self.loop.create_task(self.check_task(taskId= taskId))
 
-    def create_variation(self, prompt: str, task: dict[str, str], index: str):
-        worker_id =  self.get_task_worker_id(task)
+    def create_variation(self, prompt: str, new_prompt: str,  task: dict[str, str], index: str):
+        worker_id =  self.get_task_account_id(task)
         if worker_id is not None:
-            broker_id, _ =  Snowflake.parse_worker_id(worker_id)
-            self.data.image_task(
-                taskId=task['taskId'], 
-                imageHash= task['message_hash'], 
-                type= ImageOperationType.VARIATION, 
-                index= index 
-            )
-            self.data.broker_task_status(
-                broker_id=broker_id, 
-                worker_id=worker_id, 
-                taskId= task['taskId']
-            )
+            id = self.users[worker_id].generate_id()
+            broker_id  =  task['broker_id']
+            # self.data.image_task(
+            #     taskId=task['taskId'], 
+            #     imageHash= task['message_hash'], 
+            #     type= ImageOperationType.VARIATION, 
+            #     index= index 
+            # )
+            # self.data.broker_task_status(
+            #     broker_id=broker_id, 
+            #     worker_id=worker_id, 
+            #     taskId= task['taskId']
+            # )
+            detail = {
+                'ref': task['ref_id'],
+                'prompt': prompt
+            }
+            self.data.save_input(id=id, taskId= task['taskId'], type= DetailType.INPUT_MJ_REMIX , detail= detail )
             self.loop.create_task(
                 self.users[worker_id].send_variation(
                     prompt = prompt,
                     index = index,
-                    messageId = task['message_id'],
-                    messageHash = task['message_hash'], 
+                    messageId = task['id'],
+                    messageHash = task['hash'], 
                 )
             )
 

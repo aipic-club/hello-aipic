@@ -36,7 +36,7 @@ class DetailType(Enum):
     OUTPUT_MJ_DESCRIBE = 25
 
 output_type = [
-    DetailType.OUTPUT_MJ_DESCRIBE.value,
+    DetailType.OUTPUT_MJ_PROMPT.value,
     DetailType.OUTPUT_MJ_REMIX.value,
     DetailType.OUTPUT_MJ_UPSCALE.value,
     DetailType.OUTPUT_MJ_VARIATION.value,
