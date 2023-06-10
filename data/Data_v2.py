@@ -18,6 +18,16 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         super().__init__(url = mysql_url)
         RedisBase.__init__(self, url = redis_url)
         FileBase.__init__(self, config= s3config, proxy= proxy)
+    def close(self):
+        self.mysql_close()
+        self.redis_close()
+    def set_cache(self, key, value):
+        self.redis_set_cache_data(key=key, value=value)
+    def get_cache(self, key):
+        self.redis_get_cache_data(key=key)
+    def remove_cache(self, key):
+        self.redis.delete(key)
+    
     def __insert_detail(self, id: int, taskId: str, type: DetailType, detail: dict):
         cnx = self.pool.get_connection()
         cursor = cnx.cursor(dictionary=True)
@@ -59,8 +69,6 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         finally:
             cursor.close()
             cnx.close()
-
-
     def get_token_id(self, token: str):
         temp = self.redis_get_token(token= token)
         if temp is None:
@@ -81,14 +89,26 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
             'token_id': token_id, 
             'taskId': taskId
         }, lastrowid= True)
-    def verify_task(self, token_id: str, taskId: str) -> bool:
-        sql = ("SELECT 1 FROM `task` WHERE token_id = %(token_id)s AND taskId = %(taskId)s")
-        params= {
-            'token_id': token_id, 
-            'taskId': taskId
-        }
-        record = self.mysql_fetchone(sql=sql, params= params)
-        return record is None
+    def get_task(self, token_id: int, taskId: str ):
+        cache_key = f'cache:{token_id}:{taskId}'
+        cache_data =  self.get_cache(cache_key)
+        if cache_data is None:
+            sql = (
+                "SELECT id  FROM `task`  WHERE status = 1 AND taskId=%(taskId)s AND token_id=%(token_id)s" 
+            )
+            params = {
+                'taskId': taskId,
+                'token_id': token_id
+            }
+            record =  self.mysql_fetchone(sql=sql, params= params)  
+            if record is not None:
+                id =  record['id']
+                self.set_cache(cache_key, id)
+                return  id
+            else:
+                return None
+        else:
+            return int(cache_data) 
     def get_detail(self, task_id: int, page: int = 0, page_size: int = 10):
         sql = (
             "SELECT  `id`, `type`, `detail`,`create_at` FROM detail WHERE task_id=%(task_id)s"
@@ -114,14 +134,26 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
     def get_interaction(self, key)-> int:
         return self.redis_get_interaction(key=key)
     
-    def update_task_status(self, taskId: str, status:TaskStatus , token_id = None) -> None:
+    def update_status(self, taskId: str, status:TaskStatus , token_id = None) -> None:
         self.redis_task(token_id= token_id,  taskId=taskId, status= status, ttl= config['wait_time'] )
-
     def commit_task(self,  taskId: str ,  worker_id: int):
         self.redis_set_task(taskId=taskId, worker_id=worker_id)
-        self.update_task_status(taskId=taskId, status=TaskStatus.COMMITTED)
+        self.update_status(taskId=taskId, status=TaskStatus.COMMITTED)
+    def cleanup(self, taskId: str, type: DetailType):
+        if type is DetailType.OUTPUT_MJ_PROMPT:
+            self.redis_task_cleanup(taskId= taskId)
+        else:
+            self.redis_task_job_cleanup(taskId= taskId)
+        # elif type is DetailType.OUTPUT_MJ_REMIX:
+        #     pass            
+        # elif type is DetailType.OUTPUT_MJ_VARIATION:
+        #     pass
+        # elif type is DetailType.OUTPUT_MJ_UPSCALE:
+        #     pass
+        # elif type is DetailType.OUTPUT_MJ_REMIX:
+        #     pass
 
-    def is_task_onwer(self, taskId: str ,  worker_id: int) -> bool:
+    def is_onwer(self, taskId: str ,  worker_id: int) -> bool:
         id = self.redis_get_task(taskId=taskId)
         return id is not None and id == worker_id
     def process_output(
@@ -147,30 +179,21 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
             )
         )  
         loop.close()  
-        
         detail = {
             'id': message_id,
             'hash': hash,
             'reference': reference,
             'url': url_cn
         }
-
         self.__insert_detail(
             id=id,
             taskId= taskId, 
             type= type, 
             detail= detail
         )
-        self.redis_task_cleanup(taskId=taskId)
-    def get_task(self, token_id: int, taskId: str ):
-        sql = (
-            "SELECT id  FROM `task`  WHERE status = 1 AND taskId=%(taskId)s AND token_id=%(token_id)s" 
-        )
-        params = {
-            'taskId': taskId,
-            'token_id': token_id
-        }
-        return self.mysql_fetchone(sql=sql, params= params)
+        self.update_task_cover(taskId= taskId, cover= url_cn)
+        self.cleanup(taskId= taskId, type= type)
+
     def get_detail_by_id(self, token_id: int, detail_id: int):
         sql = (
             "SELECT t.taskId, d.detail, d.type FROM detail d LEFT JOIN task t ON d.task_id = t.id WHERE t.token_id = %(token_id)s AND  d.id=%(id)s"
@@ -181,29 +204,25 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         }
         return self.mysql_fetchone(sql=sql,params=params)
 
-    def delete_task(self, token_id: str, taskId: str):
+    def __update_task_feild(self, taskId: str , field: str, value: str| int):
         sql = (
-            "UPDATE `task` SET status=0  WHERE taskId=%(taskId)s AND token_id=%(token_id)s"
-        )
+            "UPDATE `task` SET '{field}'=%(value)s  WHERE taskId=%(taskId)s"
+        ).format(field=field)
+        print(sql)
         params = {
             'taskId': taskId,
-            'token_id': token_id
+            'value': value
         }
         return self.mysql_execute(sql = sql, params= params, lastrowid= True)
+    def update_task_topic(self,  taskId: str, topic: str):
+        self.__update_task_feild( taskId=taskId, field = 'topic', value=topic )
+    def update_task_cover(self, taskId: str, cover: str):
+        self.__update_task_feild(taskId=taskId,field = 'cover', value=cover )
+    def delete_task(self, taskId: str):
+        self.__update_task_feild(taskId=taskId, field = 'status', value=0 )
     def get_tasks_by_token_id(self, token_id,  page: int = 0, page_size: int = 10):
         sql =(
-            "SELECT t.taskId as id, t.create_at FROM task t"
-            #"SELECT t.taskId, t.prompt, t.raw, d.url_cn,  t.create_at FROM task t"
-            # " LEFT JOIN ("
-            # "    SELECT d1.taskId, d1.type, d1.status, d1.url_cn"
-            # "    FROM detail d1"
-            # "    INNER JOIN ("
-            # "        SELECT MAX(id) as id"
-            # "        FROM tasks"
-            # "        WHERE status = %(status)s"
-            # "        GROUP BY taskId"
-            # "    ) t2 ON t1.id = t2.id"
-            # ") t ON p.taskId = t.taskId"
+            "SELECT t.taskId as id, t.topic, t.cover, t.create_at FROM task t"
             " WHERE t.token_id = %(token_id)s AND t.status != 0"
             " ORDER BY t.id DESC"                
             " LIMIT %(page_size)s OFFSET %(offset)s"
@@ -275,7 +294,7 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         finally:
             cursor.close()
             cnx.close()
-        return token,days
+        return (token,days,)
         
 
 

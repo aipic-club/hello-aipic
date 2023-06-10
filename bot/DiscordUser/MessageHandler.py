@@ -48,8 +48,7 @@ class MessageHandler:
 
             else:
                 curType = output_type(content)
-                print(f'type {curType}, worker id {worker_id}')
-                if curType is not None and self.data.is_task_onwer( taskId = taskId, worker_id= worker_id):
+                if curType is not None and self.data.is_onwer( taskId = taskId, worker_id= worker_id):
                     attachments =  data.get('attachments',[])
                     url =  attachments[0].get("url") if len(attachments) > 0  else None
                     self.loop.run_in_executor(self.pool, lambda: 

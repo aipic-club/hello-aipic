@@ -74,11 +74,11 @@ class Gateway:
                 'prompt': prompt,
                 'raw':  raw
             }
-            self.data.update_task_status(taskId=taskId, status= TaskStatus.CREATED, token_id= token_id)
+            self.data.update_status(taskId=taskId, status= TaskStatus.CREATED, token_id= token_id)
             self.data.save_input(id=id, taskId= taskId, type= DetailType.INPUT_MJ_PROMPT , detail= detail )
             if execute:
                 self.loop.create_task(self.users[worker_id].send_prompt(new_prompt, id))
-                self.data.update_task_status(taskId=taskId, status= TaskStatus.CONFIRMED, token_id= token_id)
+                self.data.update_status(taskId=taskId, status= TaskStatus.CONFIRMED, token_id= token_id)
                 # self.loop.create_task(self.check_task(taskId= taskId))
 
     def create_variation(self, prompt: str, new_prompt: str,  task: dict[str, str], index: str):
@@ -97,14 +97,18 @@ class Gateway:
             #     worker_id=worker_id, 
             #     taskId= task['taskId']
             # )
+            input_type = DetailType.INPUT_MJ_REMIX
             detail = {
                 'ref': task['ref_id'],
-                'prompt': prompt
+                'prompt': prompt,
+                'index': index
             }
-            self.data.save_input(id=id, taskId= task['taskId'], type= DetailType.INPUT_MJ_REMIX , detail= detail )
+            self.data.update_task_topic(taskId= task['taskId'], topic= prompt)
+            self.data.save_input(id=id, taskId= task['taskId'], type= input_type , detail= detail )
+            self.data.redis_task_job(taskId=task['taskId'], id= task['ref_id'], type = input_type, index= index)
             self.loop.create_task(
                 self.users[worker_id].send_variation(
-                    prompt = prompt,
+                    prompt = new_prompt,
                     index = index,
                     messageId = task['id'],
                     messageHash = task['hash'], 
@@ -112,25 +116,33 @@ class Gateway:
             )
 
     def create_upscale(self, task: dict[str, str], index: str):
-        worker_id =  self.get_task_worker_id(task)
+        worker_id =  self.get_task_account_id(task)
         if worker_id is not None:
-            broker_id, _ =  Snowflake.parse_worker_id(worker_id)
-            self.data.image_task(
-                taskId=task['taskId'], 
-                imageHash= task['message_hash'], 
-                type= ImageOperationType.UPSCALE, 
-                index= index 
-            )
-            self.data.broker_task_status(
-                broker_id=broker_id, 
-                worker_id=worker_id, 
-                taskId= task['taskId']
-            )
+            id = self.users[worker_id].generate_id()
+            broker_id  =  task['broker_id']
+            # self.data.image_task(
+            #     taskId=task['taskId'], 
+            #     imageHash= task['message_hash'], 
+            #     type= ImageOperationType.UPSCALE, 
+            #     index= index 
+            # )
+            # self.data.broker_task_status(
+            #     broker_id=broker_id, 
+            #     worker_id=worker_id, 
+            #     taskId= task['taskId']
+            # )
+            detail = {
+                'ref': task['ref_id'],
+                'index': index
+            }
+            input_type = DetailType.INPUT_MJ_VARIATION
+            self.data.save_input(id=id, taskId= task['taskId'], type= input_type , detail= detail )
+            self.data.redis_task_job(taskId=task['taskId'], id= task['ref_id'], type = input_type, index= index)
             self.loop.create_task(
                 self.users[worker_id].send_upscale(
                     index = index,
-                    messageId = task['message_id'],
-                    messageHash = task['message_hash'], 
+                    messageId = task['id'],
+                    messageHash = task['hash'], 
                 )
             )
 

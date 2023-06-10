@@ -1,13 +1,15 @@
 import os
 import random
 import string
+import hashlib
 import json
 
 from celery import Celery
 
+from functools import partial
 from typing import Annotated, Callable, Optional, Union
 from pydantic import BaseModel, Json
-from fastapi import FastAPI,APIRouter, HTTPException, Depends,  Header, Request, Response, status
+from fastapi import FastAPI,APIRouter, HTTPException, Depends,  Header, Request, Response, status, Path
 from fastapi import BackgroundTasks
 from fastapi.routing import APIRoute
 from fastapi.responses import PlainTextResponse
@@ -22,6 +24,10 @@ from data import Data_v2, SysError, random_id
 from data.values import output_type
 from data.Snowflake import Snowflake
 from config import *
+
+Token = os.environ.get("MP.Token")
+EncodingAESKey = os.environ.get("MP.EncodingAESKey")
+AppID = os.environ.get("MP.AppID")
 
 
 data = Data_v2(
@@ -43,6 +49,27 @@ class Remix(BaseModel):
 
 celery = Celery('tasks', broker=celery_broker)
 
+
+
+
+def check_wechat_signature(request: Request):
+    params = request.query_params._dict
+    signature = params["signature"]
+    timestamp = params["timestamp"]
+    nonce = params["nonce"]
+    try:
+        check_signature(Token, signature, timestamp, nonce)
+    except InvalidSignatureException:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invalid signature"
+        )
+
+def calculate_md5(data):
+    md5_hash = hashlib.md5()
+    md5_hash.update(data.encode('utf-8'))  # Assuming 'data' is a string, encode it to bytes
+    return md5_hash.hexdigest()
+
 def validate_pagination(page: int = 1, size: int = 10,) -> dict[int, int]:
     page = 1 if page < 1 else page
     size = 10 if size < 10 else size
@@ -62,8 +89,14 @@ def get_token_id(authorization: str = Header(None)):
         raise HTTPException(401)
     else:
         return temp
+    
+def get_token_id_and_task_id(taskId: str = Path(...), token_id: int = Depends(get_token_id) ):
+    task_id = data.get_task(taskId= taskId, token_id= token_id)
+    if task_id is None:
+        raise HTTPException(404) 
+    return  (taskId, token_id, task_id, )
 
-def get_image_detail(id: int, token_id: int) -> dict[str, str]:
+def get_image(id:int = Path(...), token_id: int = Depends(get_token_id)) -> dict:
     record = data.get_detail_by_id(token_id=token_id, detail_id= id)
     if record is None:
         raise HTTPException(404) 
@@ -71,14 +104,28 @@ def get_image_detail(id: int, token_id: int) -> dict[str, str]:
         try:
             detail = json.loads(record['detail'])
             return {
-                'taskId': record['taskId'],
-                'id': detail['id'],
-                'hash': detail['hash']
+                'id': id,
+                'token_id': token_id,
+                'detail': {
+                    'taskId': record.get('taskId'),
+                    'id': detail.get('id'),
+                    'hash': detail.get('hash')
+                }
             }
+        
         except:
             raise HTTPException(500)
     else:
         raise HTTPException(405) 
+    
+def get_task_jobs(token_id: int, taskId: str):
+    status = data.redis_task_status(token_id= token_id, taskId=taskId)
+    job = data.redis_task_job_status(taskId=taskId)
+    return status, job
+
+def is_busy(token_id: int, taskId: str):
+    status, job  = get_task_jobs(token_id= token_id, taskId=taskId)
+    return status is not None or len(job) > 0
 
 app = FastAPI()
 router = APIRouter(
@@ -92,9 +139,29 @@ router = APIRouter(
 async def ping():
     return PlainTextResponse(content="pong") 
 
+@app.get("/mp",  dependencies=[Depends(check_wechat_signature)])
+def mp(echostr: int):
+    return echostr
+
+
+@app.post("/mp", dependencies=[Depends(check_wechat_signature)])
+async def mp(request: Request):
+    #params = request.query_params._dict
+    body = await request.body()
+    msg = parse_message(body)
+    reply = create_reply(None, msg)
+    if msg.type == "text":
+        if (msg.content == "试用" or msg.content == "aipic"):
+            token,days = data.create_trial_token(msg.source) 
+            expire = '{token}\n❗有效期小于一天，请及时备份' if days == 0 else f'{token}\n有效期剩余{days}天'
+            template =  f'{expire}\n有效期后可继续获取试用 \n电脑访问https://aipic.club/或<a href="https://aipic.club/trial/{token}">在微信中</a>试用AIPic'
+            reply = create_reply(template , msg)
+    return Response(content=reply.render(), media_type="application/xml")
+
+
 
 @router.get("/tasks")
-def list_tasks( 
+async def list_tasks( 
     token_id: int = Depends(get_token_id), 
     pagination = Depends(validate_pagination)
 ):
@@ -106,7 +173,7 @@ def list_tasks(
 
 
 @router.post("/tasks")
-def create_task(token_id: int = Depends(get_token_id) ):
+async def create_task(token_id: int = Depends(get_token_id) ):
     taskId = random_id(11)
     data.create_task(token_id= token_id, taskId= taskId)
     return {
@@ -114,9 +181,11 @@ def create_task(token_id: int = Depends(get_token_id) ):
     }
 
 @router.post("/tasks/{taskId}")
-def add_task_item(taskId: str, item: Prompt, token_id: int = Depends(get_token_id) ):
-    if data.verify_task(token_id= token_id, taskId= taskId):
-        raise HTTPException(404)   
+async def add_task_item(item: Prompt, token_id_and_task_id: int = Depends(get_token_id_and_task_id) ):
+    taskId, token_id, _  = token_id_and_task_id
+    if is_busy(token_id= token_id, taskId= taskId):
+        return Response(status_code=202)
+     
     prompt = item.prompt
     execute = item.execute
     raw = item.raw
@@ -135,38 +204,41 @@ def add_task_item(taskId: str, item: Prompt, token_id: int = Depends(get_token_i
         "status": "ok"
     }
 @router.delete("/tasks/{taskId}")
-def delete_task(taskId: str,  token_id: int = Depends(get_token_id) ):
-    record = data.get_task(taskId= taskId, token_id= token_id)
-    if record is None:
-        raise HTTPException(404)   
-    else:
-        data.delete_task(taskId= taskId, token_id= token_id)
-        return {
-            'status': 'ok',
-            'detail': ""
-        }
+async def delete_task(token_id_and_task_id: int = Depends(get_token_id_and_task_id) ):
+    taskId, token_id, _  = token_id_and_task_id
+    cache_key = f'cache:{token_id}:{taskId}'
+    data.delete_task(taskId= taskId)
+    data.remove_cache(cache_key)
+    return {
+        'status': 'ok',
+        'detail': ""
+    }
 
 @router.get("/tasks/{taskId}/status")
-def get_task_status(taskId: str,  token_id: int = Depends(get_token_id) ):
-    pass
+def get_task_status(token_id_and_task_id: int = Depends(get_token_id_and_task_id) ):
+    taskId, token_id, _ = token_id_and_task_id 
+    status, job  = get_task_jobs(token_id= token_id, taskId=taskId)
+    return{
+        'status': status,
+        'jobs': job
+    }
 @router.get("/tasks/{taskId}/detail")
-def get_task_detail(taskId: str, pagination = Depends(validate_pagination), token_id: int = Depends(get_token_id) ):
-    record = data.get_task(taskId= taskId, token_id= token_id)
-    if record is None:
-        raise HTTPException(404)   
-
-    else:
-        detail = data.get_detail(task_id=record['id'], page= pagination['page'] , page_size= pagination['size'] )
-        return detail
+async def get_task_detail(
+    token_id_and_task_id: int = Depends(get_token_id_and_task_id) , 
+    pagination = Depends(validate_pagination)
+):
+    _,_,task_id  = token_id_and_task_id
+    detail = data.get_detail(task_id=task_id, page= pagination['page'] , page_size= pagination['size'] )
+    return detail
 @router.post("/upscale/{id}")
-def upscale( item: Upscale, id:int, token_id: int = Depends(get_token_id)):
-    detail = get_image_detail(id=id, token_id=token_id)
-    broker_id , account_id = Snowflake.parse_snowflake_id(id)
+async def upscale( item: Upscale,detail: dict = Depends(get_image)):
+    if is_busy(token_id= detail.get('token_id'), taskId= detail.get('detail',{}).get('taskId')):
+        return Response(status_code=202)
+    broker_id , account_id = Snowflake.parse_snowflake_id(detail.get('id'))
     celery.send_task('upscale',
         (
-            item.prompt,
             {
-                **detail,
+                **detail.get('detail',{}),
                 'ref_id': id,
                 'broker_id': broker_id,
                 'account_id' : account_id
@@ -180,15 +252,16 @@ def upscale( item: Upscale, id:int, token_id: int = Depends(get_token_id)):
     }
 
 @router.post("/variation/{id}")
-def upscale( item:  Remix, id:int, token_id: int = Depends(get_token_id)):
-    detail = get_image_detail(id=id, token_id=token_id)
-    broker_id , account_id = Snowflake.parse_snowflake_id(id)
+async def upscale( item:  Remix,  detail: dict = Depends(get_image)):
+    if is_busy(token_id= detail.get('token_id'), taskId= detail.get('detail',{}).get('taskId')):
+        return Response(status_code=202)
+    broker_id , account_id = Snowflake.parse_snowflake_id(detail.get('id'))
     celery.send_task('variation',
         (
             item.prompt,
             {
-                **detail,
-                'ref_id': id,
+                **detail.get('detail',{}),
+                'ref_id': detail.get('id'),
                 'broker_id': broker_id,
                 'account_id' : account_id
             },
@@ -200,5 +273,13 @@ def upscale( item:  Remix, id:int, token_id: int = Depends(get_token_id)):
         'status': 'ok'
     }
 
+@router.post("/sign")
+async def get_sign( token_id: int = Depends(get_token_id)):
+    path = calculate_md5(f'aipic.{token_id}')
+    sign = data.file_generate_presigned_url(f'upload/{path}/{random_id(10)}.jpg')  
+    return   {'sign': sign}
 
 app.include_router(router)
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("server-v2:app", port=8000, log_level="info", reload= True)

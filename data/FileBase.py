@@ -20,13 +20,13 @@ class FileBase(FileInterface):
             's3', 
             **config
         )
-    def file_generate_presigned_url(self, content_type, key):
+    def file_generate_presigned_url(self, key):
         url = self.s3client.generate_presigned_url(
             'put_object',
             Params={
                 'Bucket': self.bucket_name, 
                 'Key': key,
-                'ContentType': content_type,
+                'ContentType': '',
                 'ContentLength': 5242880
             }
         ) 

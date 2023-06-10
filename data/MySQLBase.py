@@ -32,8 +32,8 @@ class MySQLBase(MySQLInterface):
                 print("Database does not exist")
             else:
                 print(err)
-    def close(self):
-        self.pool.close()
+    def mysql_close(self):
+        pass
 
     def mysql_fetchall(self, sql, params: dict):
         cnx = self.pool.get_connection()

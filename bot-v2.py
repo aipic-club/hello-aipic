@@ -105,4 +105,4 @@ def describe(self, task: dict[str, str, str]):
 
 
 if __name__ == '__main__':
-    celery.worker_main(argv=['worker', '--pool=solo',  '-l', 'info', '-Q' , f'queue_{celery_worker_id},develop,celery'])
+    celery.worker_main(argv=['worker', '--pool=solo',  '-l', 'info', '-Q' , f'queue_{celery_worker_id},celery'])
