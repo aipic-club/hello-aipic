@@ -28,6 +28,30 @@ class RedisBase(RedisInterface):
         return int(val) if val is not None else None
     def redis_set_token(self, token: str, ttl: int, id: int):
         self.redis.setex(f'token:{token}', ttl, id )
+
+    def redis_init_cost(self,   token_id: str, blance: int, cost: int, expire_at: str,   ttl: int):
+            data = {
+                'blance': blance,
+                'cost': cost,
+                'expire_at': expire_at
+            }
+            self.redis.setex(f'tokenId:{token_id}', ttl, json.dumps(data))
+    def redis_add_cost(self, token_id: str, cost ):
+        key = f'tokenId:{token_id}'
+        current = self.redis_get_cost(token_id=token_id)
+        if current is not None:
+            data = {
+                **current,
+                'cost': current.get("cost") + cost, 
+            }
+            _ttl = self.redis.ttl(key)
+            self.redis.setex(key , _ttl, json.dumps(data))
+
+    def redis_get_cost(self, token_id: str):
+        val = self.redis.get(f'tokenId:{token_id}')
+        return json.loads(val) if val is not None else None
+
+    
     def redis_set_task(self, taskId: str, worker_id: int | None):
         self.redis.setex(f'task:{taskId}', config['cache_time'], worker_id)
     def redis_get_task(self, taskId: str,):
@@ -67,17 +91,6 @@ class RedisBase(RedisInterface):
         self.__remove_keys(f'job:{taskId}:{id}' )
     def redis_task_job_cleanup(self,  taskId: str,):
         self.__remove_keys(f'job:{taskId}:*' )
-
-    # def redis_image_status(self, taskId) -> list:
-    #     keys = self.redis.keys(f'image:{taskId}:*')
-    #     return self.redis.mget(keys)
-    # def redis_image_cleanup(self, taskId: str, imageHash: str, ):
-    #     self.__remove_keys(f'image:{taskId}:{imageHash}' )
-
-    def redis_broker(self, broker_id: int, worker_id: int, taskId: int):
-        self.redis.setex(f'broker:{broker_id}:{worker_id}:{taskId}', config['wait_time']  , '')
-    def redis_broker_cleanup(self, taskId):
-        self.__remove_keys(f'broker:*:*:{taskId}')
 
     def redis_set_interaction(self, key: str | int, value: str | int  ) -> bool:
         return self.redis.setex(f'interaction:{key}', config['wait_time'] ,  value)

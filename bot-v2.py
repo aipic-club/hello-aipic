@@ -30,7 +30,7 @@ atexit.register(data.close)
 
 
 gateway = Gateway( 
-    id = int(celery_worker_id) , 
+    id = int(celery_broker_id) , 
     data = data, 
     pool = pool
 )
@@ -61,11 +61,22 @@ def ping():
 
 
 @celery.task(name='prompt',bind=True, base=BaseTask)
-def add_task(self, token_id , taskId, prompt, raw, execute):
+def add_task(
+        self,
+        broker_id: int | None, 
+        account_id: int | None, 
+        token_id: int , 
+        taskId: str, 
+        prompt: str, 
+        raw: str, 
+        execute: bool
+    ):
     new_prompt = refine_prompt(taskId, prompt)
     gateway.loop.run_in_executor(
         pool, 
         lambda: gateway.create_prompt(
+            broker_id,
+            account_id,
             token_id,
             taskId, 
             prompt, 
@@ -105,4 +116,4 @@ def describe(self, task: dict[str, str, str]):
 
 
 if __name__ == '__main__':
-    celery.worker_main(argv=['worker', '--pool=solo',  '-l', 'info', '-Q' , f'queue_{celery_worker_id},celery'])
+    celery.worker_main(argv=['worker', '--pool=solo',  '-l', 'info', '-Q' , f'queue_{celery_broker_id},celery'])

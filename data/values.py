@@ -83,9 +83,13 @@ class Cost(Enum):
         else:
             return 0
     
-class SysError(Enum):
-    FATAL = 0
-    TOKEN_NOT_EXIST_OR_EXPIRED = 1
+class SysCode(Enum):
+    OK = 0
+    MAINTENACNCE = 1
+    FATAL = 2
+    TOKEN_NOT_EXIST_OR_EXPIRED = 11
+    TOKEN_OUT_OF_BALANCE = 12
+
 
 
 config = {

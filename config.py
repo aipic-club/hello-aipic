@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 
-celery_worker_id = os.environ.get("CELERY.WORKERID")
+celery_broker_id = os.environ.get("ID")
 celery_broker =os.environ.get("CELERY.BROKER")
 proxy =  os.environ.get("http_proxy")
 redis_url = os.environ.get("REDIS")

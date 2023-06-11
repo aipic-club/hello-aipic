@@ -4,7 +4,7 @@ import concurrent.futures
 from . import UserProxy
 from .MessageHandler import MessageHandler
 from .utils import *
-from data import Data_v2, config, ImageOperationType, Snowflake, DetailType
+from data import Data_v2, config, DetailType
 
 
 pool = concurrent.futures.ThreadPoolExecutor(max_workers=10)
@@ -65,19 +65,29 @@ class Gateway:
         else:
             return None
 
-    def create_prompt(self, token_id, taskId, prompt, new_prompt, raw, execute) -> None:
-
-        worker_id = self.pick_a_worker_id()
-        if self.users[worker_id] is not None:
-            id = self.users[worker_id].generate_id()
+    def create_prompt(
+            self, 
+            broker_id: int | None, 
+            account_id: int | None, 
+            token_id: int , 
+            taskId: str, 
+            prompt: str,
+            new_prompt: str,
+            raw: str, 
+            execute: bool 
+    ) -> None:
+        _account_id = self.pick_a_worker_id() if account_id is None else account_id
+        if self.users[_account_id] is not None:
+            id = self.users[_account_id].generate_id()
             detail = {
                 'prompt': prompt,
                 'raw':  raw
             }
+            self.data.update_task_topic(taskId=taskId, topic= prompt)
             self.data.update_status(taskId=taskId, status= TaskStatus.CREATED, token_id= token_id)
             self.data.save_input(id=id, taskId= taskId, type= DetailType.INPUT_MJ_PROMPT , detail= detail )
             if execute:
-                self.loop.create_task(self.users[worker_id].send_prompt(new_prompt, id))
+                self.loop.create_task(self.users[_account_id].send_prompt(new_prompt, id))
                 self.data.update_status(taskId=taskId, status= TaskStatus.CONFIRMED, token_id= token_id)
                 # self.loop.create_task(self.check_task(taskId= taskId))
 
@@ -103,7 +113,6 @@ class Gateway:
                 'prompt': prompt,
                 'index': index
             }
-            self.data.update_task_topic(taskId= task['taskId'], topic= prompt)
             self.data.save_input(id=id, taskId= task['taskId'], type= input_type , detail= detail )
             self.data.redis_task_job(taskId=task['taskId'], id= task['ref_id'], type = input_type, index= index)
             self.loop.create_task(

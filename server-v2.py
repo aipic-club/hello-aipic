@@ -3,6 +3,7 @@ import random
 import string
 import hashlib
 import json
+from datetime import datetime
 
 from celery import Celery
 
@@ -20,7 +21,7 @@ from wechatpy.utils import check_signature
 from wechatpy.exceptions import InvalidSignatureException, InvalidAppIdException
 
 
-from data import Data_v2, SysError, random_id
+from data import Data_v2,  SysCode, random_id
 from data.values import output_type
 from data.Snowflake import Snowflake
 from config import *
@@ -84,11 +85,11 @@ def get_token_id(authorization: str = Header(None)):
         #return {"error": "Authorization header is invalid"}
         raise HTTPException(401)
     token = parts[1]
-    temp = data.get_token_id(token= token)
-    if type(temp) is SysError:
-        raise HTTPException(401)
+    id,code = data.get_token_id(token= token)
+    if code is SysCode.OK and id is not None:
+        return id
     else:
-        return temp
+        raise HTTPException(401)
     
 def get_token_id_and_task_id(taskId: str = Path(...), token_id: int = Depends(get_token_id) ):
     task_id = data.get_task(taskId= taskId, token_id= token_id)
@@ -182,22 +183,34 @@ async def create_task(token_id: int = Depends(get_token_id) ):
 
 @router.post("/tasks/{taskId}")
 async def add_task_item(item: Prompt, token_id_and_task_id: int = Depends(get_token_id_and_task_id) ):
-    taskId, token_id, _  = token_id_and_task_id
+    taskId, token_id, task_id  = token_id_and_task_id
     if is_busy(token_id= token_id, taskId= taskId):
         return Response(status_code=202)
      
     prompt = item.prompt
     execute = item.execute
     raw = item.raw
-    
+
+    record = data.get_fist_input_id(task_id=task_id)
+    print(record)
+    queue = 'celery'
+    broker_id = None
+    account_id = None
+    if record is not None:
+        broker_id , account_id = Snowflake.parse_snowflake_id(record.get('id'))
+        queue = f"queue_{broker_id}"
+        
     celery.send_task('prompt',
         (
+            broker_id,
+            account_id,
             token_id,
             taskId,
             prompt,
             raw,
-            execute
-        )
+            execute,
+        ),
+        queue = queue
     )  
   
     return {
@@ -272,6 +285,12 @@ async def upscale( item:  Remix,  detail: dict = Depends(get_image)):
     return {
         'status': 'ok'
     }
+
+@router.get("/profile")
+async def get_profile(token_id: int = Depends(get_token_id)):
+    temp = data.redis_get_cost(token_id= token_id)
+    return temp
+
 
 @router.post("/sign")
 async def get_sign( token_id: int = Depends(get_token_id)):

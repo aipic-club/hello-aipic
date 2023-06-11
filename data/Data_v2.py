@@ -6,7 +6,7 @@ from .values import TaskStatus
 from .MySQLBase import MySQLBase
 from .RedisBase import RedisBase
 from .FileBase import FileBase
-from .values import DetailType,output_type,get_cost, image_hostname, config
+from .values import DetailType,output_type,get_cost, image_hostname, config,SysCode
 
 class Data_v2(MySQLBase, RedisBase, FileBase):
     def __init__(self, 
@@ -51,16 +51,18 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
                     'type': type.value,
                     'detail': json.dumps(detail)
                 }
-                insertd_detail_id = self.mysql_execute(sql=sql, params= new_params, lastrowid= True, _cnx = cnx )
+                self.mysql_execute(sql=sql, params= new_params, lastrowid= False, _cnx = cnx )
                 if type.value in output_type:
                     print("add audit")
+                    cost = get_cost(type= type)
                     sql = ("INSERT INTO `token_audit` (`token_id`, `task_id`, `cost`) VALUES (%(token_id)s, %(task_id)s,%(cost)s)")
                     new_params = {
                         'token_id' : token_id,
-                        'task_id' : insertd_detail_id,
-                        'cost': get_cost(type= type)
+                        'task_id' : id,
+                        'cost': cost
                     }
                     self.mysql_execute(sql=sql, params= new_params, _cnx = cnx )
+                    self.redis_add_cost(token_id= token_id, cost= cost)
             cnx.commit()
         except Exception as e:
             print(e)
@@ -69,26 +71,65 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         finally:
             cursor.close()
             cnx.close()
-    def get_token_id(self, token: str):
-        temp = self.redis_get_token(token= token)
-        if temp is None:
-            sql = "SELECT `id`,TIMESTAMPDIFF(SECOND, NOW(), expire_at ) as ttl FROM `tokens` WHERE token = %s and expire_at > current_timestamp()"
-            val = (token,)
-            recod = self.mysql_fetchone(sql= sql, params= val)
-
-            if recod is None:
-                return None
+    def get_token_id(self, token: str) -> tuple:
+        id = None
+        code = SysCode.OK
+        try:
+            temp = self.redis_get_token(token= token)
+            if temp is None:
+                sql =(
+                    "SELECT t.id,TIMESTAMPDIFF(SECOND, NOW(), t.expire_at ) as ttl, t.balance, t.expire_at, COALESCE(a.cost, 0) AS cost"
+                    " FROM tokens AS t"
+                    " LEFT JOIN ("
+                    "   SELECT token_id, SUM(cost) AS cost"
+                    "   FROM token_audit"
+                    "   GROUP BY token_id"
+                    " ) AS a ON t.id = a.token_id"  
+                    " WHERE t.token = %(token)s AND t.expire_at > current_timestamp()"
+                )
+                params = {
+                    'token': token
+                }
+                record = self.mysql_fetchone(sql= sql, params= params)
+                if record is not None:
+                    if record['cost'] >= record['balance']:
+                        code = SysCode.TOKEN_OUT_OF_BALANCE
+                    else:
+                        id = record['id']
+                        ttl = record['ttl']
+                        balance = record['balance']
+                        cost = int(record['cost'])
+                        expire_at = record['expire_at'].strftime("%Y-%m-%dT%H:%M:%SZ")
+                        print(expire_at)
+                        self.redis_set_token(token=token, ttl = ttl, id= id)
+                        self.redis_init_cost(
+                            token_id= id, 
+                            blance= balance, 
+                            cost= cost, 
+                            expire_at= expire_at, 
+                            ttl = ttl
+                        )
+                else:
+                    code = SysCode.TOKEN_NOT_EXIST_OR_EXPIRED
             else:
-                self.redis_set_token(token= token, ttl= recod['ttl'], id= recod['id'])
-                return recod['id']
-        else:
-            return temp
+                id = temp
+                cost = self.redis_get_cost(token_id= id)
+                if cost.get("cost") > cost.get("blance"):
+                    code = SysCode.TOKEN_OUT_OF_BALANCE
+
+        except Exception as e:
+            print(e)
+            code = SysCode.FATAL
+        return (id, code, )
+        
+
     def create_task(self, token_id: str, taskId: str):
         sql = ("INSERT INTO `task` (`token_id`, `taskId` ) VALUES( %(token_id)s, %(taskId)s)")
         self.mysql_execute(sql, params= {
             'token_id': token_id, 
             'taskId': taskId
         }, lastrowid= True)
+
     def get_task(self, token_id: int, taskId: str ):
         cache_key = f'cache:{token_id}:{taskId}'
         cache_data =  self.get_cache(cache_key)
@@ -121,7 +162,16 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
             'page_size': page_size,
         }
         return self.mysql_fetchall(sql=sql, params= params)
-    
+    def get_fist_input_id(self, task_id: int):
+        sql = (
+            "SELECT  `id` FROM detail WHERE task_id=%(task_id)s AND type=%(type)s"
+            " LIMIT 1"
+        )
+        params = {
+            'task_id': task_id,
+            'type': DetailType.INPUT_MJ_PROMPT.value
+        }
+        return self.mysql_fetchone(sql=sql, params=params)
     def save_input(self, id: int, taskId: int, type: DetailType , detail: dict ):
         self.__insert_detail(
             id=id,
@@ -206,9 +256,8 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
 
     def __update_task_feild(self, taskId: str , field: str, value: str| int):
         sql = (
-            "UPDATE `task` SET '{field}'=%(value)s  WHERE taskId=%(taskId)s"
+            "UPDATE `task` SET {field}=%(value)s  WHERE taskId=%(taskId)s"
         ).format(field=field)
-        print(sql)
         params = {
             'taskId': taskId,
             'value': value
@@ -242,6 +291,7 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
             'end_id': Snowflake.generate_snowflake_worker_id(broker_id, 31),
         }
         return self.mysql_fetchall(sql, params)
+
     def create_trial_token(self, FromUserName):
         cnx = self.pool.get_connection()
         cursor = cnx.cursor(dictionary=True)  
@@ -275,7 +325,7 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
                         days = record['days'] 
             if token is None:
                 token = random_id(20)
-                sql = ("INSERT INTO `tokens` (`token`,`blance`,`type`,`expire_at`) VALUES( %(token)s, 100, 1 , DATE_ADD(NOW(), INTERVAL %(days)s DAY) )")
+                sql = ("INSERT INTO `tokens` (`token`,`balance`,`type`,`expire_at`) VALUES( %(token)s, 100, 1 , DATE_ADD(NOW(), INTERVAL %(days)s DAY) )")
                 params = {
                    'token': token,
                     'days': days
