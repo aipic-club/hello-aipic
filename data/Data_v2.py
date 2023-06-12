@@ -104,7 +104,7 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
                         self.redis_set_token(token=token, ttl = ttl, id= id)
                         self.redis_init_cost(
                             token_id= id, 
-                            blance= balance, 
+                            balance = balance, 
                             cost= cost, 
                             expire_at= expire_at, 
                             ttl = ttl
@@ -114,7 +114,7 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
             else:
                 id = temp
                 cost = self.redis_get_cost(token_id= id)
-                if cost.get("cost") > cost.get("blance"):
+                if cost.get("cost") > cost.get("balance"):
                     code = SysCode.TOKEN_OUT_OF_BALANCE
 
         except Exception as e:

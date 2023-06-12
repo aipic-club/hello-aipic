@@ -29,9 +29,9 @@ class RedisBase(RedisInterface):
     def redis_set_token(self, token: str, ttl: int, id: int):
         self.redis.setex(f'token:{token}', ttl, id )
 
-    def redis_init_cost(self,   token_id: str, blance: int, cost: int, expire_at: str,   ttl: int):
+    def redis_init_cost(self,   token_id: str, balance: int, cost: int, expire_at: str,   ttl: int):
             data = {
-                'blance': blance,
+                'balance': balance,
                 'cost': cost,
                 'expire_at': expire_at
             }
