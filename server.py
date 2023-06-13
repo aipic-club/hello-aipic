@@ -1,9 +1,16 @@
 import os
 import random
 import string
+import hashlib
+import json
+from datetime import datetime
+
+from celery import Celery
+
+from functools import partial
 from typing import Annotated, Callable, Optional, Union
 from pydantic import BaseModel, Json
-from fastapi import FastAPI,APIRouter, HTTPException, Depends,  Header, Request, Response, status
+from fastapi import FastAPI,APIRouter, HTTPException, Depends,  Header, Request, Response, status, Path
 from fastapi import BackgroundTasks
 from fastapi.routing import APIRoute
 from fastapi.responses import PlainTextResponse
@@ -14,18 +21,34 @@ from wechatpy.utils import check_signature
 from wechatpy.exceptions import InvalidSignatureException, InvalidAppIdException
 
 
-from celery import Celery
-from dotenv import load_dotenv, find_dotenv
-from data import Data, TaskStatus, SysError, random_id
-load_dotenv(find_dotenv())
-
-celery = Celery('tasks', broker=os.environ.get("CELERY.BROKER"))
-
-
+from data import Data_v2,  SysCode, random_id
+from data.values import output_type
+from data.Snowflake import Snowflake
+from config import *
 
 Token = os.environ.get("MP.Token")
 EncodingAESKey = os.environ.get("MP.EncodingAESKey")
 AppID = os.environ.get("MP.AppID")
+
+
+data = Data_v2(
+    redis_url = redis_url,
+    mysql_url = mysql_url,
+    proxy = None, 
+    s3config= s3config
+)
+
+class Prompt(BaseModel):
+    prompt: str
+    raw: Union[str , None] = None
+    execute: Union[bool , None] = None
+class Upscale(BaseModel):
+    index: int
+class Remix(BaseModel):
+    prompt: str
+    index: int
+
+celery = Celery('tasks', broker=celery_broker)
 
 
 
@@ -42,9 +65,18 @@ def check_wechat_signature(request: Request):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Invalid signature"
         )
-    
 
-async def get_token_id(authorization: str = Header(None)):
+def calculate_md5(data):
+    md5_hash = hashlib.md5()
+    md5_hash.update(data.encode('utf-8'))  # Assuming 'data' is a string, encode it to bytes
+    return md5_hash.hexdigest()
+
+def validate_pagination(page: int = 1, size: int = 10,) -> dict[int, int]:
+    page = 1 if page < 1 else page
+    size = 10 if size < 10 else size
+    return {'page':page,'size':size}
+
+def get_token_id(authorization: str = Header(None)):
     if authorization is None:
         #return {"error": "Authorization header is missing"}
         raise HTTPException(401)
@@ -53,24 +85,47 @@ async def get_token_id(authorization: str = Header(None)):
         #return {"error": "Authorization header is invalid"}
         raise HTTPException(401)
     token = parts[1]
-    temp = data.check_token_and_get_id(token= token)
-    if type(temp) is SysError:
-        raise HTTPException(401)
+    id,code = data.get_token_id(token= token)
+    if code is SysCode.OK and id is not None:
+        return id
     else:
-        return temp
+        raise HTTPException(401)
     
-async def validate_pagination(page: int = 1, size: int = 10,) -> dict[int, int]:
-    page = 1 if page < 1 else page
-    size = 10 if size < 10 else size
-    return {'page':page,'size':size}
+def get_token_id_and_task_id(taskId: str = Path(...), token_id: int = Depends(get_token_id) ):
+    task_id = data.get_task(taskId= taskId, token_id= token_id)
+    if task_id is None:
+        raise HTTPException(404) 
+    return  (taskId, token_id, task_id, )
 
-async def get_task():
-    # task = data.get_task_by_id( token_id, task_id)
-    # if task is None:
-    #     raise HTTPException(404)  
-    # return task  
-    pass
+def get_image(id:int = Path(...), token_id: int = Depends(get_token_id)) -> dict :
+    record = data.get_detail_by_id(token_id=token_id, detail_id= id)
+    if record is None:
+        raise HTTPException(404) 
+    if record['type'] in output_type:
+        try:
+            detail = json.loads(record['detail'])
+            return {
+                'id': id,
+                'token_id': token_id,
+                'detail': {
+                    'taskId': record.get('taskId'),
+                    'id': detail.get('id'),
+                    'hash': detail.get('hash')
+                }
+            }
+        except:
+            raise HTTPException(500)
+    else:
+        raise HTTPException(405) 
+    
+def get_task_jobs(token_id: int, taskId: str):
+    status = data.redis_task_status(token_id= token_id, taskId=taskId)
+    job = data.redis_task_job_status(taskId=taskId)
+    return status, job
 
+def is_busy(token_id: int, taskId: str):
+    status, job  = get_task_jobs(token_id= token_id, taskId=taskId)
+    return status is not None or len(job) > 0
 
 app = FastAPI()
 router = APIRouter(
@@ -79,31 +134,6 @@ router = APIRouter(
         Depends(get_token_id)
     ]
 )
-
-
-data = Data(
-    redis_url = os.environ.get("REDIS"),
-    mysql_url = os.environ.get("MYSQL"),
-    proxy = None, 
-    s3config= {
-        'aws_access_key_id' : os.environ.get("AWS.ACCESS_KEY_ID"),
-        'aws_secret_access_key' : os.environ.get("AWS.SECRET_ACCESS_KEY"),
-        'endpoint_url' : os.environ.get("AWS.ENDPOINT")
-    }
-)
-
-
-class Prompt(BaseModel):
-    prompt: str
-    raw: Union[str , None] = None
-    execute: Union[bool , None] = None
-
-class Upscale(BaseModel):
-    index: int
-class Remix(BaseModel):
-    prompt: str
-    index: int
-
 
 @app.get("/ping")
 async def ping():
@@ -122,108 +152,156 @@ async def mp(request: Request):
     reply = create_reply(None, msg)
     if msg.type == "text":
         if (msg.content == "试用" or msg.content == "aipic"):
-            token = data.create_trial_token(msg.source)         
-            reply = create_reply(token , msg)
-       
+            token,days = data.create_trial_token(msg.source) 
+            expire = '{token}\n❗有效期小于一天，请及时备份' if days == 0 else f'{token}\n有效期剩余{days}天'
+            template =  f'{expire}\n有效期后可继续获取试用 \n电脑访问https://aipic.club/或<a href="https://aipic.club/trial/{token}">在微信中</a>试用AIPic'
+            reply = create_reply(template , msg)
     return Response(content=reply.render(), media_type="application/xml")
 
-@router.get("/prompts")
-async def list_prompts( token_id: int = Depends(get_token_id), pagination = Depends(validate_pagination)):
-    records = data.get_prompts_by_token_id(token_id=token_id, page= pagination['page'] , page_size= pagination['size'])
-    return records
 
 
-@router.post("/prompts")
-async def send_prompt(item: Prompt, token_id: int = Depends(get_token_id) ):
+@router.get("/tasks")
+async def list_tasks( 
+    token_id: int = Depends(get_token_id), 
+    pagination = Depends(validate_pagination)
+):
+    return data.get_tasks_by_token_id(
+        token_id=token_id, 
+        page= pagination['page'], 
+        page_size= pagination['size']
+    )
+
+
+@router.post("/tasks")
+async def create_task(token_id: int = Depends(get_token_id) ):
     taskId = random_id(11)
-    prompt = item.prompt
-    data.save_prompt(token_id= token_id, prompt=prompt, raw= item.raw, taskId= taskId)
-    if item.execute:
-         celery.send_task('prompt',
-            (
-                token_id,
-                taskId,
-                prompt
-            ),
-            task_id= taskId,
-            # queue="queue_1"
-        )
-         
+    data.create_task(token_id= token_id, taskId= taskId)
     return {
         'id':  taskId
     }
 
-@router.get("/prompts/{taskId}")
-async def send_prompt(taskId: str, token_id: int = Depends(get_token_id) ):
+@router.post("/tasks/{taskId}")
+async def add_task_item(item: Prompt, token_id_and_task_id: int = Depends(get_token_id_and_task_id) ):
+    taskId, token_id, task_id  = token_id_and_task_id
+    if is_busy(token_id= token_id, taskId= taskId):
+        return Response(status_code=202)
+     
+    prompt = item.prompt
+    execute = item.execute
+    raw = item.raw
 
-    image_status = data.image_task_status(taskId)
-    if len(image_status) > 0:
-        return  {
-            'status': None,
-            'images': image_status
-        }
+    record = data.get_fist_input_id(task_id=task_id)
     
-    status = data.prompt_task_status(token_id, taskId)
+    queue = 'celery'
+    broker_id = None
+    account_id = None
+    if record is not None:
+        first_id = int(record.get('id'))
+        broker_id , account_id = Snowflake.parse_snowflake_id(first_id)
+        queue = f"queue_{broker_id}"
+        
+    celery.send_task('prompt',
+        (
+            broker_id,
+            account_id,
+            token_id,
+            taskId,
+            prompt,
+            raw,
+            execute,
+        ),
+        queue = queue
+    )  
+  
     return {
-        'status': int(status) if status else None,
-        'images': []
+        "status": "ok"
+    }
+@router.delete("/tasks/{taskId}")
+async def delete_task(token_id_and_task_id: int = Depends(get_token_id_and_task_id) ):
+    taskId, token_id, _  = token_id_and_task_id
+    cache_key = f'cache:{token_id}:{taskId}'
+    data.delete_task(taskId= taskId)
+    data.remove_cache(cache_key)
+    return {
+        'status': 'ok',
+        'detail': ""
     }
 
-@router.get("/images/{taskId}")
-async def prompt_detail(taskId: str, page: int = 1, size: int = 10, token_id: int = Depends(get_token_id)):
-    if page < 1 or size < 10:
-        raise HTTPException(500)
-    records = data.get_tasks_by_taskId(token_id=token_id, taskId= taskId, page= page, page_size= size)
-    return records      
+@router.get("/tasks/{taskId}/status")
+def get_task_status(token_id_and_task_id: int = Depends(get_token_id_and_task_id) ):
+    taskId, token_id, _ = token_id_and_task_id 
+    status, job  = get_task_jobs(token_id= token_id, taskId=taskId)
+    return{
+        'status': status,
+        'jobs': job
+    }
+@router.get("/tasks/{taskId}/detail")
+async def get_task_detail(
+    token_id_and_task_id: int = Depends(get_token_id_and_task_id) , 
+    pagination = Depends(validate_pagination)
+):
+    _,_,task_id  = token_id_and_task_id
+    detail = data.get_detail(task_id=task_id, page= pagination['page'] , page_size= pagination['size'] )
+    return detail
+@router.post("/upscale/{id}")
+async def upscale( item: Upscale,detail: dict = Depends(get_image)):
+    print(detail)
+    if is_busy(token_id= detail.get('token_id'), taskId= detail.get('detail',{}).get('taskId')):
+        return Response(status_code=202)
+    broker_id , account_id = Snowflake.parse_snowflake_id(detail.get('id'))
+    celery.send_task('upscale',
+        (
+            {
+                **detail.get('detail',{}),
+                'ref_id': detail.get('id'),
+                'broker_id': broker_id,
+                'account_id' : account_id
+            },
+            item.index,
+        ),
+        queue= f"queue_{broker_id}"
+    )
+    return {
+        'status': 'ok'
+    }
 
-@router.post("/images/{image_hash}/upscale")
-async def upscale( item: Upscale, image_hash:str,token_id: int = Depends(get_token_id)):
-    task = data.get_task_by_messageHash(token_id , image_hash)
-    if task is None:
-        raise HTTPException(404)    
-    else:
-        broker_id = data.get_broker_id(task['worker_id'])
-        res = celery.send_task('upscale',
-            (
-                task,
-                item.index
-            ),
-            queue= f"queue_{broker_id}"
-        )
-    return {}
+@router.post("/variation/{id}")
+async def upscale( item:  Remix,  detail: dict = Depends(get_image)):
 
-@router.post("/images/{image_hash}/variation")
-async def variation( item: Remix,  image_hash:str,  token_id: int = Depends(get_token_id)):
-    task = data.get_task_by_messageHash(token_id , image_hash)
-    if task is None:
-        raise HTTPException(404)    
-    else:
-        broker_id = data.get_broker_id(task['worker_id'])
-        print(broker_id)
-        res = celery.send_task('variation',
-            (
-                item.prompt,
-                task,
-                item.index,
-            ),
-            queue= f"queue_{broker_id}"
-        )
-    return {}
+    if is_busy(token_id= detail.get('token_id'), taskId= detail.get('detail',{}).get('taskId')):
+        return Response(status_code=202)
+
+    broker_id , account_id = Snowflake.parse_snowflake_id(detail.get('id'))
+    celery.send_task('variation',
+        (
+            item.prompt,
+            {
+                **detail.get('detail',{}),
+                'ref_id': detail.get('id'),
+                'broker_id': broker_id,
+                'account_id' : account_id
+            },
+            item.index,
+        ),
+        queue= f"queue_{broker_id}"
+    )
+    return {
+        'status': 'ok'
+    }
 
 @router.get("/profile")
 async def get_profile(token_id: int = Depends(get_token_id)):
-    count = data.sum_costs_by_tokenId(token_id)
-    info =  data.get_token_info_by_id(token_id)
-    return {
-        'cost': count['cost'],
-        'blance': info['blance'],
-        'expire_at': info['expire_at']
-    }
+    temp = data.redis_get_cost(token_id= token_id)
+    return temp
+
 
 @router.post("/sign")
-async def get_sign(content_type :str, token_id: int = Depends(get_token_id)):
-    sign = data.fileHandler.generate_presigned_url(content_type, f'temp/{token_id}/{random_id(10)}.jpg')  
+async def get_sign( token_id: int = Depends(get_token_id)):
+    path = calculate_md5(f'aipic.{token_id}')
+    sign = data.file_generate_presigned_url(f'upload/{path}/{random_id(10)}.jpg')  
     return   {'sign': sign}
 
-
 app.include_router(router)
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("server-v2:app", port=8000, log_level="info", reload= True)
