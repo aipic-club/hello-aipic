@@ -14,7 +14,7 @@ from fastapi import FastAPI,APIRouter, HTTPException, Depends,  Header, Request,
 from fastapi import BackgroundTasks
 from fastapi.routing import APIRoute
 from fastapi.responses import PlainTextResponse
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.middleware.cors import CORSMiddleware
 
 from wechatpy import parse_message, create_reply
 from wechatpy.utils import check_signature
@@ -128,6 +128,23 @@ def is_busy(token_id: int, taskId: str):
     return status is not None or len(job) > 0
 
 app = FastAPI()
+
+
+origins = [
+    "http://127.0.0.1:5173",
+    "http://localhost:5173",
+    "https://aipic.club/",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 router = APIRouter(
     prefix="/api/v1.0",
     dependencies=[
