@@ -97,7 +97,7 @@ def get_token_id_and_task_id(taskId: str = Path(...), token_id: int = Depends(ge
         raise HTTPException(404) 
     return  (taskId, token_id, task_id, )
 
-def get_image(id:int = Path(...), token_id: int = Depends(get_token_id)) -> dict:
+def get_image(id:int = Path(...), token_id: int = Depends(get_token_id)) -> dict :
     record = data.get_detail_by_id(token_id=token_id, detail_id= id)
     if record is None:
         raise HTTPException(404) 
@@ -113,7 +113,6 @@ def get_image(id:int = Path(...), token_id: int = Depends(get_token_id)) -> dict
                     'hash': detail.get('hash')
                 }
             }
-        
         except:
             raise HTTPException(500)
     else:
@@ -192,12 +191,13 @@ async def add_task_item(item: Prompt, token_id_and_task_id: int = Depends(get_to
     raw = item.raw
 
     record = data.get_fist_input_id(task_id=task_id)
-    print(record)
+    
     queue = 'celery'
     broker_id = None
     account_id = None
     if record is not None:
-        broker_id , account_id = Snowflake.parse_snowflake_id(record.get('id'))
+        first_id = int(record.get('id'))
+        broker_id , account_id = Snowflake.parse_snowflake_id(first_id)
         queue = f"queue_{broker_id}"
         
     celery.send_task('prompt',
@@ -245,6 +245,7 @@ async def get_task_detail(
     return detail
 @router.post("/upscale/{id}")
 async def upscale( item: Upscale,detail: dict = Depends(get_image)):
+    print(detail)
     if is_busy(token_id= detail.get('token_id'), taskId= detail.get('detail',{}).get('taskId')):
         return Response(status_code=202)
     broker_id , account_id = Snowflake.parse_snowflake_id(detail.get('id'))
@@ -252,7 +253,7 @@ async def upscale( item: Upscale,detail: dict = Depends(get_image)):
         (
             {
                 **detail.get('detail',{}),
-                'ref_id': id,
+                'ref_id': detail.get('id'),
                 'broker_id': broker_id,
                 'account_id' : account_id
             },
@@ -266,8 +267,10 @@ async def upscale( item: Upscale,detail: dict = Depends(get_image)):
 
 @router.post("/variation/{id}")
 async def upscale( item:  Remix,  detail: dict = Depends(get_image)):
+
     if is_busy(token_id= detail.get('token_id'), taskId= detail.get('detail',{}).get('taskId')):
         return Response(status_code=202)
+
     broker_id , account_id = Snowflake.parse_snowflake_id(detail.get('id'))
     celery.send_task('variation',
         (
