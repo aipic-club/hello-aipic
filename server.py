@@ -190,15 +190,15 @@ async def add_task_item(item: Prompt, token_id_and_task_id: int = Depends(get_to
     execute = item.execute
     raw = item.raw
 
-    record = data.get_fist_input_id(task_id=task_id)
+    #record = data.get_fist_input_id(task_id=task_id)
     
     queue = 'celery'
     broker_id = None
     account_id = None
-    if record is not None:
-        first_id = int(record.get('id'))
-        broker_id , account_id = Snowflake.parse_snowflake_id(first_id)
-        queue = f"queue_{broker_id}"
+    # if record is not None:
+    #     first_id = int(record.get('id'))
+    #     broker_id , account_id = Snowflake.parse_snowflake_id(first_id)
+    #     queue = f"queue_{broker_id}"
         
     celery.send_task('prompt',
         (
