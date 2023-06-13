@@ -96,20 +96,9 @@ class Gateway:
         if worker_id is not None:
             id = self.users[worker_id].generate_id()
             broker_id  =  task['broker_id']
-            # self.data.image_task(
-            #     taskId=task['taskId'], 
-            #     imageHash= task['message_hash'], 
-            #     type= ImageOperationType.VARIATION, 
-            #     index= index 
-            # )
-            # self.data.broker_task_status(
-            #     broker_id=broker_id, 
-            #     worker_id=worker_id, 
-            #     taskId= task['taskId']
-            # )
             input_type = DetailType.INPUT_MJ_REMIX
             detail = {
-                'ref': task['ref_id'],
+                'ref': str(task['ref_id']),
                 'prompt': prompt,
                 'index': index
             }
@@ -129,22 +118,11 @@ class Gateway:
         if worker_id is not None:
             id = self.users[worker_id].generate_id()
             broker_id  =  task['broker_id']
-            # self.data.image_task(
-            #     taskId=task['taskId'], 
-            #     imageHash= task['message_hash'], 
-            #     type= ImageOperationType.UPSCALE, 
-            #     index= index 
-            # )
-            # self.data.broker_task_status(
-            #     broker_id=broker_id, 
-            #     worker_id=worker_id, 
-            #     taskId= task['taskId']
-            # )
             detail = {
-                'ref': task['ref_id'],
+                'ref': str(task['ref_id']),
                 'index': index
             }
-            input_type = DetailType.INPUT_MJ_VARIATION
+            input_type = DetailType.INPUT_MJ_UPSCALE
             self.data.save_input(id=id, taskId= task['taskId'], type= input_type , detail= detail )
             self.data.redis_task_job(taskId=task['taskId'], id= task['ref_id'], type = input_type, index= index)
             self.loop.create_task(

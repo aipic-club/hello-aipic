@@ -285,7 +285,7 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         }
         return self.mysql_fetchall(sql, params)
     def get_discord_users(self, broker_id: int):
-        sql = ("SELECT worker_id,guild_id,channel_id,authorization FROM discord_users WHERE worker_id >= %(start_id)s AND worker_id <= %(end_id)s")
+        sql = ("SELECT worker_id,guild_id,channel_id,authorization FROM discord_users WHERE disabled = 0 AND worker_id >= %(start_id)s AND worker_id <= %(end_id)s")
         params = {
             'start_id': Snowflake.generate_snowflake_worker_id(broker_id, 0),
             'end_id': Snowflake.generate_snowflake_worker_id(broker_id, 31),

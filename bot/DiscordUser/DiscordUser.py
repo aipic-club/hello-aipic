@@ -81,7 +81,7 @@ class DiscordUser:
         await self.__send(Opcodes.IDENTIFY ,  identify_data)
 
     async def __on_message(self, op: Opcodes , data: dict, sequence_number: int, event_name: str | None):
-        #print(op, event_name)
+        print(op, data, event_name)
         self.sequence_number = sequence_number
         if op is Opcodes.HELLO:
             self.hb = self.loop.create_task(self.__send_heartbeat(data['heartbeat_interval']))
