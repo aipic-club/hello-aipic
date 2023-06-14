@@ -315,7 +315,7 @@ async def get_profile(token_id: int = Depends(get_token_id)):
 @router.post("/sign")
 async def get_sign( token_id: int = Depends(get_token_id)):
     path = calculate_md5(f'aipic.{token_id}')
-    full_url = f'upload/{path}/{random_id(10)}'
+    full_url = f'upload/{path}/{random_id(10)}.jpg'
     sign = data.file_generate_presigned_url(full_url)  
     return   {
         'sign': sign,
