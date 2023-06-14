@@ -32,11 +32,11 @@ jobs:
       - name: SSH into server and pull Docker image
         uses: appleboy/ssh-action@master
         with:
-          host: 198.12.121.219
+          host: ${{ vars.BOT_HOST }}
           username: root
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
             cd ~/bot
             echo ${{ secrets.DOCKER_REGISTRY_PASSWORD }} | docker login -u ${{ vars.DOCKER_REGISTRY_USERNAME }} --password-stdin registry.baidubce.com
             docker pull registry.baidubce.com/miss-journey/journey:latest     
-            docker run registry.baidubce.com/miss-journey/journey:latest  --env-file .env  python ./bot-v2.py
+            docker run  -d  --name journey-bot --env-file .env  --rm registry.baidubce.com/miss-journey/journey:latest python ./bot-v2.py
