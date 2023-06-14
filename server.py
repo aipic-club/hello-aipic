@@ -22,7 +22,7 @@ from wechatpy.exceptions import InvalidSignatureException, InvalidAppIdException
 
 
 from data import Data_v2,  SysCode, random_id
-from data.values import output_type
+from data.values import output_type,image_hostname
 from data.Snowflake import Snowflake
 from config import *
 
@@ -315,10 +315,14 @@ async def get_profile(token_id: int = Depends(get_token_id)):
 @router.post("/sign")
 async def get_sign( token_id: int = Depends(get_token_id)):
     path = calculate_md5(f'aipic.{token_id}')
-    sign = data.file_generate_presigned_url(f'upload/{path}/{random_id(10)}.jpg')  
-    return   {'sign': sign}
+    full_url = f'upload/{path}/{random_id(10)}'
+    sign = data.file_generate_presigned_url(full_url)  
+    return   {
+        'sign': sign,
+        'url': f'{image_hostname}/{full_url}'
+    }
 
 app.include_router(router)
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("server-v2:app", port=8000, log_level="info", reload= True)
+    uvicorn.run("server:app", port=8000, log_level="info", reload= True)
