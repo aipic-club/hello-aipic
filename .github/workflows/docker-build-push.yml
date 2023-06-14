@@ -17,7 +17,7 @@ jobs:
         uses: docker/setup-buildx-action@v1
 
       - name: Login to custom Docker registry
-        run: echo ${{ secrets.DOCKER_REGISTRY_PASSWORD }} | docker login -u ${{ DOCKER_REGISTRY_USERNAME }} --password-stdin registry.baidubce.com
+        run: echo ${{ secrets.DOCKER_REGISTRY_PASSWORD }} | docker login -u ${{ env.DOCKER_REGISTRY_USERNAME }} --password-stdin registry.baidubce.com
 
       - name: Build pipenv and push Docker image
         run: |
