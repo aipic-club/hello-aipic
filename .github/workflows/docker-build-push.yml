@@ -25,9 +25,9 @@ jobs:
           docker tag registry.baidubce.com/miss-journey/pipenv:${{ github.sha }} registry.baidubce.com/miss-journey/pipenv:latest
           docker push registry.baidubce.com/miss-journey/pipenv:${{ github.sha }}
           docker push registry.baidubce.com/miss-journey/pipenv:latest
-          docker images
       - name: Build and push Docker image
         run: |
-          docker pull registry.baidubce.com/miss-journey/pipenv:latest 
-          docker build -t registry.baidubce.com/miss-journey/bot:${{ github.sha }} ./dockerfiles/bot
+          docker build -t registry.baidubce.com/miss-journey/journey:${{ github.sha }} ./dockerfiles/journey
+          docker tag registry.baidubce.com/miss-journey/journey:${{ github.sha }} registry.baidubce.com/miss-journey/journey:latest
           docker push registry.baidubce.com/miss-journey/journey:${{ github.sha }}
+          docker push registry.baidubce.com/miss-journey/journey:latest
