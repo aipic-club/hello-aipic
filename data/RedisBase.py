@@ -72,8 +72,13 @@ class RedisBase(RedisInterface):
             _ttl = self.redis.ttl(key) if  self.redis.exists(key) else config['wait_time'] 
         if _ttl > 0:
             self.redis.setex(key, _ttl , status.value )
-    def redis_task_status(self, token_id, taskId: str) -> int | None:
+    def redis_task_status(self, token_id: int | None, taskId: str) -> int | None:
         key = f'task:{token_id}:{taskId}' 
+        if token_id is None:
+            keys = self.redis.keys(f'task:*:{taskId}')
+            if len(keys) != 1:
+                return
+            key = keys[0]
         val = self.redis.get(key)
         return int(val) if val else None
     def redis_task_cleanup(self, taskId):

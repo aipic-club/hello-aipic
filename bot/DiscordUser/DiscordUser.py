@@ -80,6 +80,8 @@ class DiscordUser:
 
         await self.__send(Opcodes.IDENTIFY ,  identify_data)
 
+  
+
     async def __on_message(self, op: Opcodes , data: dict, sequence_number: int, event_name: str | None):
         #print(op, data, event_name)
         self.sequence_number = sequence_number
@@ -93,12 +95,27 @@ class DiscordUser:
         # print(op, event_name, data)
         # print("=====")
         ##########
+
         if self.on_message is not None:
             if event_name == Events.INTERACTION_SUCCESS.value:
                 self.on_message(Events.INTERACTION_SUCCESS, data)
             elif event_name == Events.MESSAGE_CREATE.value:
                 if get_dict_value(data, 'author.id')  == str(MJBotId):
                     self.on_message(Events.MESSAGE_CREATE, data)
+
+                    embeds = data.get("embeds")
+                    if len(embeds) > 0:
+                        title = embeds[0].get("title")
+                        print(title)
+                        if title == 'Job queued':
+                            pass
+                        elif title == 'Invalid parameter':
+                            pass
+            # elif event_name == Events.MESSAGE_UPDATE.value:
+            #     print(data)
+            #     title =  get_dict_value(data, 'embeds.title')
+            #     print(title)
+
 
 
 

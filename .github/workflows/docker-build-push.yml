@@ -29,12 +29,24 @@ jobs:
           docker tag registry.baidubce.com/miss-journey/journey:${{ github.sha }} registry.baidubce.com/miss-journey/journey:latest
           docker push registry.baidubce.com/miss-journey/journey:${{ github.sha }}
           docker push registry.baidubce.com/miss-journey/journey:latest
-      - name: SSH into server and pull Docker image
+      - name: SSH into server and deploy server
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ vars.BOT_HOST }}
+          host: ${{ vars.API_SERVER_HOST }}
+          username: ubuntu
+          key: ${{ secrets.API_SERVER_KEY }}
+          script: |
+            cd /home/ubuntu/docker/www
+            sudo -s
+            echo ${{ secrets.DOCKER_REGISTRY_PASSWORD }} | docker login -u ${{ vars.DOCKER_REGISTRY_USERNAME }} --password-stdin registry.baidubce.com
+            docker pull registry.baidubce.com/miss-journey/journey:latest     
+            docker run  -d  --name journey-bot --env-file .env  --rm registry.baidubce.com/miss-journey/journey:latest python ./server.py          
+      - name: SSH into server and deploy bot 0
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ vars.BOT_0_SERVER_HOST }}
           username: root
-          password: ${{ secrets.SERVER_PASSWORD }}
+          password: ${{ secrets.BOT_0_SERVER_PASSWORD }}
           script: |
             cd ~/bot
             echo ${{ secrets.DOCKER_REGISTRY_PASSWORD }} | docker login -u ${{ vars.DOCKER_REGISTRY_USERNAME }} --password-stdin registry.baidubce.com
