@@ -27,6 +27,9 @@ jobs:
         run: |
           docker build -t registry.baidubce.com/miss-journey/journey:latest -f ./dockerfiles/journey/Dockerfile  .
           docker push registry.baidubce.com/miss-journey/journey:latest
+  pull-and-deploy:
+    runs-on: ubuntu-latest
+    steps:          
       - name: SSH into server and deploy server
         uses: appleboy/ssh-action@master
         with:
