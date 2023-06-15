@@ -10,7 +10,7 @@
         "sources": [
             {
                 "name": "pypi",
-                "url": "https://mirrors.cloud.tencent.com/pypi/simple",
+                "url": "https://pypi.org/simple",
                 "verify_ssl": true
             }
         ]
