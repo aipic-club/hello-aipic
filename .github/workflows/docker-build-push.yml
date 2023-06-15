@@ -25,9 +25,7 @@ jobs:
           docker push registry.baidubce.com/miss-journey/pipenv:latest
       - name: Build and push Docker image
         run: |
-          docker build -t registry.baidubce.com/miss-journey/journey:${{ github.sha }} -f ./dockerfiles/journey/Dockerfile  .
-          docker tag registry.baidubce.com/miss-journey/journey:${{ github.sha }} registry.baidubce.com/miss-journey/journey:latest
-          docker push registry.baidubce.com/miss-journey/journey:${{ github.sha }}
+          docker build -t registry.baidubce.com/miss-journey/journey:latest -f ./dockerfiles/journey/Dockerfile  .
           docker push registry.baidubce.com/miss-journey/journey:latest
       - name: SSH into server and deploy server
         uses: appleboy/ssh-action@master
