@@ -14,7 +14,6 @@ pydantic = "==1.10.7"
 python-dotenv = "==1.0.0"
 pyyaml = "==6.0"
 redis = "==4.5.4"
-websocket-client = "==1.5.1"
 uvicorn = "*"
 mysql-connector-python = "*"
 wechatpy = {extras = ["cryptography"], version = "*"}
