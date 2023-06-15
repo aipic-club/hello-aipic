@@ -209,7 +209,8 @@ async def add_task_item(item: Prompt, token_id_and_task_id: int = Depends(get_to
 
     #record = data.get_fist_input_id(task_id=task_id)
     
-    queue = 'celery'
+    #queue = 'celery'
+    queue = 'queue_1'
     broker_id = None
     account_id = None
     # if record is not None:
@@ -227,7 +228,7 @@ async def add_task_item(item: Prompt, token_id_and_task_id: int = Depends(get_to
             raw,
             execute,
         ),
-        queue = queue
+        #queue = queue
     )  
   
     return {

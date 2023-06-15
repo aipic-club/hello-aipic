@@ -89,7 +89,7 @@ class Gateway:
             if execute:
                 self.loop.create_task(self.users[_account_id].send_prompt(new_prompt, id))
                 self.data.update_status(taskId=taskId, status= TaskStatus.CONFIRMED, token_id= token_id)
-                # self.loop.create_task(self.check_task(taskId= taskId))
+                self.loop.create_task(self.check_task( account_id = _account_id, ref_id=id, taskId= taskId ))
 
     def create_variation(self, prompt: str, new_prompt: str,  task: dict[str, str], index: str):
         worker_id =  self.get_task_account_id(task)
@@ -133,6 +133,11 @@ class Gateway:
                 )
             )
 
-    async def check_task(self, taskId: str):
+    async def check_task(self, account_id: int, ref_id: int, taskId: str):
         await asyncio.sleep(config['wait_time'] - 10)
-        self.data.check_task(taskId= taskId)
+        id = self.users[account_id].generate_id()
+        self.data.check_task(
+            id = id, 
+            ref_id= ref_id, 
+            taskId= taskId
+        )

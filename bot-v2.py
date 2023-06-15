@@ -72,6 +72,7 @@ def add_task(
         execute: bool
     ):
     new_prompt = refine_prompt(taskId, prompt)
+    print(f'new prompt is {new_prompt}')
     gateway.loop.run_in_executor(
         pool, 
         lambda: gateway.create_prompt(

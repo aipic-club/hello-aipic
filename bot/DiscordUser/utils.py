@@ -14,26 +14,48 @@ utc_offset_seconds = date_object.utcoffset().total_seconds()
 
 
 def refine_prompt(taskId: str, prompt: str):
-    params = prompt.split()
-    unique_params = {}
+    pattern = r'(--?\w+\s+[\w\.]+)+'
     new_prompt = ""
-    for param in params:
-        if param.startswith("--"):
-            if " " in param:
-                key, value = param.split(" ", 1)
-            else:
-                key = param
-                value = ""
-            if key not in unique_params:
+    unique_params = {}
+    allowed_keys = set((
+        "--aspect", 
+        "--ar", 
+        "--chaos",
+        "--iw",
+        "--no",
+        "--quality",
+        "--q",
+        "--repeat",
+        "--seed",
+        "--stop",
+        "--style",
+        "--stylize",
+        "--s",
+        "--tile",
+        "--niji",
+        "--version",
+        "--v"
+    ))
+    param = re.split(pattern, prompt)
+    # # Print the matches
+    for p in param:
+
+        if p == " ":
+            continue
+        elif p.startswith("--"):
+            key,value = p.split(" ",1)
+            if key in allowed_keys:
                 unique_params[key] = value
-                new_prompt += f"{param} "
         else:
-            new_prompt += f"{param} "
+            new_prompt += f"{p}"
+    for k in unique_params:
+        ["--aspect", ""]
+        new_prompt += f" {k} {unique_params.get(k)}"
     if "--no" in new_prompt:
         new_prompt = new_prompt.replace("--no", f"--no {taskId},")
     else:
-        new_prompt += f"--no {taskId}"
-    return new_prompt.strip()
+        new_prompt += f" --no {taskId}"    
+    return new_prompt
 
 
 

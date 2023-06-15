@@ -34,6 +34,8 @@ class DetailType(Enum):
     OUTPUT_MJ_REMIX = 23
     OUTPUT_MJ_UPSCALE = 24
     OUTPUT_MJ_DESCRIBE = 25
+    ## MIDJOURNEY ERROR
+    OUTPUT_MJ_TIMEOUT = 31
 
 output_type = [
     DetailType.OUTPUT_MJ_PROMPT.value,

@@ -129,6 +129,19 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
             'token_id': token_id, 
             'taskId': taskId
         }, lastrowid= True)
+    def check_task(self, id: int, ref_id: int, taskId: str ):
+        keys = self.redis_task_status(token_id=None, taskId= taskId)
+        if len(keys) > 0:
+            self.redis_task_cleanup(taskId=taskId)
+            self.save_input(
+                id=id,
+                taskId=taskId,
+                type=DetailType.OUTPUT_MJ_TIMEOUT,
+                detail={
+                    'ref': str(ref_id),
+                }
+            )
+            
 
     def get_task(self, token_id: int, taskId: str ):
         cache_key = f'cache:{token_id}:{taskId}'
