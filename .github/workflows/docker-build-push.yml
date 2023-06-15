@@ -38,7 +38,7 @@ jobs:
             sudo -s
             echo ${{ secrets.DOCKER_REGISTRY_PASSWORD }} | docker login -u ${{ vars.DOCKER_REGISTRY_USERNAME }} --password-stdin registry.baidubce.com
             docker pull registry.baidubce.com/miss-journey/journey:latest     
-            docker run  -d  --name journey-server --env-file .env  --rm registry.baidubce.com/miss-journey/journey:latest python ./server.py          
+            docker run  -d  --name journey-server --env-file .env  --rm registry.baidubce.com/miss-journey/journey:latest pipenv run python ./server.py          
       - name: SSH into server and deploy bot 0
         uses: appleboy/ssh-action@master
         with:
@@ -49,4 +49,4 @@ jobs:
             cd ~/bot
             echo ${{ secrets.DOCKER_REGISTRY_PASSWORD }} | docker login -u ${{ vars.DOCKER_REGISTRY_USERNAME }} --password-stdin registry.baidubce.com
             docker pull registry.baidubce.com/miss-journey/journey:latest     
-            docker run  -d  --name journey-bot --env-file .env  --rm registry.baidubce.com/miss-journey/journey:latest python ./bot-v2.py
+            docker run  -d  --name journey-bot --env-file .env  --rm registry.baidubce.com/miss-journey/journey:latest pipenv run python ./bot-v2.py
