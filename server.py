@@ -228,7 +228,7 @@ async def add_task_item(item: Prompt, token_id_and_task_id: int = Depends(get_to
             raw,
             execute,
         ),
-        queue = queue
+        #queue = queue
     )  
   
     return {
