@@ -87,6 +87,7 @@ class Gateway:
             self.data.update_status(taskId=taskId, status= TaskStatus.CREATED, token_id= token_id)
             self.data.save_input(id=id, taskId= taskId, type= DetailType.INPUT_MJ_PROMPT , detail= detail )
             if execute:
+                print("🚀 send prompt")
                 self.loop.create_task(self.users[_account_id].send_prompt(new_prompt, id))
                 self.data.update_status(taskId=taskId, status= TaskStatus.CONFIRMED, token_id= token_id)
                 self.loop.create_task(self.check_task( account_id = _account_id, ref_id=id, taskId= taskId ))

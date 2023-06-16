@@ -111,10 +111,11 @@ class DiscordUser:
                             pass
                         elif title == 'Invalid parameter':
                             pass
-            # elif event_name == Events.MESSAGE_UPDATE.value:
-            #     print(data)
-            #     title =  get_dict_value(data, 'embeds.title')
-            #     print(title)
+            elif event_name == Events.MESSAGE_UPDATE.value:
+                embeds = data.get("embeds")
+                if len(embeds) > 0:
+                    title = embeds[0].get("title")
+                    print(title)
 
 
 
@@ -147,4 +148,17 @@ class DiscordUser:
         )
 
         return response
-        
+    
+    async def send_form_interactions(self, payload: str) -> aiohttp.ClientResponse :
+
+        form_data = aiohttp.FormData()
+        form_data.add_field('payload_json', payload)
+
+        response = await self.session.post(
+            DiscordUser.APIURL,
+            proxy= self.proxy,
+            data= form_data,
+            headers= self.header
+        )
+
+        return response
