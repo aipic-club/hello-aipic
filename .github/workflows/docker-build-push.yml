@@ -19,10 +19,10 @@ jobs:
       - name: Login to custom Docker registry
         run: echo ${{ secrets.DOCKER_REGISTRY_PASSWORD }} | docker login -u ${{ vars.DOCKER_REGISTRY_USERNAME }} --password-stdin registry.baidubce.com
 
-      - name: Build pipenv and push Docker image
-        run: |
-          docker build -t registry.baidubce.com/miss-journey/pipenv:latest ./dockerfiles/pipenv
-          docker push registry.baidubce.com/miss-journey/pipenv:latest
+      # - name: Build pipenv and push Docker image
+      #   run: |
+      #     docker build -t registry.baidubce.com/miss-journey/pipenv:latest ./dockerfiles/pipenv
+      #     docker push registry.baidubce.com/miss-journey/pipenv:latest
       - name: Build and push Docker image
         run: |
           docker build -t registry.baidubce.com/miss-journey/journey:latest -f ./dockerfiles/journey/Dockerfile  .
