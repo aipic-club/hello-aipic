@@ -28,6 +28,7 @@ jobs:
           docker build -t registry.baidubce.com/miss-journey/journey:latest -f ./dockerfiles/journey/Dockerfile  .
           docker push registry.baidubce.com/miss-journey/journey:latest
   pull-and-deploy:
+    needs: build-and-push
     runs-on: ubuntu-latest
     steps:             
       - name: SSH into server and deploy bot 0
