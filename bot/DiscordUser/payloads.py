@@ -14,6 +14,48 @@ class payloads:
             },
             "nonce": nonce
         }
+
+    @staticmethod
+    def prompt_v1118961510123847772(ids: dict[str, str], prompt: str, nonce: int):
+        return {
+            **ids,
+            "type":2,
+            "session_id":"435b587a1db9552069d068c373c6f57a",
+            "data":{
+                "version": "1118961510123847772",
+                "id": "938956540159881230",
+                "name":"imagine",
+                "type":1,
+                "options":[{"type":3,"name":"prompt","value":prompt}],
+                "application_command":{
+                    "id": "938956540159881230",
+                    "application_id": MJBotId,
+                    "version": "1118961510123847772",
+                    "default_member_permissions": None,
+                    "type":1,
+                    "nsfw":False,
+                    "name":"ask",
+                    "description": "Create images with Midjourney",
+                    "dm_permission":True,
+                    "contexts": [
+                        0,
+                        1,
+                        2
+                    ],
+                    "options":[
+                        {
+                            "type":3,
+                            "name": "prompt",
+                            "description": "The prompt to imagine",
+                            "required":True
+                        }
+                    ]
+                },
+                "attachments":[]
+            },
+            "nonce": nonce
+        }   
+
     @staticmethod
     def variation(ids: dict[str, str],  messageId : str, messageHash : str, index: int, nonce: int):
         return {

@@ -130,8 +130,8 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
             'taskId': taskId
         }, lastrowid= True)
     def check_task(self, id: int, ref_id: int, taskId: str ):
-        keys = self.redis_task_status(token_id=None, taskId= taskId)
-        if len(keys) > 0:
+        status = self.redis_task_status(token_id=None, taskId= taskId)
+        if status is not None:
             self.redis_task_cleanup(taskId=taskId)
             self.save_input(
                 id=id,

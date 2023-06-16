@@ -1,4 +1,5 @@
 import asyncio
+import json
 from typing import Callable
 from .DiscordUser import DiscordUser
 from .payloads import payloads
@@ -56,9 +57,10 @@ class UserProxy:
         #     print("error when handle message", e)
 
     async def send_prompt(self, prompt, nonce):
-        payload = payloads.prompt(self.ids, prompt, nonce)
+        payload = payloads.prompt_v1118961510123847772(self.ids, prompt, nonce)
+        payload_str = json.dumps(payload)
         try:
-            await self.user.send_interactions(payload)
+            await self.user.send_form_interactions(payload=payload_str)
         except Exception as e:
             print("error when handle message", e)
     
