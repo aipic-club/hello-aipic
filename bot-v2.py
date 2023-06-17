@@ -72,7 +72,6 @@ def add_task(
         execute: bool
     ):
     new_prompt = refine_prompt(taskId, prompt)
-    print(f'new prompt is {new_prompt}')
     gateway.loop.run_in_executor(
         pool, 
         lambda: gateway.create_prompt(
@@ -112,7 +111,11 @@ def reroll(self, task: dict[str, str, str]):
 
 
 @celery.task(name="describe",bind=True, base=BaseTask)
-def describe(self, task: dict[str, str, str]):
+def describe(self, taskId: str, url: str):
+    gateway.loop.run_in_executor(
+        pool, 
+        lambda: gateway.describe_a_image( taskId=taskId, url= url)
+    )  
     return
 
 

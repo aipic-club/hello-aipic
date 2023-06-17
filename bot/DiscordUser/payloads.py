@@ -55,6 +55,171 @@ class payloads:
             },
             "nonce": nonce
         }   
+    @staticmethod
+    def prefer_suffix(ids: dict[str, str],  nonce: int):
+        return {
+            "type":2,
+            **ids,
+            "session_id":"674cb1c3cdf93533745fefc9fd78838f",
+            "data":{
+                "version":"1029519354955579472",
+                "id":"984273800587776053",
+                "name":"prefer",
+                "type":1,"options":[
+                    {
+                        "type":1,
+                        "name":"suffix",
+                        "options":[]
+                    }
+                ],
+                "application_command":{
+                    "id":"984273800587776053",
+                    "application_id": str(MJBotId),
+                    "version":"1029519354955579472",
+                    "default_member_permissions": None,
+                    "type":1,
+                    "nsfw":False,
+                    "name":"prefer",
+                    "description":"…",
+                    "dm_permission":True,
+                    "contexts":None,
+                    "options":[
+                        {
+                            "type":2,
+                            "name":"option",
+                            "description":"…",
+                            "options":[
+                                {
+                                    "type":1,
+                                    "name":"set",
+                                    "description":"Set a custom option.",
+                                    "options":[
+                                        {
+                                            "type":3,
+                                            "name":"option",
+                                            "description":"…",
+                                            "required":True,
+                                            "autocomplete":True,
+                                        },
+                                        {
+                                            "type":3,
+                                            "name":"value",
+                                            "description":"…"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "type":1,
+                                    "name":"list",
+                                    "description":"View your current custom options."
+                                }
+                            ]
+                        },
+                        {
+                            "type":1,
+                            "name":"auto_dm",
+                            "description":"Whether or not to automatically send job results to your DMs."
+                        },
+                        {
+                            "type":1,
+                            "name":"suffix",
+                            "description":"Suffix to automatically add to the end of every prompt. Leave empty to remove.",
+                            "options":[
+                                {
+                                    "type":3,
+                                    "name":"new_value",
+                                    "description":"…"
+                                }
+                            ]
+                        },
+                        {
+                            "type":1,
+                            "name":"remix",
+                            "description":"Toggle remix mode."
+                        }
+                    ]
+                },
+                "attachments":[]
+            },
+            "nonce": nonce
+        }
+
+    @staticmethod
+    def info(ids: dict[str, str],  nonce: int):
+        return {
+            "type":2,
+            **ids,
+            "session_id":"674cb1c3cdf93533745fefc9fd78838f",
+            "data":{
+                "version":"1118961510123847776",
+                "id":"972289487818334209",
+                "name":"info",
+                "type":1,
+                "options":[],
+                "application_command":{
+                    "id":"972289487818334209",
+                    "application_id": str(MJBotId),
+                    "version":"1118961510123847776",
+                    "default_member_permissions":None,
+                    "type":1,
+                    "nsfw":False,
+                    "name":"info",
+                    "description":"View information about your profile.",
+                    "dm_permission":True,
+                    "contexts":[0,1,2]
+                },
+                "attachments":[]
+            },
+            "nonce": nonce
+        }
+    @staticmethod
+    def describe(ids: dict[str, str], filename: str, uploaded_filename: str, nonce: int):
+        return {
+            "type":2,
+            **ids,
+            "session_id":"b65de01dc829af94e28335dd38599517",
+            "data":{
+                "version":"1118961510123847774",
+                "id":"1092492867185950852",
+                "name":"describe",
+                "type":1,
+                "options":[
+                    {
+                        "type":11,
+                        "name":"image",
+                        "value":0
+                    }
+                ],
+                "application_command":{
+                    "id":"1092492867185950852",
+                    "application_id": str(MJBotId),
+                    "version":"1118961510123847774",
+                    "default_member_permissions":None,
+                    "type":1,
+                    "nsfw":False,
+                    "name":"describe",
+                    "description":"Writes a prompt based on your image.",
+                    "dm_permission": True,
+                    "contexts":[0,1,2],
+                    "options":[
+                        {
+                            "type":11,
+                            "name":"image",
+                            "description":"The image to describe",
+                            "required":True
+                        }
+                    ]
+                },
+                "attachments":[
+                    {
+                        "id":"0",
+                        "filename": filename,
+                        "uploaded_filename": uploaded_filename
+                    }
+                ]
+            },
+        "nonce":  nonce
+    }
 
     @staticmethod
     def variation(ids: dict[str, str],  messageId : str, messageHash : str, index: int, nonce: int):

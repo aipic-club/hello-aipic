@@ -154,6 +154,13 @@ router = APIRouter(
 
 @app.get("/ping")
 async def ping():
+    # celery.send_task('describe',
+    #     (
+    #         None,
+    #         'https://plus.unsplash.com/premium_photo-1680292890588-40ab5cda2bcb?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=687&q=80'
+    #     ),
+    #     queue = 'queue_1'
+    # )     
     return PlainTextResponse(content="pong") 
 
 @app.get("/mp",  dependencies=[Depends(check_wechat_signature)])
@@ -228,7 +235,7 @@ async def add_task_item(item: Prompt, token_id_and_task_id: int = Depends(get_to
             raw,
             execute,
         ),
-        #queue = queue
+        queue = queue
     )  
   
     return {

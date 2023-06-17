@@ -102,3 +102,6 @@ class RedisBase(RedisInterface):
     def redis_get_interaction(self, key)-> int | None:
         value = self.redis.get(f'interaction:{key}')
         return int(value) if value is not None else None
+    
+    def redis_set_describe(self, key: str, value: str) -> bool:
+        return self.redis.setex(f'describe:{key}', config['wait_time'] ,  value)

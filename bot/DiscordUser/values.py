@@ -33,7 +33,6 @@ class Events(Enum):
     MESSAGE_UPDATE = 'MESSAGE_UPDATE'
     CHANNEL_UNREAD_UPDATE = 'CHANNEL_UNREAD_UPDATE'
 
-    
 
 
 

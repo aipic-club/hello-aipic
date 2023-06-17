@@ -1,6 +1,8 @@
 
 import asyncio
+import io
 import concurrent.futures
+import mimetypes
 from . import UserProxy
 from .MessageHandler import MessageHandler
 from .utils import *
@@ -42,7 +44,7 @@ class Gateway:
                 token = token, 
                 guild_id=guild_id,
                 channel_id=channel_id,
-                on_message= messageHandler.on_message,
+                messageHandler = messageHandler,
                 get_interaction_id = self.get_interaction_id,
                 loop =  self.loop
             )
@@ -87,7 +89,7 @@ class Gateway:
             self.data.update_status(taskId=taskId, status= TaskStatus.CREATED, token_id= token_id)
             self.data.save_input(id=id, taskId= taskId, type= DetailType.INPUT_MJ_PROMPT , detail= detail )
             if execute:
-                print("🚀 send prompt")
+                print(f"🚀 send prompt {new_prompt},nonce: {id}")
                 self.loop.create_task(self.users[_account_id].send_prompt(new_prompt, id))
                 self.data.update_status(taskId=taskId, status= TaskStatus.CONFIRMED, token_id= token_id)
                 self.loop.create_task(self.check_task( account_id = _account_id, ref_id=id, taskId= taskId ))
@@ -133,6 +135,28 @@ class Gateway:
                     messageHash = task['hash'], 
                 )
             )
+    def describe_a_image(self, taskId: str, url: str):
+        _account_id = self.pick_a_worker_id() 
+        if self.users[_account_id] is not None:
+            self.loop.create_task(self.start_describe(
+                account_id= _account_id,
+                url=url
+            )
+        )
+
+    async def start_describe(self,account_id: int, url: str):
+        file_resp = await self.data.file_download_a_file(url=url)
+        fileId, filename, upload_url, upload_filename = await self.users[account_id].describe_step_get_upload_url(bytes=io.BytesIO(file_resp))
+        mime_type, _ = mimetypes.guess_type(upload_filename)
+        # print(upload_url, upload_filename)
+        await self.data.upload_a_file(
+            url= upload_url, 
+            data= file_resp,
+            mime_type= mime_type
+        )
+        await self.users[account_id].describe_step_send(filename=filename, uploaded_filename= upload_filename)
+
+
 
     async def check_task(self, account_id: int, ref_id: int, taskId: str):
         await asyncio.sleep(config['wait_time'] - 10)

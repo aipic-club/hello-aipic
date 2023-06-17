@@ -18,14 +18,27 @@ class MessageHandler:
         self.pool = pool
         self.loop = loop
         pass
+
+    def is_onwer(self, taskId, worker_id: int):
+        return self.data.is_onwer( taskId = taskId, worker_id= worker_id)
+
+    def on_invalid_parameter(self,id: int, taskId: str, detail: dict ):
+        self.loop.run_in_executor(self.pool, lambda: 
+            self.data.process_error(
+                id=id,
+                taskId=taskId,
+                type=DetailType.OUTPUT_MJ_INVALID_PARAMETER,
+                detail= detail
+            )
+        )
     
     def on_message(self, id: int, worker_id: int,  message_worker_id: int, event: Events, data: dict):
         print(event, data)
         
-        if event.value == Events.INTERACTION_SUCCESS.value:
+        if event is Events.INTERACTION_SUCCESS:
             if data.get('nonce') is not None and data.get('id') is not None:
                 self.data.add_interaction(data.get('nonce'), data.get('id'))
-        elif  event.value == Events.MESSAGE_CREATE.value:
+        elif  event is Events.MESSAGE_CREATE:
             message_id =  data.get("id")
             content = data.get('content', None)
             if content is None:
@@ -63,3 +76,5 @@ class MessageHandler:
                             url = url
                         )
                     )
+        elif  event is Events.MESSAGE_UPDATE:
+            pass

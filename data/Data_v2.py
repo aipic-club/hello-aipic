@@ -6,7 +6,7 @@ from .values import TaskStatus
 from .MySQLBase import MySQLBase
 from .RedisBase import RedisBase
 from .FileBase import FileBase
-from .values import DetailType,output_type,get_cost, image_hostname, config,SysCode
+from .values import DetailType,output_type,get_cost, image_hostname, config,SysCode, TokenType
 
 class Data_v2(MySQLBase, RedisBase, FileBase):
     def __init__(self, 
@@ -132,11 +132,12 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
     def check_task(self, id: int, ref_id: int, taskId: str ):
         status = self.redis_task_status(token_id=None, taskId= taskId)
         if status is not None:
-            self.redis_task_cleanup(taskId=taskId)
+            type = DetailType.OUTPUT_MJ_TIMEOUT
+            self.cleanup(taskId=taskId, type= type)
             self.save_input(
                 id=id,
                 taskId=taskId,
-                type=DetailType.OUTPUT_MJ_TIMEOUT,
+                type=type,
                 detail={
                     'ref': str(ref_id),
                 }
@@ -203,7 +204,12 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         self.redis_set_task(taskId=taskId, worker_id=worker_id)
         self.update_status(taskId=taskId, status=TaskStatus.COMMITTED)
     def cleanup(self, taskId: str, type: DetailType):
-        if type is DetailType.OUTPUT_MJ_PROMPT:
+        #if type is DetailType.OUTPUT_MJ_PROMPT or type is DetailType.OUTPUT_MJ_TIMEOUT:
+        if type.value in [
+            DetailType.OUTPUT_MJ_PROMPT.value,
+            DetailType.OUTPUT_MJ_TIMEOUT.value,
+            DetailType.OUTPUT_MJ_INVALID_PARAMETER.value
+        ]:
             self.redis_task_cleanup(taskId= taskId)
         else:
             self.redis_task_job_cleanup(taskId= taskId)
@@ -219,6 +225,24 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
     def is_onwer(self, taskId: str ,  worker_id: int) -> bool:
         id = self.redis_get_task(taskId=taskId)
         return id is not None and id == worker_id
+
+    def process_error(
+            self,
+            id: int,
+            taskId: str ,  
+            type: DetailType, 
+            detail: dict
+    ):
+        type = DetailType.OUTPUT_MJ_INVALID_PARAMETER
+        self.save_input(
+            id=id,
+            taskId=taskId,
+            type=type,
+            detail= detail
+        )
+        self.cleanup(taskId=taskId, type=type)
+
+
     def process_output(
             self, 
             id: int,
@@ -328,9 +352,10 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
                 record = self.mysql_fetchone(sql= sql , params= params, _cnx = cnx)
                 if record is not None:
                     token_id = record['token_id']
-                    sql = ("SELECT token,TIMESTAMPDIFF(DAY, NOW(), expire_at ) as days FROM tokens WHERE id=%(token_id)s AND expire_at > NOW()")
+                    sql = ("SELECT token,TIMESTAMPDIFF(DAY, NOW(), expire_at ) as days FROM `tokens` WHERE id=%(token_id)s AND type= %(type)s AND expire_at > NOW()")
                     params = {
-                        'token_id': token_id
+                        'token_id': token_id,
+                        'type': TokenType.TRIAL.value
                     }
                     record = self.mysql_fetchone(sql=sql, params= params, _cnx = cnx)
                     if record is not None:
@@ -338,10 +363,11 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
                         days = record['days'] 
             if token is None:
                 token = random_id(20)
-                sql = ("INSERT INTO `tokens` (`token`,`balance`,`type`,`expire_at`) VALUES( %(token)s, 100, 1 , DATE_ADD(NOW(), INTERVAL %(days)s DAY) )")
+                sql = ("INSERT INTO `tokens` (`token`,`balance`,`type`,`expire_at`) VALUES( %(token)s, 100, %(type)s , DATE_ADD(NOW(), INTERVAL %(days)s DAY) )")
                 params = {
-                   'token': token,
-                    'days': days
+                    'token': token,
+                    'days': days,
+                    'type': TokenType.TRIAL.value
                 }
                 token_id =  self.mysql_execute(sql=sql, params= params, lastrowid= True, _cnx = cnx )
                 sql = ("INSERT INTO `mp_trial_history` (`mp_user_id`,`token_id`) VALUES( %(user_id)s, %(token_id)s) ")
