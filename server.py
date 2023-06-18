@@ -249,7 +249,7 @@ async def delete_task(token_id_and_task_id: int = Depends(get_token_id_and_task_
     }
 
 
-@router.get("/tasks/{taskId}/describe")
+@router.post("/tasks/{taskId}/describe")
 def describe_a_img(describe:Describe, token_id_and_task_id: int = Depends(get_token_id_and_task_id) ):
     taskId, _, _ = token_id_and_task_id 
     url = describe.url
