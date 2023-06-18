@@ -52,13 +52,10 @@ class RedisBase(RedisInterface):
         return json.loads(val) if val is not None else None
 
     
-    def redis_set_task(self, taskId: str, worker_id: int | None):
-        self.redis.setex(f'task:{taskId}', config['cache_time'], worker_id)
-    def redis_get_task(self, taskId: str,):
-        temp = self.redis.get(f'task:{taskId}')
-        if temp is not None:
-            return int(temp)
-        return None
+    def redis_set_onwer(self, account_id: int, taskId: str):
+        self.redis.setex(f'onwer:{account_id}:{taskId}', config['cache_time'], account_id)
+    def redis_get_onwer(self, account_id: int, taskId: str,):
+        return self.redis.get(f'onwer:{account_id}:{taskId}')
     def redis_task(self, token_id: int, taskId: str, status: TaskStatus, ttl: int = None) -> None:
         key = f'task:{token_id}:{taskId}'
         if token_id is None:
@@ -103,5 +100,14 @@ class RedisBase(RedisInterface):
         value = self.redis.get(f'interaction:{key}')
         return int(value) if value is not None else None
     
-    def redis_set_describe(self, key: str, value: str) -> bool:
-        return self.redis.setex(f'describe:{key}', config['wait_time'] ,  value)
+    def redis_set_describe(self, account_id: int, key: str, taskId: str, url: str) -> bool:
+        data = {
+            'taskId': taskId,
+            'url': url
+        }
+        print(data)
+        print(json.dumps(data))
+        return self.redis.setex(f'describe:{account_id}:{key}', config['wait_time'] ,  json.dumps(data))
+    def redis_get_describe(self, account_id: int, key: str) -> dict| None:
+        data = self.redis.get(f'describe:{account_id}:{key}')
+        return json.loads(data) if data is not None else None

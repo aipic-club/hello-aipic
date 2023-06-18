@@ -1,6 +1,7 @@
 import asyncio
 import json
 import io
+import os
 from PIL import Image
 from typing import Callable
 from .DiscordUser import DiscordUser
@@ -56,7 +57,7 @@ class UserProxy:
                     #if self.channel_id != channel_id or self.guild_id != guild_id:
                     if self.channel_id != channel_id:
                         return    
-                    message_worker_id = self.snowflake.get_worker_id(int(nonce)) if nonce else None
+                    message_account_id = self.snowflake.get_worker_id(int(nonce)) if nonce else None
                     embeds = data.get("embeds", [])
                     if len(embeds) > 0:
                             title = embeds[0].get("title")
@@ -80,7 +81,31 @@ class UserProxy:
                 id = self.generate_id()   
                 self.messageHandler.on_message(id, self.id, message_worker_id ,  event, data)
             elif event is Events.MESSAGE_UPDATE:
-                print(data)
+
+                #print(data)
+                embeds = data.get("embeds", [])
+                components = data.get("components", [])
+
+                # print(embeds)
+                # print(components)
+
+                if len(embeds) > 0 and len(components) > 0  and len(components[0].get('components')) > 0:
+                    custom_id = components[0].get('components')[0].get('custom_id')
+                    if custom_id == 'MJ::Job::PicReader::1':
+                        id = self.generate_id()   
+                        self.messageHandler.on_receive_describe(id, self.id, embeds[0])
+
+                        # # is describe
+                        # url = embeds[0].get('image').get('url')
+                        # filename = os.path.basename(url)
+                        # name_without_extension = os.path.splitext(filename)[0]
+                        # print(name_without_extension)
+                        
+                        # ###
+
+
+
+
                 pass
         # except Exception as e:
         #     print("error when handle message", e)
@@ -92,9 +117,9 @@ class UserProxy:
         except Exception as e:
             print("error when handle message", e)
 
+    async def remove_suffix(self):
+        await self.remove_prefix(nonce=self.generate_id())
     async def send_prompt(self, prompt, nonce):
-        self.remove_prefix(nonce=nonce)
-        await asyncio.sleep(2)
         payload = payloads.prompt_v1118961510123847772(self.ids, prompt, nonce)
         payload_str = json.dumps(payload)
         try:
@@ -124,12 +149,12 @@ class UserProxy:
             print("error when upscale message", e)
 
 
-    async def describe_step_get_upload_url(self, bytes: io.BytesIO):
+    async def describe_get_upload_url(self, bytes: io.BytesIO):
         image = Image.open(bytes)
         image_format = image.format
         image_size = bytes.getbuffer().nbytes
-        fileId = random_id(10)
-        filename = f'{fileId}.{image_format.lower()}'
+        file_id= random_id(10)
+        filename = f'{file_id}.{image_format.lower()}'
         payload = {
             'files': [
                 {
@@ -143,11 +168,10 @@ class UserProxy:
         data = await response.json()
         upload_url = data.get("attachments")[0].get("upload_url")
         upload_filename = data.get("attachments")[0].get("upload_filename")
-        return (fileId, filename, upload_url, upload_filename,)
+        return (file_id, filename, upload_url, upload_filename,)
     
-    async def describe_step_send(self, filename: str, uploaded_filename: str,):
+    async def describe_send(self, filename: str, uploaded_filename: str,):
         nonce = self.snowflake.generate_id()
-        print(nonce)
         payload = payloads.describe(self.ids, filename, uploaded_filename, nonce=nonce)
         payload_str = json.dumps(payload)
         try:

@@ -1,4 +1,5 @@
 import asyncio
+import os
 import concurrent.futures
 from .utils import *
 from .values import Events
@@ -19,9 +20,6 @@ class MessageHandler:
         self.loop = loop
         pass
 
-    def is_onwer(self, taskId, worker_id: int):
-        return self.data.is_onwer( taskId = taskId, worker_id= worker_id)
-
     def on_invalid_parameter(self,id: int, taskId: str, detail: dict ):
         self.loop.run_in_executor(self.pool, lambda: 
             self.data.process_error(
@@ -31,9 +29,29 @@ class MessageHandler:
                 detail= detail
             )
         )
-    
-    def on_message(self, id: int, worker_id: int,  message_worker_id: int, event: Events, data: dict):
-        print(event, data)
+    def on_receive_describe(self,id: int, account_id: int, embed):
+                                # # is describe
+
+
+        url = embed.get('image').get('url')
+        filename = os.path.basename(url)
+        name_without_extension = os.path.splitext(filename)[0]
+        data = self.data.redis_get_describe(account_id= account_id, key=name_without_extension )
+        
+        if data is not None:
+            detail = {
+                'url': data.get('url', ''),
+                'description':  embed.get('description', '')
+            }        
+
+            self.data.save_input(
+                id=id,
+                taskId=data.get('taskId'),
+                type= DetailType.OUTPUT_MJ_DESCRIBE,
+                detail = detail
+            )
+    def on_message(self, id: int, account_id: int,  message_account_id: int, event: Events, data: dict):
+        #print(event, data)
         
         if event is Events.INTERACTION_SUCCESS:
             if data.get('nonce') is not None and data.get('id') is not None:
@@ -53,19 +71,17 @@ class MessageHandler:
             task_is_committed = is_committed(content)
             if task_is_committed:
                 #### check the worker id
-                if  worker_id == message_worker_id:
+                if  account_id == message_account_id:
                         self.data.commit_task(
                             taskId = taskId,
-                            worker_id= worker_id
+                            account_id= account_id
                         )
 
             else:
                 curType = output_type(content)
-                print("save data")
-                if curType is not None and self.data.is_onwer( taskId = taskId, worker_id= worker_id):
+                if curType is not None and self.data.is_task_onwer(account_id= account_id, taskId = taskId):
                     attachments =  data.get('attachments',[])
                     url =  attachments[0].get("url") if len(attachments) > 0  else None
-                    print(url)
                     self.loop.run_in_executor(self.pool, lambda: 
                         self.data.process_output(
                             id = id,
@@ -78,3 +94,4 @@ class MessageHandler:
                     )
         elif  event is Events.MESSAGE_UPDATE:
             pass
+

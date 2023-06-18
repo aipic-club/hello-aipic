@@ -91,9 +91,9 @@ class DiscordUser:
         elif op is Opcodes.INVALID_SESSION:
             await self.__identify()
         
-        print("=====")
-        print(op, event_name, data)
-        print("=====")
+        # print("=====")
+        # print(op, event_name, data)
+        # print("=====")
         ##########
         if self.on_message is not None:
             if event_name == Events.INTERACTION_SUCCESS.value:
@@ -102,10 +102,7 @@ class DiscordUser:
                 if get_dict_value(data, 'author.id')  == str(MJBotId):
                     self.on_message(Events.MESSAGE_CREATE, data)
             elif event_name == Events.MESSAGE_UPDATE.value:
-                embeds = data.get('embds',[])
-                if len(embeds) > 0:
-                    self.on_message(Events.MESSAGE_UPDATE, embeds[0])  
-                elif get_dict_value(data, 'author.id')  == str(MJBotId) :
+                if get_dict_value(data, 'author.id')  == str(MJBotId) :
                     self.on_message(Events.MESSAGE_UPDATE, data)                
             else:
                 pass

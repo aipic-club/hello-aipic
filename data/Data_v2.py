@@ -200,8 +200,8 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
     
     def update_status(self, taskId: str, status:TaskStatus , token_id = None) -> None:
         self.redis_task(token_id= token_id,  taskId=taskId, status= status, ttl= config['wait_time'] )
-    def commit_task(self,  taskId: str ,  worker_id: int):
-        self.redis_set_task(taskId=taskId, worker_id=worker_id)
+    def commit_task(self,  taskId: str ,  account_id: int):
+        self.redis_set_onwer(account_id=account_id, taskId=taskId)
         self.update_status(taskId=taskId, status=TaskStatus.COMMITTED)
     def cleanup(self, taskId: str, type: DetailType):
         #if type is DetailType.OUTPUT_MJ_PROMPT or type is DetailType.OUTPUT_MJ_TIMEOUT:
@@ -222,9 +222,9 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         # elif type is DetailType.OUTPUT_MJ_REMIX:
         #     pass
 
-    def is_onwer(self, taskId: str ,  worker_id: int) -> bool:
-        id = self.redis_get_task(taskId=taskId)
-        return id is not None and id == worker_id
+    def is_task_onwer(self, account_id: int,  taskId: str) -> bool:
+        return self.redis_get_onwer(account_id= account_id, taskId= taskId) is not None
+
 
     def process_error(
             self,

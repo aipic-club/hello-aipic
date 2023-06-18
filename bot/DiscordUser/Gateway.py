@@ -90,6 +90,7 @@ class Gateway:
             self.data.save_input(id=id, taskId= taskId, type= DetailType.INPUT_MJ_PROMPT , detail= detail )
             if execute:
                 print(f"🚀 send prompt {new_prompt},nonce: {id}")
+                self.loop.create_task(self.users[_account_id].remove_suffix())
                 self.loop.create_task(self.users[_account_id].send_prompt(new_prompt, id))
                 self.data.update_status(taskId=taskId, status= TaskStatus.CONFIRMED, token_id= token_id)
                 self.loop.create_task(self.check_task( account_id = _account_id, ref_id=id, taskId= taskId ))
@@ -138,23 +139,32 @@ class Gateway:
     def describe_a_image(self, taskId: str, url: str):
         _account_id = self.pick_a_worker_id() 
         if self.users[_account_id] is not None:
-            self.loop.create_task(self.start_describe(
-                account_id= _account_id,
-                url=url
+            self.loop.create_task(
+                self.start_describe(
+                    taskId= taskId,
+                    account_id= _account_id,
+                    url=url
+                )
             )
-        )
 
-    async def start_describe(self,account_id: int, url: str):
+    async def start_describe(self,taskId: int, account_id: int, url: str):
         file_resp = await self.data.file_download_a_file(url=url)
-        fileId, filename, upload_url, upload_filename = await self.users[account_id].describe_step_get_upload_url(bytes=io.BytesIO(file_resp))
+        file_id, filename, upload_url, upload_filename = await self.users[account_id].describe_get_upload_url(bytes=io.BytesIO(file_resp))
         mime_type, _ = mimetypes.guess_type(upload_filename)
-        # print(upload_url, upload_filename)
         await self.data.upload_a_file(
             url= upload_url, 
             data= file_resp,
             mime_type= mime_type
         )
-        await self.users[account_id].describe_step_send(filename=filename, uploaded_filename= upload_filename)
+
+        self.data.redis_set_describe(
+            account_id= account_id, 
+            key= file_id, 
+            taskId= taskId, 
+            url = url
+        )
+
+        await self.users[account_id].describe_send(filename=filename, uploaded_filename= upload_filename)
 
 
 

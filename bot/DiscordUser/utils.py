@@ -14,7 +14,7 @@ utc_offset_seconds = date_object.utcoffset().total_seconds()
 
 
 def refine_prompt(taskId: str, prompt: str):
-    pattern = r'(--?\w+\s+[\w\.]+)+'
+    pattern = r'(--?\w+\s+[\w:\.]+)+'
     new_prompt = ""
     unique_params = {}
     allowed_keys = set((

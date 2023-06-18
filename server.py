@@ -48,6 +48,9 @@ class Remix(BaseModel):
     prompt: str
     index: int
 
+class Describe(BaseModel):
+    url: str
+
 celery = Celery('tasks', broker=celery_broker)
 
 
@@ -153,14 +156,7 @@ router = APIRouter(
 )
 
 @app.get("/ping")
-async def ping():
-    # celery.send_task('describe',
-    #     (
-    #         None,
-    #         'https://plus.unsplash.com/premium_photo-1680292890588-40ab5cda2bcb?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=687&q=80'
-    #     ),
-    #     queue = 'queue_1'
-    # )     
+async def ping():    
     return PlainTextResponse(content="pong") 
 
 @app.get("/mp",  dependencies=[Depends(check_wechat_signature)])
@@ -251,6 +247,22 @@ async def delete_task(token_id_and_task_id: int = Depends(get_token_id_and_task_
         'status': 'ok',
         'detail': ""
     }
+
+
+@router.get("/tasks/{taskId}/describe")
+def describe_a_img(describe:Describe, token_id_and_task_id: int = Depends(get_token_id_and_task_id) ):
+    taskId, _, _ = token_id_and_task_id 
+    url = describe.url
+    celery.send_task('describe',
+        (
+            taskId,
+            url
+        )
+    ) 
+    return {
+        'status': 'ok',
+    }
+
 
 @router.get("/tasks/{taskId}/status")
 def get_task_status(token_id_and_task_id: int = Depends(get_token_id_and_task_id) ):
