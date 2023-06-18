@@ -48,6 +48,9 @@ class Remix(BaseModel):
     prompt: str
     index: int
 
+class Describe(BaseModel):
+    url: str
+
 celery = Celery('tasks', broker=celery_broker)
 
 
@@ -153,7 +156,7 @@ router = APIRouter(
 )
 
 @app.get("/ping")
-async def ping():
+async def ping():    
     return PlainTextResponse(content="pong") 
 
 @app.get("/mp",  dependencies=[Depends(check_wechat_signature)])
@@ -228,7 +231,7 @@ async def add_task_item(item: Prompt, token_id_and_task_id: int = Depends(get_to
             raw,
             execute,
         ),
-        #queue = queue
+        queue = queue
     )  
   
     return {
@@ -244,6 +247,22 @@ async def delete_task(token_id_and_task_id: int = Depends(get_token_id_and_task_
         'status': 'ok',
         'detail': ""
     }
+
+
+@router.get("/tasks/{taskId}/describe")
+def describe_a_img(describe:Describe, token_id_and_task_id: int = Depends(get_token_id_and_task_id) ):
+    taskId, _, _ = token_id_and_task_id 
+    url = describe.url
+    celery.send_task('describe',
+        (
+            taskId,
+            url
+        )
+    ) 
+    return {
+        'status': 'ok',
+    }
+
 
 @router.get("/tasks/{taskId}/status")
 def get_task_status(token_id_and_task_id: int = Depends(get_token_id_and_task_id) ):

@@ -40,7 +40,7 @@ class DiscordUser:
         await asyncio.sleep(5)
         self.session = aiohttp.ClientSession(loop = self.loop)
 
-        self.ws = await  self.session.ws_connect(DiscordUser.WSSURL, proxy= self.proxy )
+        self.ws = await self.session.ws_connect(DiscordUser.WSSURL, proxy= self.proxy )
 
         buffer = bytearray()
         inflator = zlib.decompressobj()
@@ -95,27 +95,22 @@ class DiscordUser:
         # print(op, event_name, data)
         # print("=====")
         ##########
-
         if self.on_message is not None:
             if event_name == Events.INTERACTION_SUCCESS.value:
                 self.on_message(Events.INTERACTION_SUCCESS, data)
             elif event_name == Events.MESSAGE_CREATE.value:
                 if get_dict_value(data, 'author.id')  == str(MJBotId):
                     self.on_message(Events.MESSAGE_CREATE, data)
-
-                    embeds = data.get("embeds")
-                    if len(embeds) > 0:
-                        title = embeds[0].get("title")
-                        print(title)
-                        if title == 'Job queued':
-                            pass
-                        elif title == 'Invalid parameter':
-                            pass
             elif event_name == Events.MESSAGE_UPDATE.value:
-                embeds = data.get("embeds")
-                if len(embeds) > 0:
-                    title = embeds[0].get("title")
-                    print(title)
+                if get_dict_value(data, 'author.id')  == str(MJBotId) :
+                    self.on_message(Events.MESSAGE_UPDATE, data)                
+            else:
+                pass
+            # elif event_name == Events.MESSAGE_UPDATE.value:
+            #     embeds = data.get("embeds")
+            #     if len(embeds) > 0:
+            #         title = embeds[0].get("title")
+            #         print(title)
 
 
 
@@ -162,3 +157,14 @@ class DiscordUser:
         )
 
         return response
+    async def get_upload_url(self,channel_id: str,  payload: str) -> aiohttp.ClientResponse :
+        response = await self.session.post(
+            f'https://discord.com/api/v9/channels/{channel_id}/attachments',
+            proxy= self.proxy,
+            json = payload,
+            headers= self.header
+        )
+        return response
+
+
+

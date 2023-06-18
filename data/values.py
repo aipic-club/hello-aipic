@@ -36,6 +36,7 @@ class DetailType(Enum):
     OUTPUT_MJ_DESCRIBE = 25
     ## MIDJOURNEY ERROR
     OUTPUT_MJ_TIMEOUT = 31
+    OUTPUT_MJ_INVALID_PARAMETER = 32
 
 output_type = [
     DetailType.OUTPUT_MJ_PROMPT.value,
@@ -44,6 +45,8 @@ output_type = [
     DetailType.OUTPUT_MJ_VARIATION.value,
     DetailType.OUTPUT_MJ_DESCRIBE.value,
 ]
+
+
 
 def get_cost(type: DetailType):
     if type is DetailType.OUTPUT_MJ_PROMPT:
@@ -92,6 +95,10 @@ class SysCode(Enum):
     TOKEN_NOT_EXIST_OR_EXPIRED = 11
     TOKEN_OUT_OF_BALANCE = 12
 
+
+class TokenType(Enum):
+    NORMAL = 0
+    TRIAL = 1
 
 
 config = {
