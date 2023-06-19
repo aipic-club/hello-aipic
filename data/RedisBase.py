@@ -15,7 +15,8 @@ class RedisBase(RedisInterface):
         self.redis = redis.from_url(url)
     def __remove_keys(self, pattern: str):
         keys = self.redis.keys(pattern)
-        self.redis.delete(*keys)
+        if keys:
+            self.redis.delete(*keys)
     def redis_close(self):
         self.redis.close()
 

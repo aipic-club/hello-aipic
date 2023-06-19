@@ -35,7 +35,8 @@ class UserProxy:
         self.score = 100
         self.snowflake = Snowflake(id, None)
         self.user = DiscordUser( token= token, on_message= self.__on_message, loop= loop)
-        loop.create_task(self.user.run())
+        asyncio.run_coroutine_threadsafe(self.user.run(), loop= loop)
+        #loop.create_task()
     @property
     def ids(self) -> dict[str, str]:
         return {
