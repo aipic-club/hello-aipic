@@ -48,7 +48,7 @@ class UserProxy:
     def __on_message(self, event: Events, data: dict) -> None:
         # try:
             if event is Events.MESSAGE_CREATE:
-                message_worker_id = None            
+                message_account_id = None            
                 if event is  Events.MESSAGE_CREATE:
 
                     channel_id = data.get('channel_id', None) 
@@ -79,7 +79,7 @@ class UserProxy:
                                 )
                                 return
                 id = self.generate_id()   
-                self.messageHandler.on_message(id, self.id, message_worker_id ,  event, data)
+                self.messageHandler.on_message(id, self.id, message_account_id ,  event, data)
             elif event is Events.MESSAGE_UPDATE:
 
                 #print(data)

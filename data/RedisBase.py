@@ -53,7 +53,7 @@ class RedisBase(RedisInterface):
 
     
     def redis_set_onwer(self, account_id: int, taskId: str):
-        self.redis.setex(f'onwer:{account_id}:{taskId}', config['cache_time'], account_id)
+        self.redis.setex(f'onwer:{account_id}:{taskId}', config['wait_time'], str(account_id))
     def redis_get_onwer(self, account_id: int, taskId: str,):
         return self.redis.get(f'onwer:{account_id}:{taskId}')
     def redis_task(self, token_id: int, taskId: str, status: TaskStatus, ttl: int = None) -> None:
