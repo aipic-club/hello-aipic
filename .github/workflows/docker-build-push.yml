@@ -31,18 +31,18 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:             
-      - name: SSH into server and deploy bot 0
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ vars.BOT_0_SERVER_HOST }}
-          username: root
-          password: ${{ secrets.BOT_0_SERVER_PASSWORD }}
-          script: |
-            cd ~/bot
-            echo ${{ secrets.DOCKER_REGISTRY_PASSWORD }} | docker login -u ${{ vars.DOCKER_REGISTRY_USERNAME }} --password-stdin registry.baidubce.com
-            docker pull registry.baidubce.com/miss-journey/journey:latest     
-            docker stop journey-bot || true && docker rm journey-bot || true
-            docker run  -d  --name journey-bot --env-file .env  --rm registry.baidubce.com/miss-journey/journey:latest python ./bot-v2.py
+      # - name: SSH into server and deploy bot 0
+      #   uses: appleboy/ssh-action@master
+      #   with:
+      #     host: ${{ vars.BOT_0_SERVER_HOST }}
+      #     username: root
+      #     password: ${{ secrets.BOT_0_SERVER_PASSWORD }}
+      #     script: |
+      #       cd ~/bot
+      #       echo ${{ secrets.DOCKER_REGISTRY_PASSWORD }} | docker login -u ${{ vars.DOCKER_REGISTRY_USERNAME }} --password-stdin registry.baidubce.com
+      #       docker pull registry.baidubce.com/miss-journey/journey:latest     
+      #       docker stop journey-bot || true && docker rm journey-bot || true
+      #       docker run  -d  --name journey-bot --env-file .env  --rm registry.baidubce.com/miss-journey/journey:latest python ./bot-v2.py
       - name: SSH into server and deploy server
         uses: appleboy/ssh-action@master
         with:
