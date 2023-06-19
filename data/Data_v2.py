@@ -223,6 +223,7 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         #     pass
 
     def is_task_onwer(self, account_id: int,  taskId: str) -> bool:
+        print(self.redis_get_onwer(account_id= account_id, taskId= taskId))
         return self.redis_get_onwer(account_id= account_id, taskId= taskId) is not None
 
 

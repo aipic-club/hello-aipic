@@ -71,6 +71,7 @@ class MessageHandler:
             task_is_committed = is_committed(content)
             if task_is_committed:
                 #### check the worker id
+                print(f'======== account_id: {account_id} ,message_account_id: {message_account_id}')
                 if  account_id == message_account_id:
                         self.data.commit_task(
                             taskId = taskId,
@@ -79,6 +80,8 @@ class MessageHandler:
 
             else:
                 curType = output_type(content)
+
+                print(f'======== {account_id} == {taskId}')
                 if curType is not None and self.data.is_task_onwer(account_id= account_id, taskId = taskId):
                     attachments =  data.get('attachments',[])
                     url =  attachments[0].get("url") if len(attachments) > 0  else None
