@@ -52,7 +52,6 @@ jobs:
           script: |
             echo ${{ secrets.DOCKER_REGISTRY_PASSWORD }} |sudo docker login -u ${{ vars.DOCKER_REGISTRY_USERNAME }} --password-stdin registry.baidubce.com
             sudo docker pull registry.baidubce.com/miss-journey/journey:latest
-            sudo docker tag registry.baidubce.com/miss-journey/journey:latest registry.baidubce.com/miss-journey/journey:latest
             cd /home/ubuntu/docker
             sudo docker-compose stop app
             sudo docker-compose up -d --force-recreate --no-deps --build app
