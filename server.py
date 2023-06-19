@@ -19,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from wechatpy import parse_message, create_reply
 from wechatpy.utils import check_signature
 from wechatpy.exceptions import InvalidSignatureException, InvalidAppIdException
+from wechatpy.events import SubscribeEvent
 
 
 from data import Data_v2,  SysCode, random_id
@@ -156,7 +157,7 @@ router = APIRouter(
 )
 
 @app.get("/ping")
-async def ping():    
+async def ping(): 
     return PlainTextResponse(content="pong") 
 
 @app.get("/mp",  dependencies=[Depends(check_wechat_signature)])
@@ -170,12 +171,19 @@ async def mp(request: Request):
     body = await request.body()
     msg = parse_message(body)
     reply = create_reply(None, msg)
-    if msg.type == "text":
-        if (msg.content == "试用" or msg.content == "aipic"):
+    if msg.type == 'event' and msg.event == SubscribeEvent.event:
+        token,_ = data.create_trial_token(msg.source) 
+        template =  f'👏👏 欢迎关注 👏👏\n这里是一个充满创造力的空间，我们相信您将在这里找到灵感的源泉。\n<a href="https://aipic.club/trial/{token}">👉👉 免费使用Midjourney 👈👈</a>'
+        reply = create_reply(template , msg)
+    elif msg.type == "text":
+        lowercase_string = str(msg.content).lower()  # Convert string to lowercase
+        no_spaces_string = lowercase_string.replace(" ", "")        
+        if (no_spaces_string == "试用" or no_spaces_string == "aipic"):
             token,days = data.create_trial_token(msg.source) 
             expire = '{token}\n❗有效期小于一天，请及时备份' if days == 0 else f'{token}\n有效期剩余{days}天'
-            template =  f'{expire}\n有效期后可继续获取试用 \n电脑访问https://aipic.club/或<a href="https://aipic.club/trial/{token}">在微信中</a>试用AIPic'
+            template =  f'{expire}\n有效期后可继续获取试用 \n<a href="https://aipic.club/trial/{token}">👉👉 试用https://AIPic.club 👈👈</a>'
             reply = create_reply(template , msg)
+
     return Response(content=reply.render(), media_type="application/xml")
 
 
