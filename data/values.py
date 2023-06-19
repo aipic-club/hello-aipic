@@ -21,6 +21,7 @@ class OutputType(Enum):
 class DetailType(Enum):
     ## SYSTEM MESSAGE
     SYS_ABORTED = 0
+    SYS_WELCOME = 1
     SYS_FAILED = 5
     ## MIDJOURNEY INPUT 
     INPUT_MJ_PROMPT = 11

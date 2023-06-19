@@ -6,6 +6,7 @@ from .values import TaskStatus
 from .MySQLBase import MySQLBase
 from .RedisBase import RedisBase
 from .FileBase import FileBase
+from .Snowflake import Snowflake
 from .values import DetailType,output_type,get_cost, image_hostname, config,SysCode, TokenType
 
 class Data_v2(MySQLBase, RedisBase, FileBase):
@@ -18,6 +19,7 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         super().__init__(url = mysql_url)
         RedisBase.__init__(self, url = redis_url)
         FileBase.__init__(self, config= s3config, proxy= proxy)
+        self.snowflake = Snowflake(worker_id= 0, epoch= None)
     def close(self):
         self.mysql_close()
         self.redis_close()
@@ -27,12 +29,27 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         self.redis_get_cache_data(key=key)
     def remove_cache(self, key):
         self.redis.delete(key)
+
+    def __insert_detail(self, id: int, task_id: int, type: DetailType, detail: dict, cnx):
+        sql = (
+            "INSERT INTO `detail` "
+            "( `id`, `task_id`, `type`, `detail`) "
+            "VALUES ( %(id)s, %(task_id)s, %(type)s, %(detail)s)"
+        )
+        new_params = {
+            'id': id,
+            'task_id': task_id,
+            'type': type.value,
+            'detail': json.dumps(detail)
+        }
+        self.mysql_execute(sql=sql, params= new_params, lastrowid= False, _cnx = cnx )
     
-    def __insert_detail(self, id: int, taskId: str, type: DetailType, detail: dict):
+    def __insert_detail_and_audit(self, id: int, taskId: str, type: DetailType, detail: dict):
         cnx = self.pool.get_connection()
         cursor = cnx.cursor(dictionary=True)
         try:
             cnx.start_transaction()
+            ### 
             sql = "SELECT `id`,`token_id` FROM `task` WHERE taskId = %(taskId)s"
             new_params = {
                 'taskId': taskId
@@ -40,18 +57,25 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
             record = self.mysql_fetchone(sql=sql, params= new_params, _cnx = cnx)
             if record is not None:
                 token_id = record['token_id']
-                sql = (
-                    "INSERT INTO `detail` "
-                    "( `id`, `task_id`, `type`, `detail`) "
-                    "VALUES ( %(id)s, %(task_id)s, %(type)s, %(detail)s)"
+                self.__insert_detail(
+                    id= id,
+                    task_id= record['id'],
+                    type= type,
+                    detail= json.dumps(detail),
+                    cnx= cnx
                 )
-                new_params = {
-                    'id': id,
-                    'task_id': record['id'],
-                    'type': type.value,
-                    'detail': json.dumps(detail)
-                }
-                self.mysql_execute(sql=sql, params= new_params, lastrowid= False, _cnx = cnx )
+                # sql = (
+                #     "INSERT INTO `detail` "
+                #     "( `id`, `task_id`, `type`, `detail`) "
+                #     "VALUES ( %(id)s, %(task_id)s, %(type)s, %(detail)s)"
+                # )
+                # new_params = {
+                #     'id': id,
+                #     'task_id': record['id'],
+                #     'type': type.value,
+                #     'detail': json.dumps(detail)
+                # }
+                # self.mysql_execute(sql=sql, params= new_params, lastrowid= False, _cnx = cnx )
                 if type.value in output_type:
                     print("add audit")
                     cost = get_cost(type= type)
@@ -123,12 +147,14 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         return (id, code, )
         
 
-    def create_task(self, token_id: str, taskId: str):
+    def create_task(self, token_id: str, taskId: str, cnx = None) -> int:
         sql = ("INSERT INTO `task` (`token_id`, `taskId` ) VALUES( %(token_id)s, %(taskId)s)")
-        self.mysql_execute(sql, params= {
+        id = self.mysql_execute(sql, params= {
             'token_id': token_id, 
             'taskId': taskId
-        }, lastrowid= True)
+        }, lastrowid= True, _cnx = cnx)
+        return id
+
     def check_task(self, id: int, ref_id: int, taskId: str ):
         status = self.redis_task_status(token_id=None, taskId= taskId)
         if status is not None:
@@ -187,7 +213,7 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         }
         return self.mysql_fetchone(sql=sql, params=params)
     def save_input(self, id: int, taskId: int, type: DetailType , detail: dict ):
-        self.__insert_detail(
+        self.__insert_detail_and_audit(
             id=id,
             taskId= taskId, 
             type= type, 
@@ -273,7 +299,7 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
             'reference': reference,
             'url': url_cn
         }
-        self.__insert_detail(
+        self.__insert_detail_and_audit(
             id=id,
             taskId= taskId, 
             type= type, 
@@ -371,12 +397,25 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
                     'type': TokenType.TRIAL.value
                 }
                 token_id =  self.mysql_execute(sql=sql, params= params, lastrowid= True, _cnx = cnx )
+ 
                 sql = ("INSERT INTO `mp_trial_history` (`mp_user_id`,`token_id`) VALUES( %(user_id)s, %(token_id)s) ")
                 params = {
                     'user_id': mp_userId,
                     'token_id': token_id
                 }
                 self.mysql_execute(sql=sql, params=params, lastrowid= False, _cnx = cnx)
+                ### create default space and welcome msg for user
+                taskId = random_id(11)
+                task_id = self.create_task(token_id= token_id, taskId= taskId, cnx= cnx)
+                # snowflake_id = self.snowflake.generate_id()
+                # self.__insert_detail(
+                #     id= snowflake_id,
+                #     task_id= task_id,
+                #     type= DetailType.SYS_WELCOME,
+                #     detail= None,
+                #     cnx= cnx
+                # )
+
             cnx.commit()     
         except Exception as e:
             print(e)
