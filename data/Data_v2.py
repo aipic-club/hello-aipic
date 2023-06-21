@@ -124,7 +124,6 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
                         balance = record['balance']
                         cost = int(record['cost'])
                         expire_at = record['expire_at'].strftime("%Y-%m-%dT%H:%M:%SZ")
-                        print(expire_at)
                         self.redis_set_token(token=token, ttl = ttl, id= id)
                         self.redis_init_cost(
                             token_id= id, 
