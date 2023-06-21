@@ -61,7 +61,7 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
                     id= id,
                     task_id= record['id'],
                     type= type,
-                    detail= json.dumps(detail),
+                    detail= detail,
                     cnx= cnx
                 )
                 # sql = (

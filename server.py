@@ -180,7 +180,7 @@ async def mp(request: Request):
         no_spaces_string = lowercase_string.replace(" ", "")        
         if (no_spaces_string == "试用" or no_spaces_string == "aipic"):
             token,days = data.create_trial_token(msg.source) 
-            expire = '{token}\n❗有效期小于一天，请及时备份' if days == 0 else f'{token}\n有效期剩余{days}天'
+            expire = f'{token}\n❗有效期小于一天，请及时备份' if days == 0 else f'{token}\n有效期剩余{days}天'
             template =  f'{expire}\n有效期后可继续获取试用 \n<a href="https://aipic.club/trial/{token}">👉👉 试用https://AIPic.club 👈👈</a>'
             reply = create_reply(template , msg)
 
