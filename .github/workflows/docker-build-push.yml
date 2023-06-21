@@ -36,7 +36,7 @@ jobs:
         with:
           host: ${{ vars.BOT_0_SERVER_HOST }}
           username: root
-          key: ${{ secrets.BOT_0_SERVER_KEY }}
+          password: ${{ secrets.BOT_0_SERVER_PASSWORD }}
           script: |
             cd ~/bot
             echo ${{ secrets.DOCKER_REGISTRY_PASSWORD }} | docker login -u ${{ vars.DOCKER_REGISTRY_USERNAME }} --password-stdin registry.baidubce.com
