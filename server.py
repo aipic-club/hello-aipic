@@ -43,6 +43,10 @@ class Prompt(BaseModel):
     prompt: str
     raw: Union[str , None] = None
     execute: Union[bool , None] = None
+
+class Task(BaseModel):
+    name: str | None
+
 class Upscale(BaseModel):
     index: int
 class Remix(BaseModel):
@@ -208,8 +212,21 @@ async def create_task(token_id: int = Depends(get_token_id) ):
         'id':  taskId
     }
 
+@router.put("/tasks/{taskId}")
+async def update_task(task: Task, token_id_and_task_id = Depends(get_token_id_and_task_id)):
+    taskId, _ , _ = token_id_and_task_id   
+    name = task.name
+    if name is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+    
+    data.update_task_topic(taskId=taskId, topic=name)
+
+    return {
+        'status': 'ok',
+    }
+
 @router.post("/tasks/{taskId}")
-async def add_task_item(item: Prompt, token_id_and_task_id: int = Depends(get_token_id_and_task_id) ):
+async def add_task_item(item: Prompt, token_id_and_task_id = Depends(get_token_id_and_task_id) ):
     taskId, token_id, task_id  = token_id_and_task_id
     if is_busy(token_id= token_id, taskId= taskId):
         return Response(status_code=202)
@@ -245,7 +262,7 @@ async def add_task_item(item: Prompt, token_id_and_task_id: int = Depends(get_to
         "status": "ok"
     }
 @router.delete("/tasks/{taskId}")
-async def delete_task(token_id_and_task_id: int = Depends(get_token_id_and_task_id) ):
+async def delete_task(token_id_and_task_id  = Depends(get_token_id_and_task_id) ):
     taskId, token_id, _  = token_id_and_task_id
     cache_key = f'cache:{token_id}:{taskId}'
     data.delete_task(taskId= taskId)
@@ -257,7 +274,7 @@ async def delete_task(token_id_and_task_id: int = Depends(get_token_id_and_task_
 
 
 @router.post("/tasks/{taskId}/describe")
-def describe_a_img(describe:Describe, token_id_and_task_id: int = Depends(get_token_id_and_task_id) ):
+def describe_a_img(describe:Describe, token_id_and_task_id = Depends(get_token_id_and_task_id) ):
     taskId, _, _ = token_id_and_task_id 
     url = describe.url
     celery.send_task('describe',
@@ -272,7 +289,7 @@ def describe_a_img(describe:Describe, token_id_and_task_id: int = Depends(get_to
 
 
 @router.get("/tasks/{taskId}/status")
-def get_task_status(token_id_and_task_id: int = Depends(get_token_id_and_task_id) ):
+def get_task_status(token_id_and_task_id = Depends(get_token_id_and_task_id) ):
     taskId, token_id, _ = token_id_and_task_id 
     status, job  = get_task_jobs(token_id= token_id, taskId=taskId)
     return{
@@ -281,7 +298,7 @@ def get_task_status(token_id_and_task_id: int = Depends(get_token_id_and_task_id
     }
 @router.get("/tasks/{taskId}/detail")
 async def get_task_detail(
-    token_id_and_task_id: int = Depends(get_token_id_and_task_id) , 
+    token_id_and_task_id = Depends(get_token_id_and_task_id) , 
     pagination = Depends(validate_pagination)
 ):
     _,_,task_id  = token_id_and_task_id

@@ -1,14 +1,16 @@
-name: Build and Push Docker Image
+name: CI Workflow
 
 on:
   push:
     branches:
       - main
+      - server
+      - bot
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-
+    if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -27,10 +29,11 @@ jobs:
         run: |
           docker build -t registry.baidubce.com/miss-journey/journey:latest -f ./dockerfiles/journey/Dockerfile  .
           docker push registry.baidubce.com/miss-journey/journey:latest
-  pull-and-deploy:
-    needs: build-and-push
+  deploy-server:
+    # needs: build-and-push
     runs-on: ubuntu-latest
-    steps:             
+    if: github.ref == 'refs/heads/server'
+    steps:
       - name: SSH into server and deploy bot 0
         uses: appleboy/ssh-action@master
         with:
@@ -42,7 +45,12 @@ jobs:
             echo ${{ secrets.DOCKER_REGISTRY_PASSWORD }} | docker login -u ${{ vars.DOCKER_REGISTRY_USERNAME }} --password-stdin registry.baidubce.com
             docker pull registry.baidubce.com/miss-journey/journey:latest     
             docker stop journey-bot || true && docker rm journey-bot || true
-            docker run  -d  --name journey-bot --env-file .env  --rm registry.baidubce.com/miss-journey/journey:latest python ./bot-v2.py
+            docker run  -d  --net  --name journey-bot --env-file .env  --net=host registry.baidubce.com/miss-journey/journey:latest python ./bot-v2.py
+  deploy-bot:
+    # needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/bot'
+    steps: 
       - name: SSH into server and deploy server
         uses: appleboy/ssh-action@master
         with:
