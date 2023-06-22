@@ -30,13 +30,8 @@ class RedisBase(RedisInterface):
     def redis_set_token(self, token: str, ttl: int, id: int):
         self.redis.setex(f'token:{token}', ttl, id )
 
-    def redis_init_cost(self,   token_id: str, balance: int, cost: int, expire_at: str,   ttl: int):
-            data = {
-                'balance': balance,
-                'cost': cost,
-                'expire_at': expire_at
-            }
-            self.redis.setex(f'tokenId:{token_id}', ttl, json.dumps(data))
+    def redis_init_cost(self,  token_id: str, ttl: int , data: dict   ):
+        self.redis.setex(f'tokenId:{token_id}', ttl, json.dumps(data))
     def redis_add_cost(self, token_id: str, cost ):
         key = f'tokenId:{token_id}'
         current = self.redis_get_cost(token_id=token_id)
@@ -48,7 +43,9 @@ class RedisBase(RedisInterface):
             _ttl = self.redis.ttl(key)
             self.redis.setex(key , _ttl, json.dumps(data))
 
-    def redis_get_cost(self, token_id: str):
+    def redis_get_cost(self, token_id: str | None):
+        if token_id is None:
+            return None
         val = self.redis.get(f'tokenId:{token_id}')
         return json.loads(val) if val is not None else None
 

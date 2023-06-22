@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 import json
 from .Snowflake import Snowflake
 from .utils import random_id
@@ -99,10 +100,11 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         id = None
         code = SysCode.OK
         try:
-            temp = self.redis_get_token(token= token)
-            if temp is None:
+            id = self.redis_get_token(token= token)
+            cost = self.redis_get_cost(token_id= id)
+            if id is None or cost is None:
                 sql =(
-                    "SELECT t.id,TIMESTAMPDIFF(SECOND, NOW(), t.expire_at ) as ttl, t.balance, t.expire_at, COALESCE(a.cost, 0) AS cost"
+                    "SELECT t.id,TIMESTAMPDIFF(SECOND, NOW(), t.expire_at ) as ttl, t.type, t.balance, t.expire_at, COALESCE(a.cost, 0) AS cost"
                     " FROM tokens AS t"
                     " LEFT JOIN ("
                     "   SELECT token_id, SUM(cost) AS cost"
@@ -122,21 +124,25 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
                         id = record['id']
                         ttl = record['ttl']
                         balance = record['balance']
+                        type = record['type']
                         cost = int(record['cost'])
                         expire_at = record['expire_at'].strftime("%Y-%m-%dT%H:%M:%SZ")
                         self.redis_set_token(token=token, ttl = ttl, id= id)
+                        data = {
+                            'balance': balance,
+                            'cost': cost,
+                            'type': type,
+                            'expire_at': expire_at
+                        }
+
                         self.redis_init_cost(
                             token_id= id, 
-                            balance = balance, 
-                            cost= cost, 
-                            expire_at= expire_at, 
-                            ttl = ttl
+                            ttl = ttl, 
+                            data = data        
                         )
                 else:
                     code = SysCode.TOKEN_NOT_EXIST_OR_EXPIRED
             else:
-                id = temp
-                cost = self.redis_get_cost(token_id= id)
                 if cost.get("cost") > cost.get("balance"):
                     code = SysCode.TOKEN_OUT_OF_BALANCE
 
@@ -153,7 +159,6 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
             'taskId': taskId
         }, lastrowid= True, _cnx = cnx)
         return id
-
     def check_task(self, id: int, ref_id: int, taskId: str ):
         status = self.redis_task_status(token_id=None, taskId= taskId)
         if status is not None:
@@ -317,17 +322,18 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         }
         return self.mysql_fetchone(sql=sql,params=params)
 
-    def __update_task_feild(self, taskId: str , field: str, value: str| int):
+    def __update_task_feild(self, taskId: str , field: str, value: str| int, update_when_none : bool = False):
+        additional_sql = " AND {field}='' " if update_when_none else ''
         sql = (
-            "UPDATE `task` SET {field}=%(value)s  WHERE taskId=%(taskId)s"
+            "UPDATE `task` SET {field}=%(value)s  WHERE taskId=%(taskId)s" +  additional_sql
         ).format(field=field)
         params = {
             'taskId': taskId,
             'value': value
         }
         return self.mysql_execute(sql = sql, params= params, lastrowid= True)
-    def update_task_topic(self,  taskId: str, topic: str):
-        self.__update_task_feild( taskId=taskId, field = 'topic', value=topic )
+    def update_task_topic(self,  taskId: str, topic: str, update_when_none : bool = False):
+        self.__update_task_feild( taskId=taskId, field = 'topic', value=topic, update_when_none= update_when_none )
     def update_task_cover(self, taskId: str, cover: str):
         self.__update_task_feild(taskId=taskId,field = 'cover', value=cover )
     def delete_task(self, taskId: str):
