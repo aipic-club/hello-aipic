@@ -30,7 +30,7 @@ atexit.register(data.close)
 
 
 gateway = Gateway( 
-    id = int(celery_broker_id) , 
+    celery_id = int(celery_id) , 
     data = data, 
     pool = pool
 )
@@ -120,4 +120,13 @@ def describe(self, taskId: str, url: str):
 
 
 if __name__ == '__main__':
-    celery.worker_main(argv=['worker', '--pool=solo',  '-l', 'info', '-Q' , f'queue_{celery_broker_id},celery'])
+    celery.worker_main(
+        argv=[
+            'worker', 
+            '--pool=solo',  
+            '-l', 
+            'info', 
+            '-Q' , 
+            f'queue_{celery_id},{queue},celery'
+        ]
+    )

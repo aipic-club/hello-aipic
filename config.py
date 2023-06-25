@@ -2,7 +2,8 @@ import os
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 
-celery_broker_id = os.environ.get("ID")
+celery_id = os.environ.get("ID")
+queue=os.environ.get("QUEUQE")
 celery_broker =os.environ.get("CELERY.BROKER")
 proxy =  os.environ.get("http_proxy")
 redis_url = os.environ.get("REDIS")

@@ -64,7 +64,11 @@ class UserProxy:
                             title = embeds[0].get("title")
                             description = embeds[0].get("description")
                             print(title, description)
-                            if title == 'Job queued':
+                            if title == 'Action needed to continue':
+                                components = data.get("components", [])
+                                print(components)
+                                pass
+                            elif title == 'Job queued':
                                 return
                             elif title == 'Invalid parameter':
                                 taskId = get_taskId(embeds[0].get('footer',{}).get('text'))

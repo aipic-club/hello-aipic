@@ -31,17 +31,21 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
     def remove_cache(self, key):
         self.redis.delete(key)
 
+    def generate_unique_id(self):
+        return self.redis.incr("unique_id_counter")
+
     def __insert_detail(self, id: int, task_id: int, type: DetailType, detail: dict, cnx):
         sql = (
             "INSERT INTO `detail` "
-            "( `id`, `task_id`, `type`, `detail`) "
-            "VALUES ( %(id)s, %(task_id)s, %(type)s, %(detail)s)"
+            "( `id`, `task_id`, `type`, `detail`, `create_at` )"
+            "VALUES ( %(id)s, %(task_id)s, %(type)s, %(detail)s, %(create_at)s)"
         )
         new_params = {
             'id': id,
             'task_id': task_id,
             'type': type.value,
-            'detail': json.dumps(detail)
+            'detail': json.dumps(detail),
+            'create_at': datetime.now()
         }
         self.mysql_execute(sql=sql, params= new_params, lastrowid= False, _cnx = cnx )
     
@@ -194,11 +198,35 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
                 return None
         else:
             return int(cache_data) 
-    def get_detail(self, task_id: int, page: int = 0, page_size: int = 10):
-        sql = (
-            "SELECT  `id`, `type`, `detail`,`create_at` FROM detail WHERE task_id=%(task_id)s"
-            " LIMIT %(page_size)s OFFSET %(offset)s"
-        )
+    def get_detail(
+            self, 
+            task_id: int, 
+            page: int = 0, 
+            page_size: int = 10,
+            before: str = None,
+            after: str = None
+        ):
+
+
+
+
+        if after is not None:
+            sql = (
+                "SELECT  `id`, `type`, `detail`,`create_at` FROM detail"
+                " WHERE `task_id`=%(task_id)s AND `create_at` >='{after}'"
+                " LIMIT %(page_size)s OFFSET %(offset)s"
+            ).format(after= after)
+        else:
+     
+            sql = (
+                "SELECT  `id`, `type`, `detail`,`create_at` FROM "
+                " ( SELECT  * FROM detail"
+                " WHERE `task_id`=%(task_id)s AND `create_at` <='{before}'"
+                " ORDER BY `id` DESC"
+                " LIMIT %(page_size)s OFFSET %(offset)s "
+                " ) sub ORDER BY `id` ASC"
+            ).format(before= before if before is not None else datetime.now())
+        
         offset = (page - 1) * page_size
         params = {
             'task_id': task_id,
@@ -230,9 +258,9 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
     
     def update_status(self, taskId: str, status:TaskStatus , token_id = None) -> None:
         self.redis_task(token_id= token_id,  taskId=taskId, status= status, ttl= config['wait_time'] )
-    def commit_task(self,  taskId: str ,  account_id: int):
+    def commit_task(self,  taskId: str ,  account_id: int, status: TaskStatus = TaskStatus.COMMITTED):
         self.redis_set_onwer(account_id=account_id, taskId=taskId)
-        self.update_status(taskId=taskId, status=TaskStatus.COMMITTED)
+        self.update_status(taskId=taskId, status=status)
     def cleanup(self, taskId: str, type: DetailType):
         #if type is DetailType.OUTPUT_MJ_PROMPT or type is DetailType.OUTPUT_MJ_TIMEOUT:
         if type.value in [
@@ -253,7 +281,7 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         #     pass
 
     def is_task_onwer(self, account_id: int,  taskId: str) -> bool:
-        print(self.redis_get_onwer(account_id= account_id, taskId= taskId))
+        print('check onwer', self.redis_get_onwer(account_id= account_id, taskId= taskId))
         return self.redis_get_onwer(account_id= account_id, taskId= taskId) is not None
 
 
@@ -365,7 +393,7 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         cnx = self.pool.get_connection()
         cursor = cnx.cursor(dictionary=True)  
         token = None 
-        days = 7
+        days = 15
         try:
             sql = ("SELECT id FROM mp_users WHERE mp_user=%(user)s")
             params = {
@@ -383,8 +411,9 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
                 }
                 record = self.mysql_fetchone(sql= sql , params= params, _cnx = cnx)
                 if record is not None:
+
                     token_id = record['token_id']
-                    sql = ("SELECT token,TIMESTAMPDIFF(DAY, NOW(), expire_at ) as days FROM `tokens` WHERE id=%(token_id)s AND type= %(type)s AND expire_at > NOW()")
+                    sql = ("SELECT token,TIMESTAMPDIFF(DAY, NOW(), expire_at ) as days FROM `tokens` WHERE id=%(token_id)s AND type= %(type)s")
                     params = {
                         'token_id': token_id,
                         'type': TokenType.TRIAL.value
@@ -393,6 +422,19 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
                     if record is not None:
                         token = record['token']
                         days = record['days'] 
+
+
+                    # token_id = record['token_id']
+                    # sql = ("SELECT token,TIMESTAMPDIFF(DAY, NOW(), expire_at ) as days FROM `tokens` WHERE id=%(token_id)s AND type= %(type)s AND expire_at > NOW()")
+                    # params = {
+                    #     'token_id': token_id,
+                    #     'type': TokenType.TRIAL.value
+                    # }
+                    # record = self.mysql_fetchone(sql=sql, params= params, _cnx = cnx)
+                    # if record is not None:
+                    #     token = record['token']
+                    #     days = record['days'] 
+                
             if token is None:
                 token = random_id(20)
                 sql = ("INSERT INTO `tokens` (`token`,`balance`,`type`,`expire_at`) VALUES( %(token)s, 100, %(type)s , DATE_ADD(NOW(), INTERVAL %(days)s DAY) )")

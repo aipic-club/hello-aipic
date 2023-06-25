@@ -161,7 +161,11 @@ router = APIRouter(
 )
 
 @app.get("/ping")
-async def ping(): 
+async def ping(request: Request): 
+    print(f'request header       : {dict(request.headers.items())}' )
+
+    token,days =  data.create_trial_token("testonly")
+    
     return PlainTextResponse(content="pong") 
 
 @app.get("/mp",  dependencies=[Depends(check_wechat_signature)])
@@ -176,16 +180,22 @@ async def mp(request: Request):
     msg = parse_message(body)
     reply = create_reply(None, msg)
     if msg.type == 'event' and msg.event == SubscribeEvent.event:
-        token,_ = data.create_trial_token(msg.source) 
-        template =  f'👏👏 欢迎关注 👏👏\n这里是一个充满创造力的空间，我们相信您将在这里找到灵感的源泉。\n<a href="https://aipic.club/trial/{token}">👉👉 免费使用Midjourney 👈👈</a>'
+        token,days = data.create_trial_token(msg.source) 
+        template =  f'👏👏 欢迎关注 👏👏\n这里是一个充满创造力的空间，我们相信您将在这里找到灵感的源泉。'
+        if days >= 0:
+            template += '\n<a href="https://aipic.club/trial/{token}">👉👉 免费使用Midjourney 👈👈</a>'
+
         reply = create_reply(template , msg)
     elif msg.type == "text":
         lowercase_string = str(msg.content).lower()  # Convert string to lowercase
         no_spaces_string = lowercase_string.replace(" ", "")        
         if (no_spaces_string == "试用" or no_spaces_string == "aipic"):
             token,days = data.create_trial_token(msg.source) 
-            expire = f'{token}\n❗有效期小于一天，请及时备份' if days == 0 else f'{token}\n有效期剩余{days}天'
-            template =  f'{expire}\n有效期后可继续获取试用 \n<a href="https://aipic.club/trial/{token}">👉👉 试用https://AIPic.club 👈👈</a>'
+            if days < 0:
+                template = "您的试用已过期，请点击菜单购买授权码后继续使用"
+            else:
+                template = f'{token}\n❗有效期小于一天，请及时备份' if days == 0 else f'{token}\n有效期剩余{days}天'
+                template +=  f'\n<a href="https://aipic.club/trial/{token}">👉👉 试用https://AIPic.club 👈👈</a>'
             reply = create_reply(template , msg)
 
     return Response(content=reply.render(), media_type="application/xml")
@@ -237,8 +247,8 @@ async def add_task_item(item: Prompt, token_id_and_task_id = Depends(get_token_i
 
     #record = data.get_fist_input_id(task_id=task_id)
     
-    #queue = 'celery'
-    # queue = 'queue_1'
+    # queue = 'celery'
+    # queue = 'develop'
     broker_id = None
     account_id = None
     # if record is not None:
@@ -255,7 +265,8 @@ async def add_task_item(item: Prompt, token_id_and_task_id = Depends(get_token_i
             prompt,
             raw,
             execute,
-        )
+        ),
+        # queue= queue
     )  
   
     return {
@@ -298,12 +309,22 @@ def get_task_status(token_id_and_task_id = Depends(get_token_id_and_task_id) ):
     }
 @router.get("/tasks/{taskId}/detail")
 async def get_task_detail(
+    before: datetime = None,
+    after: datetime = None,    
     token_id_and_task_id = Depends(get_token_id_and_task_id) , 
     pagination = Depends(validate_pagination)
 ):
     _,_,task_id  = token_id_and_task_id
-    detail = data.get_detail(task_id=task_id, page= pagination['page'] , page_size= pagination['size'] )
+
+    detail = data.get_detail(
+        task_id=task_id, 
+        page= pagination['page'] , 
+        page_size= pagination['size'] ,
+        before = before,
+        after= after
+    )
     return detail
+
 @router.post("/upscale/{id}")
 async def upscale( item: Upscale,detail: dict = Depends(get_image)):
     print(detail)
