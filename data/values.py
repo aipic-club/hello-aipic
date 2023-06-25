@@ -98,8 +98,10 @@ class SysCode(Enum):
 
 
 class TokenType(Enum):
-    NORMAL = 0
+    VIP = 0
     TRIAL = 1
+    NORMAL = 2
+    DEMO = 3
 
 
 config = {

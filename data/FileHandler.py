@@ -24,8 +24,8 @@ class FileHandler:
                 'ContentLength': 5242880
             }
         )
-
         return url
+    
     async def copy_discord_img_to_bucket(self,  path: str | None, file_name: str | None,  url: str):
         _file_name = str(url.split("_")[-1]) if not file_name else file_name
         async with aiohttp.ClientSession() as session:
