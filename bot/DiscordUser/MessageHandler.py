@@ -9,18 +9,16 @@ from data import Snowflake
 class MessageHandler:
     def __init__(
             self, 
-            id: int,
             data: Data_v2, 
             pool: concurrent.futures.ProcessPoolExecutor,
             loop: asyncio.AbstractEventLoop
         ):
-        self.id = id
         self.data = data
         self.pool = pool
         self.loop = loop
         pass
 
-    def on_invalid_parameter(self,id: int, taskId: str, detail: dict ):
+    def on_invalid_parameter(self, id: int, taskId: str, detail: dict ):
         self.loop.run_in_executor(self.pool, lambda: 
             self.data.process_error(
                 id=id,
@@ -68,6 +66,9 @@ class MessageHandler:
             if taskId is None:
                 return
             print(f'⏰ taskId {taskId}')
+
+            print(content)
+
             task_is_committed = is_committed(content)
             if task_is_committed:
                 #### check the worker id

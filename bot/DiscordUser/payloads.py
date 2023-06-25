@@ -62,7 +62,7 @@ class payloads:
             **ids,
             "session_id":"674cb1c3cdf93533745fefc9fd78838f",
             "data":{
-                "version":"1029519354955579472",
+                "version":"1121575372539039776",
                 "id":"984273800587776053",
                 "name":"prefer",
                 "type":1,"options":[
@@ -75,7 +75,7 @@ class payloads:
                 "application_command":{
                     "id":"984273800587776053",
                     "application_id": str(MJBotId),
-                    "version":"1029519354955579472",
+                    "version":"1121575372539039776",
                     "default_member_permissions": None,
                     "type":1,
                     "nsfw":False,
@@ -273,3 +273,23 @@ class payloads:
             },
             "nonce": nonce
         }
+    @staticmethod
+    def appeal():
+        return {
+            "type":3,
+            "nonce":"1122489989028904960",
+            "guild_id":"1121633108689698856",
+            "channel_id":"1121633108689698859",
+            "message_flags":64,
+            "message_id":"1122489887665430589",
+            "application_id":"936929561302675456",
+            "session_id":"6e5e35098c7a55166f73ab21ee06875e",
+            "data":{
+                "component_type":2,
+                "custom_id":"MJ::Prompts::Appeal::OqWLXki2ZMU"
+            }
+        }
+
+
+
+# {"type":3,"nonce":"1122489989028904960","guild_id":"1121633108689698856","channel_id":"1121633108689698859","message_flags":64,"message_id":"1122489887665430589","application_id":"936929561302675456","session_id":"6e5e35098c7a55166f73ab21ee06875e","data":{"component_type":2,"custom_id":"MJ::Prompts::Appeal::OqWLXki2ZMU"}}
