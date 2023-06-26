@@ -33,7 +33,7 @@ class Snowflake:
         return snowflake_id
 
     def _get_current_timestamp(self):
-        gmt_dt = datetime.now(timezone(offset= timedelta(hours= 8)))
+        gmt_dt = datetime.now(timezone(offset= timedelta(hours= 0)))
         return int((gmt_dt.timestamp()  * 1000)) - self.epoch
 
     def _wait_next_millis(self, last_timestamp):
