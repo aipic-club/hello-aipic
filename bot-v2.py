@@ -127,6 +127,6 @@ if __name__ == '__main__':
             '-l', 
             'info', 
             '-Q' , 
-            f'queue_{celery_id},{queue},celery'
+            ",".join([f'queue_{celery_id}',  'develop' if is_dev else 'celery'])
         ]
     )

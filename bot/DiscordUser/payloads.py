@@ -274,19 +274,17 @@ class payloads:
             "nonce": nonce
         }
     @staticmethod
-    def appeal():
+    def appeal(ids: dict[str,str], messageId : str, custom_id: str,  nonce: int):
         return {
+            **ids,
             "type":3,
-            "nonce":"1122489989028904960",
-            "guild_id":"1121633108689698856",
-            "channel_id":"1121633108689698859",
+            "nonce": nonce,
             "message_flags":64,
-            "message_id":"1122489887665430589",
-            "application_id":"936929561302675456",
+            "message_id": messageId,
             "session_id":"6e5e35098c7a55166f73ab21ee06875e",
             "data":{
                 "component_type":2,
-                "custom_id":"MJ::Prompts::Appeal::OqWLXki2ZMU"
+                "custom_id": custom_id
             }
         }
 

@@ -18,7 +18,7 @@ accept_events = [Events.INTERACTION_SUCCESS.value, Events.MESSAGE_CREATE.value]
 class UserProxy:
     def __init__(
             self, 
-            id : int,
+            worker_id : int,
             token: str , 
             guild_id: str,
             channel_id: str, 
@@ -27,13 +27,13 @@ class UserProxy:
             get_interaction_id: Callable | None,
             loop: asyncio.AbstractEventLoop 
         ) -> None:
-        self.id = id
+        self.worker_id =  worker_id
         self.guild_id = guild_id
         self.channel_id = channel_id
         self.messageHandler = messageHandler
         self.get_interaction_id = get_interaction_id
         self.score = 100
-        self.snowflake = Snowflake(id, None)
+        self.snowflake = Snowflake(worker_id, None)
         self.user = DiscordUser( token= token, on_message= self.__on_message, loop= loop)
         asyncio.run_coroutine_threadsafe(self.user.run(), loop= loop)
         #loop.create_task()
@@ -47,9 +47,10 @@ class UserProxy:
     def generate_id(self) -> int:
         return self.snowflake.generate_id()
     def __on_message(self, event: Events, data: dict) -> None:
-        # try:
+
+        try:
             if event is Events.MESSAGE_CREATE:
-                message_account_id = None            
+                message_worker_id = None            
                 if event is  Events.MESSAGE_CREATE:
 
                     channel_id = data.get('channel_id', None) 
@@ -58,16 +59,26 @@ class UserProxy:
                     #if self.channel_id != channel_id or self.guild_id != guild_id:
                     if self.channel_id != channel_id:
                         return    
-                    message_account_id = self.snowflake.get_worker_id(int(nonce)) if nonce else None
+                    message_worker_id = self.snowflake.get_worker_id(int(nonce)) if nonce else None
                     embeds = data.get("embeds", [])
                     if len(embeds) > 0:
                             title = embeds[0].get("title")
                             description = embeds[0].get("description")
-                            print(title, description)
+                            print(f'== debug embeeds == {title}, {description}')
                             if title == 'Action needed to continue':
+                                print(data)
+
                                 components = data.get("components", [])
+
+
                                 print(components)
+
+                                custom_id = components[0].get("custom_id")
                                 pass
+                            elif title == 'Queue full':
+
+
+                                return
                             elif title == 'Job queued':
                                 return
                             elif title == 'Invalid parameter':
@@ -84,7 +95,7 @@ class UserProxy:
                                 )
                                 return
                 id = self.generate_id()   
-                self.messageHandler.on_message(id, self.id, message_account_id ,  event, data)
+                self.messageHandler.on_message(id, self.worker_id, message_worker_id ,  event, data)
             elif event is Events.MESSAGE_UPDATE:
 
                 #print(data)
@@ -98,7 +109,7 @@ class UserProxy:
                     custom_id = components[0].get('components')[0].get('custom_id')
                     if custom_id == 'MJ::Job::PicReader::1':
                         id = self.generate_id()   
-                        self.messageHandler.on_receive_describe(id, self.id, embeds[0])
+                        self.messageHandler.on_receive_describe(id, self.worker_id, embeds[0])
 
                         # # is describe
                         # url = embeds[0].get('image').get('url')
@@ -112,8 +123,8 @@ class UserProxy:
 
 
                 pass
-        # except Exception as e:
-        #     print("error when handle message", e)
+        except Exception as e:
+            print("error when handle message", e)
     async def remove_prefix(self, nonce):
         payload = payloads.prefer_suffix(self.ids, nonce=nonce)
         payload_str = json.dumps(payload)
