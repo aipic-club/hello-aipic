@@ -3,6 +3,7 @@ import asyncio
 import io
 import concurrent.futures
 import mimetypes
+import random
 from . import UserProxy
 from .MessageHandler import MessageHandler
 from .utils import *
@@ -22,7 +23,7 @@ class Gateway:
             self.data = data
             self.loop = None
             self.users: dict[int, UserProxy] = {} 
-            self.picked_worker_id = None
+
     
     async def create(self, loop: asyncio.AbstractEventLoop):
         
@@ -34,7 +35,7 @@ class Gateway:
         for user in dbusers:
             worker_id = user['worker_id']
             _, account_id = Snowflake.parse_worker_id(worker_id= worker_id)
-            self.picked_worker_id = worker_id
+
             token = user['authorization']
             guild_id= user['guild_id']
             channel_id=  user['channel_id']
@@ -56,11 +57,14 @@ class Gateway:
 
     def pick_a_worker_id(self) -> int:
         score = 0
+        temp = []
         for id in self.users:
-            if self.users[id].score >= score:
-                score = self.users[id].score
-                self.picked_worker_id = id
-        return self.picked_worker_id
+            # if self.users[id].score >= score:
+            #     score = self.users[id].score
+            temp.append(id)
+        print(temp)
+        return random.choice(temp)        
+
     
     def get_task_account_id(self,  task: dict[str, str]) -> int | None:
         account_id = task['account_id']
