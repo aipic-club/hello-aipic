@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 
+is_dev = os.environ.get("MODE") == "DEV"
 celery_id = os.environ.get("ID")
 queue=os.environ.get("QUEUQE")
 celery_broker =os.environ.get("CELERY.BROKER")
@@ -13,3 +14,5 @@ s3config= {
     'aws_secret_access_key' : os.environ.get("AWS.SECRET_ACCESS_KEY"),
     'endpoint_url' : os.environ.get("AWS.ENDPOINT")
 }
+
+print(is_dev)

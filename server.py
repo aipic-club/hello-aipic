@@ -129,11 +129,13 @@ def get_image(id:int = Path(...), token_id: int = Depends(get_token_id)) -> dict
 def get_task_jobs(token_id: int, taskId: str):
     status = data.redis_task_status(token_id= token_id, taskId=taskId)
     job = data.redis_task_job_status(taskId=taskId)
-    return status, job
+    describe_data = data.redis_get_describe(taskId=taskId)
+    describe = describe_data.get("url") if describe_data is not None else None
+    return (status, job, describe,)
 
 def is_busy(token_id: int, taskId: str):
-    status, job  = get_task_jobs(token_id= token_id, taskId=taskId)
-    return status is not None or len(job) > 0
+    status, job, describe  = get_task_jobs(token_id= token_id, taskId=taskId)
+    return status is not None or len(job) > 0 or describe is not None
 
 app = FastAPI()
 
@@ -162,10 +164,7 @@ router = APIRouter(
 
 @app.get("/ping")
 async def ping(request: Request): 
-    print(f'request header       : {dict(request.headers.items())}' )
-
-    token,days =  data.create_trial_token("testonly")
-    
+    print(f'request header       : {dict(request.headers.items())}' )    
     return PlainTextResponse(content="pong") 
 
 @app.get("/mp",  dependencies=[Depends(check_wechat_signature)])
@@ -247,8 +246,6 @@ async def add_task_item(item: Prompt, token_id_and_task_id = Depends(get_token_i
 
     #record = data.get_fist_input_id(task_id=task_id)
     
-    # queue = 'celery'
-    # queue = 'develop'
     broker_id = None
     account_id = None
     # if record is not None:
@@ -266,7 +263,7 @@ async def add_task_item(item: Prompt, token_id_and_task_id = Depends(get_token_i
             raw,
             execute,
         ),
-        # queue= queue
+        queue= 'develop' if is_dev else 'celery'
     )  
   
     return {
@@ -275,6 +272,8 @@ async def add_task_item(item: Prompt, token_id_and_task_id = Depends(get_token_i
 @router.delete("/tasks/{taskId}")
 async def delete_task(token_id_and_task_id  = Depends(get_token_id_and_task_id) ):
     taskId, token_id, _  = token_id_and_task_id
+    if is_busy(token_id= token_id, taskId= taskId):
+        return Response(status_code=202)    
     cache_key = f'cache:{token_id}:{taskId}'
     data.delete_task(taskId= taskId)
     data.remove_cache(cache_key)
@@ -292,7 +291,8 @@ def describe_a_img(describe:Describe, token_id_and_task_id = Depends(get_token_i
         (
             taskId,
             url
-        )
+        ),
+        queue= 'develop' if is_dev else 'celery'
     ) 
     return {
         'status': 'ok',
@@ -302,10 +302,11 @@ def describe_a_img(describe:Describe, token_id_and_task_id = Depends(get_token_i
 @router.get("/tasks/{taskId}/status")
 def get_task_status(token_id_and_task_id = Depends(get_token_id_and_task_id) ):
     taskId, token_id, _ = token_id_and_task_id 
-    status, job  = get_task_jobs(token_id= token_id, taskId=taskId)
+    status, job,  describe  = get_task_jobs(token_id= token_id, taskId=taskId)
     return{
         'status': status,
-        'jobs': job
+        'jobs': job,
+        'describing': describe
     }
 @router.get("/tasks/{taskId}/detail")
 async def get_task_detail(
