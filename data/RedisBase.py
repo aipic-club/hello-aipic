@@ -50,10 +50,11 @@ class RedisBase(RedisInterface):
         return json.loads(val) if val is not None else None
 
     
-    def redis_set_onwer(self, account_id: int, taskId: str):
-        self.redis.setex(f'onwer:{account_id}:{taskId}', config['wait_time'], str(account_id))
-    def redis_get_onwer(self, account_id: int, taskId: str,):
-        return self.redis.get(f'onwer:{account_id}:{taskId}')
+    def redis_set_onwer(self, worker_id: int, taskId: str):
+        self.redis.setex(f'onwer:{taskId}:{worker_id}', config['wait_time'], str(worker_id))
+    def redis_get_onwer(self, worker_id: int, taskId: str,):
+        return self.redis.get(f'onwer:{taskId}:{worker_id}')
+    
     def redis_task(self, token_id: int, taskId: str, status: TaskStatus, ttl: int = None) -> None:
         key = f'task:{token_id}:{taskId}'
         if token_id is None:
@@ -98,14 +99,32 @@ class RedisBase(RedisInterface):
         value = self.redis.get(f'interaction:{key}')
         return int(value) if value is not None else None
     
-    def redis_set_describe(self, account_id: int, key: str, taskId: str, url: str) -> bool:
+    def redis_set_describe(self, worker_id: int, key: str, taskId: str, url: str) -> bool:
         data = {
             'taskId': taskId,
             'url': url
         }
-        print(data)
-        print(json.dumps(data))
-        return self.redis.setex(f'describe:{account_id}:{key}', config['wait_time'] ,  json.dumps(data))
-    def redis_get_describe(self, account_id: int, key: str) -> dict| None:
-        data = self.redis.get(f'describe:{account_id}:{key}')
+        # print(json.dumps(data))
+        return self.redis.setex(f'describe:{taskId}:{worker_id}:{key}', config['wait_time'] ,  json.dumps(data))
+    def redis_get_describe(
+            self,
+            taskId: str = None,
+            worker_id: int = None, 
+            key: str = None
+        ) -> dict| None:
+        if taskId is None and worker_id is not None:
+            keys = self.redis.keys(f'describe:*:{worker_id}:{key}')
+        
+        if taskId is not None and worker_id is None and key is None:
+            keys = self.redis.keys(f'describe:{taskId}:*:*')
+        if len(keys) != 1:
+            return
+        print(keys)
+        data = self.redis.get(keys[0])
         return json.loads(data) if data is not None else None
+    def redis_describe_cleanup(self, taskId = None, key = None):
+        if taskId is not None:
+            self.__remove_keys(f'describe:{taskId}:*:*' )
+        if key is not None:
+            self.__remove_keys(f'describe:*:*:{key}' )
+

@@ -3,6 +3,7 @@ import asyncio
 import io
 import concurrent.futures
 import mimetypes
+import random
 from . import UserProxy
 from .MessageHandler import MessageHandler
 from .utils import *
@@ -22,21 +23,19 @@ class Gateway:
             self.data = data
             self.loop = None
             self.users: dict[int, UserProxy] = {} 
-            self.picked_worker_id = None
+
     
-
-
     async def create(self, loop: asyncio.AbstractEventLoop):
         
         self.loop = loop
         dbusers =  self.data.get_discord_users(self.celery_id)
         messageHandler = MessageHandler(data= self.data, pool= pool, loop= self.loop)
         if len(dbusers) == 0:
-            raise Exception("not available users!!!")
+            raise Exception("no available users!!!")
         for user in dbusers:
             worker_id = user['worker_id']
             _, account_id = Snowflake.parse_worker_id(worker_id= worker_id)
-            self.picked_worker_id = worker_id
+
             token = user['authorization']
             guild_id= user['guild_id']
             channel_id=  user['channel_id']
@@ -44,7 +43,7 @@ class Gateway:
             print(f'current user: worker_id:{worker_id}, account_id: {account_id}')
 
             self.users[account_id] = UserProxy( 
-                id = worker_id,
+                worker_id = worker_id,
                 token = token, 
                 guild_id=guild_id,
                 channel_id=channel_id,
@@ -58,11 +57,14 @@ class Gateway:
 
     def pick_a_worker_id(self) -> int:
         score = 0
+        temp = []
         for id in self.users:
-            if self.users[id].score >= score:
-                score = self.users[id].score
-                self.picked_worker_id = id
-        return self.picked_worker_id
+            # if self.users[id].score >= score:
+            #     score = self.users[id].score
+            temp.append(id)
+        print(temp)
+        return random.choice(temp)        
+
     
     def get_task_account_id(self,  task: dict[str, str]) -> int | None:
         account_id = task['account_id']
@@ -84,7 +86,8 @@ class Gateway:
     ) -> None:
         _account_id = self.pick_a_worker_id() if account_id is None else account_id
         if self.users[_account_id] is not None:
-            id = self.users[_account_id].generate_id()
+            current_user = self.users[_account_id]
+            id = current_user.generate_id()
             detail = {
                 'prompt': prompt,
                 'raw':  raw
@@ -97,10 +100,14 @@ class Gateway:
             if execute:
                 print(f"🚀 send prompt {new_prompt}, nonce: {id}")
 
-                self.data.commit_task(taskId= taskId, account_id=_account_id, status= TaskStatus.CREATED )
+                self.data.commit_task(
+                    taskId= taskId, 
+                    worker_id= current_user.worker_id,
+                    status= TaskStatus.CREATED 
+                )
 
-                self.loop.create_task(self.users[_account_id].remove_suffix())
-                self.loop.create_task(self.users[_account_id].send_prompt(new_prompt, id))
+                self.loop.create_task(current_user.remove_suffix())
+                self.loop.create_task(current_user.send_prompt(new_prompt, id))
                 self.data.update_status(taskId=taskId, status= TaskStatus.CONFIRMED, token_id= token_id)
                 self.loop.create_task(self.check_task( account_id = _account_id, ref_id=id, taskId= taskId ))
 
@@ -167,7 +174,7 @@ class Gateway:
         )
 
         self.data.redis_set_describe(
-            account_id= account_id, 
+            worker_id= self.users[account_id].worker_id, 
             key= file_id, 
             taskId= taskId, 
             url = url

@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import json
 from .Snowflake import Snowflake
 from .utils import random_id
@@ -213,7 +213,7 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         if after is not None:
             sql = (
                 "SELECT  `id`, `type`, `detail`,`create_at` FROM detail"
-                " WHERE `task_id`=%(task_id)s AND `create_at` >='{after}'"
+                " WHERE `task_id`=%(task_id)s AND `create_at` >'{after}'"
                 " LIMIT %(page_size)s OFFSET %(offset)s"
             ).format(after= after)
         else:
@@ -221,12 +221,12 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
             sql = (
                 "SELECT  `id`, `type`, `detail`,`create_at` FROM "
                 " ( SELECT  * FROM detail"
-                " WHERE `task_id`=%(task_id)s AND `create_at` <='{before}'"
+                " WHERE `task_id`=%(task_id)s AND `create_at` <'{before}'"
                 " ORDER BY `id` DESC"
                 " LIMIT %(page_size)s OFFSET %(offset)s "
                 " ) sub ORDER BY `id` ASC"
             ).format(before= before if before is not None else datetime.now())
-        
+
         offset = (page - 1) * page_size
         params = {
             'task_id': task_id,
@@ -258,9 +258,11 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
     
     def update_status(self, taskId: str, status:TaskStatus , token_id = None) -> None:
         self.redis_task(token_id= token_id,  taskId=taskId, status= status, ttl= config['wait_time'] )
-    def commit_task(self,  taskId: str ,  account_id: int, status: TaskStatus = TaskStatus.COMMITTED):
-        self.redis_set_onwer(account_id=account_id, taskId=taskId)
+    def commit_task(self,  taskId: str ,  worker_id: int, status: TaskStatus = TaskStatus.COMMITTED):
+
+        self.redis_set_onwer(worker_id=worker_id, taskId=taskId)
         self.update_status(taskId=taskId, status=status)
+
     def cleanup(self, taskId: str, type: DetailType):
         #if type is DetailType.OUTPUT_MJ_PROMPT or type is DetailType.OUTPUT_MJ_TIMEOUT:
         if type.value in [
@@ -280,9 +282,9 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         # elif type is DetailType.OUTPUT_MJ_REMIX:
         #     pass
 
-    def is_task_onwer(self, account_id: int,  taskId: str) -> bool:
-        print('check onwer', self.redis_get_onwer(account_id= account_id, taskId= taskId))
-        return self.redis_get_onwer(account_id= account_id, taskId= taskId) is not None
+    def is_task_onwer(self,  worker_id: int,  taskId: str) -> bool:
+    
+        return self.redis_get_onwer( worker_id=  worker_id, taskId= taskId) is not None
 
 
     def process_error(
