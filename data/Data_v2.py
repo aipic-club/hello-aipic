@@ -45,7 +45,7 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
             'task_id': task_id,
             'type': type.value,
             'detail': json.dumps(detail),
-            'create_at': datetime.now()
+            'create_at': datetime.now(timezone(offset= timedelta(hours= 0)))
         }
         self.mysql_execute(sql=sql, params= new_params, lastrowid= False, _cnx = cnx )
     
@@ -207,9 +207,6 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
             after: str = None
         ):
 
-
-
-
         if after is not None:
             sql = (
                 "SELECT  `id`, `type`, `detail`,`create_at` FROM detail"
@@ -217,7 +214,6 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
                 " LIMIT %(page_size)s OFFSET %(offset)s"
             ).format(after= after)
         else:
-     
             sql = (
                 "SELECT  `id`, `type`, `detail`,`create_at` FROM "
                 " ( SELECT  * FROM detail"
@@ -225,8 +221,7 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
                 " ORDER BY `id` DESC"
                 " LIMIT %(page_size)s OFFSET %(offset)s "
                 " ) sub ORDER BY `id` ASC"
-            ).format(before= before if before is not None else datetime.now())
-
+            ).format(before= before if before is not None else datetime.now(timezone(offset= timedelta(hours= 0))))
         offset = (page - 1) * page_size
         params = {
             'task_id': task_id,
