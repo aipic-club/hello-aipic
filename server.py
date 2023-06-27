@@ -21,9 +21,11 @@ from wechatpy.utils import check_signature
 from wechatpy.exceptions import InvalidSignatureException, InvalidAppIdException
 from wechatpy.events import SubscribeEvent
 
+from bot.DiscordUser.values import MJ_VARY_TYPE
+
 
 from data import Data_v2,  SysCode, random_id
-from data.values import TaskStatus, output_type,image_hostname
+from data.values import DetailType, TaskStatus, output_type,image_hostname
 from data.Snowflake import Snowflake
 from config import *
 
@@ -55,6 +57,14 @@ class Remix(BaseModel):
 
 class Describe(BaseModel):
     url: str
+
+
+class Vary(BaseModel):
+    type:  MJ_VARY_TYPE
+
+class Zoom(BaseModel):
+    type: int
+
 
 celery = Celery('tasks', broker=celery_broker)
 
@@ -115,6 +125,7 @@ def get_image(id:int = Path(...), token_id: int = Depends(get_token_id)) -> dict
             return {
                 'id': id,
                 'token_id': token_id,
+                'type': record['type'],
                 'detail': {
                     'taskId': record.get('taskId'),
                     'id': detail.get('id'),
@@ -125,6 +136,8 @@ def get_image(id:int = Path(...), token_id: int = Depends(get_token_id)) -> dict
             raise HTTPException(500)
     else:
         raise HTTPException(405) 
+
+
     
 def get_task_jobs(token_id: int, taskId: str):
     status = data.redis_task_status(token_id= token_id, taskId=taskId)
@@ -329,8 +342,7 @@ async def get_task_detail(
     return detail
 
 @router.post("/upscale/{id}")
-async def upscale( item: Upscale,detail: dict = Depends(get_image)):
-    print(detail)
+async def upscale( item: Upscale, detail: dict = Depends(get_image)):
     if is_busy(token_id= detail.get('token_id'), taskId= detail.get('detail',{}).get('taskId')):
         return Response(status_code=202)
     broker_id , account_id = Snowflake.parse_snowflake_id(detail.get('id'))
@@ -374,12 +386,32 @@ async def upscale( item:  Remix,  detail: dict = Depends(get_image)):
         'status': 'ok'
     }
 
-@router.post("/vary/")
-async def vary():
-    pass
+@router.post("/vary/{id}")
+async def vary(item: Vary, detail: dict = Depends(get_image)):
+    if detail.get('type') is not DetailType.OUTPUT_MJ_UPSCALE.value:
+         raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE)
+    if is_busy(token_id= detail.get('token_id'), taskId= detail.get('detail',{}).get('taskId')):
+        return Response(status_code=202)
+    broker_id , account_id = Snowflake.parse_snowflake_id(detail.get('id'))
+    print(item.type)
+    celery.send_task('vary',
+        (
+            item.type,
+            {
+                **detail.get('detail',{}),
+                'ref_id': detail.get('id'),
+                'broker_id': broker_id,
+                'account_id' : account_id
+            }
+        ),
+        queue= f"queue_{broker_id}"
+    )
+    return {
+        'status': 'ok'
+    }
 
-@router.post("/vary/")
-async def vary():
+@router.post("/zoom/{id}")
+async def zoom():
     pass
 
 
@@ -404,4 +436,4 @@ async def get_sign( token_id: int = Depends(get_token_id)):
 app.include_router(router)
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("server:app", port=8000, log_level="info", reload= True)
+    uvicorn.run("server:app", host='0.0.0.0', port=8000, log_level="info", reload= True)

@@ -30,12 +30,16 @@ class DetailType(Enum):
     INPUT_MJ_REMIX = 13
     INPUT_MJ_UPSCALE = 14
     INPUT_MJ_REROLL = 15
+    INPUT_MJ_VARY = 16
+    INPUT_MJ_ZOOM = 17
     ## MIDJOURNEY OUTPUT 
     OUTPUT_MJ_PROMPT = 21
     OUTPUT_MJ_VARIATION = 22
     OUTPUT_MJ_REMIX = 23
     OUTPUT_MJ_UPSCALE = 24
     OUTPUT_MJ_DESCRIBE = 25
+    OUTPUT_MJ_VARY = 28
+    OUTPUT_MJ_ZOOM = 27
     ## MIDJOURNEY ERROR
     OUTPUT_MJ_TIMEOUT = 31
     OUTPUT_MJ_INVALID_PARAMETER = 32
@@ -46,6 +50,8 @@ output_type = [
     DetailType.OUTPUT_MJ_UPSCALE.value,
     DetailType.OUTPUT_MJ_VARIATION.value,
     DetailType.OUTPUT_MJ_DESCRIBE.value,
+    DetailType.OUTPUT_MJ_VARY.value,
+    DetailType.OUTPUT_MJ_ZOOM.value
 ]
 
 

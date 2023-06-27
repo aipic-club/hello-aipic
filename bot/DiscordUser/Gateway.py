@@ -124,6 +124,13 @@ class Gateway:
             }
             self.data.save_input(id=id, taskId= task['taskId'], type= input_type , detail= detail )
             self.data.redis_task_job(taskId=task['taskId'], id= task['ref_id'], type = input_type, index= index)
+
+            self.data.commit_task(
+                taskId = task['taskId'],
+                worker_id= worker_id
+            )
+
+
             self.loop.create_task(
                 self.users[worker_id].send_variation(
                     prompt = new_prompt,
@@ -145,6 +152,12 @@ class Gateway:
             input_type = DetailType.INPUT_MJ_UPSCALE
             self.data.save_input(id=id, taskId= task['taskId'], type= input_type , detail= detail )
             self.data.redis_task_job(taskId=task['taskId'], id= task['ref_id'], type = input_type, index= index)
+
+            self.data.commit_task(
+                taskId = task['taskId'],
+                worker_id= worker_id
+            )
+
             self.loop.create_task(
                 self.users[worker_id].send_upscale(
                     index = index,
@@ -152,6 +165,20 @@ class Gateway:
                     messageHash = task['hash'], 
                 )
             )
+    
+    def create_vary(self, task: dict[str, str]):
+        worker_id =  self.get_task_account_id(task)
+        if worker_id is not None:
+            id = self.users[worker_id].generate_id()
+            detail = {
+                'ref': str(task['ref_id']),
+            }
+        pass
+
+    def create_zoom(self,):
+        pass
+
+
     def describe_a_image(self, taskId: str, url: str):
         _account_id = self.pick_a_worker_id() 
         if self.users[_account_id] is not None:

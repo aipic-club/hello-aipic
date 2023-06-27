@@ -73,7 +73,10 @@ class MessageHandler:
 
             if taskId is None:
                 return
+            
             print(f'⏰ taskId {taskId}')
+
+ 
 
             task_is_committed = is_committed(content)
             if task_is_committed:

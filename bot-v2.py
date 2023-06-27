@@ -11,6 +11,7 @@ from celery import Celery
 from celery.signals import worker_init
 from bot.DiscordUser.Gateway import Gateway
 from bot.DiscordUser.utils import refine_prompt
+from bot.DiscordUser.values import MJ_VARY_TYPE
 from data import Data_v2
 from config import *
 
@@ -104,6 +105,27 @@ def upscale(self,  task: dict[str, str], index: str):
         lambda: gateway.create_upscale( task=task, index= index)
     )   
     return
+
+@celery.task(name='vary',bind=True, base=BaseTask)
+def vary(self,type: MJ_VARY_TYPE,  task: dict[str, str]):
+
+    # gateway.loop.run_in_executor(
+    #     pool, 
+    #     lambda: gateway.create_upscale( task=task, index= index)
+    # )   
+    return
+
+
+@celery.task(name='zoom',bind=True, base=BaseTask)
+def zoom(self,  task: dict[str, str]):
+
+    # gateway.loop.run_in_executor(
+    #     pool, 
+    #     lambda: gateway.create_upscale( task=task, index= index)
+    # )   
+    return
+
+
 
 @celery.task(name='reroll',bind=True, base=BaseTask)
 def reroll(self, task: dict[str, str, str]):

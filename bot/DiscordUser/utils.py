@@ -99,10 +99,11 @@ def is_variation(content: str) -> bool:
     return  "Variations by" in content
 def  is_remix(content: str) -> bool:
     return "Remix by" in content
+def is_zoom(content: str) -> bool:
+    return "Zoom Out by" in content
 def is_upsacle(content: str) -> bool:
     #Image #1
     return re.search(r"Image\s#\d", content)
-
 
 
 def status_type(content: str):
@@ -120,5 +121,7 @@ def output_type(content: str) -> DetailType | None:
         return DetailType.OUTPUT_MJ_UPSCALE
     elif is_draft(content):
         return DetailType.OUTPUT_MJ_PROMPT
+    elif is_zoom(content):
+        return DetailType.OUTPUT_MJ_ZOOM
     else:
         return None

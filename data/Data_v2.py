@@ -337,13 +337,20 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         self.update_task_cover(taskId= taskId, cover= url_cn)
         self.cleanup(taskId= taskId, type= type)
 
-    def get_detail_by_id(self, token_id: int, detail_id: int):
+    def get_detail_by_id(self, token_id: int, detail_id: int, type: DetailType = None):
         sql = (
-            "SELECT t.taskId, d.detail, d.type FROM detail d LEFT JOIN task t ON d.task_id = t.id WHERE t.token_id = %(token_id)s AND  d.id=%(id)s"
+            "SELECT t.taskId, d.detail, d.type FROM detail d" 
+            " LEFT JOIN task t ON d.task_id = t.id"
+            " WHERE t.token_id = %(token_id)s AND  d.id=%(id)s"
         )
+
+        if type is not None:
+            sql += " AND type=%(type)s"
+
         params = {
             'token_id': token_id,
-            'id': detail_id
+            'id': detail_id,
+            'type': type.value if type else None
         }
         return self.mysql_fetchone(sql=sql,params=params)
 
