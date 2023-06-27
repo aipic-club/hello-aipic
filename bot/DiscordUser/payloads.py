@@ -273,6 +273,8 @@ class payloads:
             },
             "nonce": nonce
         }
+    
+    #### MJ 风控
     @staticmethod
     def appeal(ids: dict[str,str], messageId : str, custom_id: str,  nonce: int):
         return {
@@ -290,4 +292,79 @@ class payloads:
 
 
 
-# {"type":3,"nonce":"1122489989028904960","guild_id":"1121633108689698856","channel_id":"1121633108689698859","message_flags":64,"message_id":"1122489887665430589","application_id":"936929561302675456","session_id":"6e5e35098c7a55166f73ab21ee06875e","data":{"component_type":2,"custom_id":"MJ::Prompts::Appeal::OqWLXki2ZMU"}}
+    # {"type":3,"nonce":"1122489989028904960","guild_id":"1121633108689698856","channel_id":"1121633108689698859","message_flags":64,"message_id":"1122489887665430589","application_id":"936929561302675456","session_id":"6e5e35098c7a55166f73ab21ee06875e","data":{"component_type":2,"custom_id":"MJ::Prompts::Appeal::OqWLXki2ZMU"}}
+
+    @staticmethod
+    def vary(ids: dict[str,str], messageId : str, messageHash : str,  nonce: int):
+        return {
+            "type":3,
+            "nonce":str(nonce),
+            **ids,
+            "message_flags":0,
+            "message_id": messageId,
+            "session_id":"42c6e0ad8006f8c0b457f8d480d7ac9f",
+            "data":{
+                "component_type":2,
+                "custom_id": f"MJ::JOB::low_variation::1::{messageHash}::SOLO"
+            }
+        }
+    #custom_id: MJ::JOB::low_variation::1::6e3ee661-7947-4bf7-b42c-4ea9290d54cf::SOLO
+    #custom_id: MJ::JOB::high_variation::1::6e3ee661-7947-4bf7-b42c-4ea9290d54cf::SOLO
+    @staticmethod
+    def zoom(ids: dict[str,str], messageId : str, messageHash : str,  nonce: int):
+        return {
+            "type":3,
+            "nonce": str(nonce),
+            **ids,
+            "message_flags":0,
+            "message_id": messageId,
+            "session_id":"42c6e0ad8006f8c0b457f8d480d7ac9f",
+            "data":{
+                "component_type":2,
+                "custom_id": f"MJ::Outpaint::75::1::{messageHash}::SOLO"
+            }
+        }
+    ## 2x > 50 , 1.5x > 75
+    @staticmethod
+    def custom_zoom_step_1(ids: dict[str,str], messageId : str, messageHash : str,  nonce: int):
+        return {
+            "type":3,
+            **ids,
+            "nonce": str(nonce),
+            "message_flags":0,
+            "message_id": messageId,
+            "session_id":"42c6e0ad8006f8c0b457f8d480d7ac9f",
+            "data":{
+                "component_type":2,
+                "custom_id": f"MJ::CustomZoom::{messageHash}"
+            }
+        }
+    @staticmethod
+    def custom_zoom_step_2(ids: dict[str,str], value: str, messageHash : str,  nonce: int):
+        return {
+            "type":5,
+            **ids,
+            "data":{
+                "id":"1123142966077304853",
+                "custom_id": f"MJ::OutpaintCustomZoomModal::{messageHash}",
+                "components":[
+                    {
+                        "type":1,
+                        "components":[
+                            {
+                                "type":4,
+                                "custom_id":"MJ::OutpaintCustomZoomModal::prompt",
+                                "value": value #"Skulls, by Jon Burgerman --v 5.2 --no QV5xbSPJMRX --ar 1:1 --zoom 1.1"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "session_id":"42c6e0ad8006f8c0b457f8d480d7ac9f",
+            "nonce": str(nonce)
+        }
+    @staticmethod
+    def square(ids: dict[str,str],):
+        return (
+
+        )

@@ -23,7 +23,7 @@ from wechatpy.events import SubscribeEvent
 
 
 from data import Data_v2,  SysCode, random_id
-from data.values import output_type,image_hostname
+from data.values import TaskStatus, output_type,image_hostname
 from data.Snowflake import Snowflake
 from config import *
 
@@ -252,6 +252,8 @@ async def add_task_item(item: Prompt, token_id_and_task_id = Depends(get_token_i
     #     first_id = int(record.get('id'))
     #     broker_id , account_id = Snowflake.parse_snowflake_id(first_id)
     #     queue = f"queue_{broker_id}"
+
+    data.update_status(taskId=taskId, status= TaskStatus.ACCEPTED, token_id= token_id)
         
     celery.send_task('prompt',
         (
@@ -371,6 +373,17 @@ async def upscale( item:  Remix,  detail: dict = Depends(get_image)):
     return {
         'status': 'ok'
     }
+
+@router.post("/vary/")
+async def vary():
+    pass
+
+@router.post("/vary/")
+async def vary():
+    pass
+
+
+
 
 @router.get("/profile")
 async def get_profile(token_id: int = Depends(get_token_id)):
