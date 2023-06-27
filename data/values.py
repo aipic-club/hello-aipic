@@ -3,7 +3,8 @@ from enum import Enum
 
 class TaskStatus(Enum):
     
-    ABORTED = 0 # 经过 server 的初筛，认为包含不合适的内容，不会向MJ 发送
+    ABORTED = -1 # 经过 server 的初筛，认为包含不合适的内容，不会向MJ 发送
+    ACCEPTED = 0 #
     CREATED = 1 # 已创建
     CONFIRMED = 2 # 向MJ 发送
     COMMITTED = 3 # 已经送达至MJ 
