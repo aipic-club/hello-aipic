@@ -93,9 +93,7 @@ class Gateway:
                 'raw':  raw
             }
             
-            self.data.update_task_topic(taskId=taskId, topic= prompt)
-
-            self.data.update_status(taskId=taskId, status= TaskStatus.CREATED, token_id= token_id)
+            self.data.update_status(taskId=taskId, status= TaskStatus.CREATED)
             self.data.save_input(id=id, taskId= taskId, type= DetailType.INPUT_MJ_PROMPT , detail= detail )
             if execute:
                 print(f"🚀 send prompt {new_prompt}, nonce: {id}")
@@ -108,7 +106,7 @@ class Gateway:
 
                 self.loop.create_task(current_user.remove_suffix())
                 self.loop.create_task(current_user.send_prompt(new_prompt, id))
-                self.data.update_status(taskId=taskId, status= TaskStatus.CONFIRMED, token_id= token_id)
+                self.data.update_status(taskId=taskId, status= TaskStatus.CONFIRMED)
                 self.loop.create_task(self.check_task( account_id = _account_id, ref_id=id, taskId= taskId ))
 
     def create_variation(self, prompt: str, new_prompt: str,  task: dict[str, str], index: str):

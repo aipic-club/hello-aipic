@@ -24,30 +24,55 @@ class RedisBase(RedisInterface):
         self.redis.setex(key, config['cache_time'], value)
     def redis_get_cache_data(self, key):
         return self.redis.get(key)
+    # def redis_get_token(self, token: str):
+    #     val = self.redis.get(f'token:{token}')
+    #     return int(val) if val is not None else None
+    # def redis_set_token(self, token: str, ttl: int, id: int):
+    #     self.redis.setex(f'token:{token}', ttl, id )
+
+    # def redis_init_cost(self,  token_id: str, ttl: int , data: dict   ):
+    #     self.redis.setex(f'tokenId:{token_id}', ttl, json.dumps(data))
+    # def redis_add_cost(self, token_id: str, cost ):
+    #     key = f'tokenId:{token_id}'
+    #     current = self.redis_get_cost(token_id=token_id)
+    #     if current is not None:
+    #         data = {
+    #             **current,
+    #             'cost': current.get("cost") + cost, 
+    #         }
+    #         _ttl = self.redis.ttl(key)
+    #         self.redis.setex(key , _ttl, json.dumps(data))
+
+    # def redis_get_cost(self, token_id: str | None):
+    #     if token_id is None:
+    #         return None
+    #     val = self.redis.get(f'tokenId:{token_id}')
+    #     return json.loads(val) if val is not None else None
+    ### 
+
+
+
+    def redis_set_token(self, token: str, ttl: int, data: dict):
+        self.redis.setex(f'token:{token}', ttl, json.dumps(data))
+
     def redis_get_token(self, token: str):
         val = self.redis.get(f'token:{token}')
-        return int(val) if val is not None else None
-    def redis_set_token(self, token: str, ttl: int, id: int):
-        self.redis.setex(f'token:{token}', ttl, id )
-
-    def redis_init_cost(self,  token_id: str, ttl: int , data: dict   ):
-        self.redis.setex(f'tokenId:{token_id}', ttl, json.dumps(data))
-    def redis_add_cost(self, token_id: str, cost ):
-        key = f'tokenId:{token_id}'
-        current = self.redis_get_cost(token_id=token_id)
-        if current is not None:
-            data = {
-                **current,
-                'cost': current.get("cost") + cost, 
-            }
-            _ttl = self.redis.ttl(key)
-            self.redis.setex(key , _ttl, json.dumps(data))
-
-    def redis_get_cost(self, token_id: str | None):
-        if token_id is None:
-            return None
-        val = self.redis.get(f'tokenId:{token_id}')
         return json.loads(val) if val is not None else None
+
+
+    """
+        cost
+    """
+    def redis_init_cost(self, token_id: str, ttl: int, cost: int ):
+        key = f'cost:{token_id}'
+        self.redis.setex(key, ttl, cost)
+    def redis_add_cost(self, token_id: str, cost: int ):
+        key = f'cost:{token_id}'
+        self.redis.incrby(key, cost)
+    def redis_get_cost(self, token_id: str ):
+        key = f'cost:{token_id}'
+        return self.redis.get(key)
+
 
     
     def redis_set_onwer(self, worker_id: int, taskId: str):
@@ -55,36 +80,41 @@ class RedisBase(RedisInterface):
     def redis_get_onwer(self, worker_id: int, taskId: str,):
         return self.redis.get(f'onwer:{taskId}:{worker_id}')
     
-    def redis_task(self, token_id: int, taskId: str, status: TaskStatus, ttl: int = None) -> None:
-        key = f'task:{token_id}:{taskId}'
-        if token_id is None:
-            keys = self.redis.keys(f'task:*:{taskId}')
-            if len(keys) != 1:
-                return
-            key = keys[0]
+
+    
+    def redis_space_ongoing_prompt(self, spaceId: str, status: TaskStatus, ttl: int = None) -> None:
+        key = f'space:{spaceId}:prompt'
         if ttl is not None:
             _ttl = ttl
         else:
             _ttl = self.redis.ttl(key) if  self.redis.exists(key) else config['wait_time'] 
         if _ttl > 0:
             self.redis.setex(key, _ttl , status.value )
-    def redis_task_status(self, token_id: int | None, taskId: str) -> int | None:
-        key = f'task:{token_id}:{taskId}' 
-        if token_id is None:
-            keys = self.redis.keys(f'task:*:{taskId}')
-            if len(keys) != 1:
-                return
-            key = keys[0]
+
+    def redis_space_ongoing_prompt_status(self, spaceId: str) -> int | None:
+        key = f'space:{spaceId}:prompt'
         val = self.redis.get(key)
         return int(val) if val else None
+    
+    def redis_space_ongoing_prompt_cleanup(self, spaceId: str) -> int | None:
+        self.__remove_keys(f'space:{spaceId}:prompt') 
+    
     def redis_task_cleanup(self, taskId):
-        self.__remove_keys(f'task:*:{taskId}')
+        self.__remove_keys(f'task:prompt:{taskId}')
         
     # def redis_image(self,  taskId: str, imageHash: str, type: ImageOperationType, index: str):
     #     self.redis.setex(f'image:{taskId}:{imageHash}', config['wait_time'] ,  f'{imageHash}.{type.name}.{index}')
 
+    def redis_space_job(self, spaceId: str,):
+        key = f'space:{spaceId}:job' 
+        pass
+
+
+
+
     def redis_task_job(self,  taskId: str, id: int, type: DetailType, index: int):
         self.redis.setex(f'job:{taskId}:{id}', config['wait_time'] ,  f'{id}.{type.name}.{index}')
+        
     def redis_task_job_status(self,  taskId: str) -> list:
         keys = self.redis.keys(f'job:{taskId}:*')
         return self.redis.mget(keys)

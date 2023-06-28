@@ -100,13 +100,15 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         finally:
             cursor.close()
             cnx.close()
-    def get_token_id(self, token: str) -> tuple:
+    def get_token_info(self, token: str) -> tuple:
         id = None
+        info = {}
         code = SysCode.OK
         try:
-            id = self.redis_get_token(token= token)
-            cost = self.redis_get_cost(token_id= id)
-            if id is None or cost is None:
+            # id = self.redis_get_token(token= token)
+            data  = self.redis_get_token(token= token)
+            cost = self.redis_get_cost(token_id= data.get("id")) if data is not None else None
+            if data is None or cost is None:
                 sql =(
                     "SELECT t.id,TIMESTAMPDIFF(SECOND, NOW(), t.expire_at ) as ttl, t.type, t.balance, t.expire_at, COALESCE(a.cost, 0) AS cost"
                     " FROM tokens AS t"
@@ -127,33 +129,32 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
                     else:
                         id = record['id']
                         ttl = record['ttl']
-                        balance = record['balance']
-                        type = record['type']
-                        cost = int(record['cost'])
                         expire_at = record['expire_at'].strftime("%Y-%m-%dT%H:%M:%SZ")
-                        self.redis_set_token(token=token, ttl = ttl, id= id)
-                        data = {
-                            'balance': balance,
-                            'cost': cost,
-                            'type': type,
+                        info = {
+                            'id': id,
+                            'balance': record['balance'],
+                            'type': record['type'],
                             'expire_at': expire_at
                         }
 
+                        self.redis_set_token(token=token, ttl = ttl, data = info)
                         self.redis_init_cost(
-                            token_id= id, 
-                            ttl = ttl, 
-                            data = data        
+                            token_id = id,
+                            ttl = ttl,
+                            cost = int(record['cost'])
                         )
                 else:
                     code = SysCode.TOKEN_NOT_EXIST_OR_EXPIRED
             else:
-                if cost.get("cost") > cost.get("balance"):
+                if int(cost) > data.get("balance"):
                     code = SysCode.TOKEN_OUT_OF_BALANCE
-
+                else:
+                    id = data.get("id")
+                    info = data
         except Exception as e:
             print(e)
             code = SysCode.FATAL
-        return (id, code, )
+        return (id, info, code, )
         
 
     def create_task(self, token_id: str, taskId: str, cnx = None) -> int:
@@ -164,7 +165,7 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         }, lastrowid= True, _cnx = cnx)
         return id
     def check_task(self, id: int, ref_id: int, taskId: str ):
-        status = self.redis_task_status(token_id=None, taskId= taskId)
+        status = self.redis_space_ongoing_prompt_status(token_id=None, taskId= taskId)
         if status is not None:
             type = DetailType.OUTPUT_MJ_TIMEOUT
             self.cleanup(taskId=taskId, type= type)
@@ -178,8 +179,8 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
             )
             
 
-    def get_task(self, token_id: int, taskId: str ):
-        cache_key = f'cache:{token_id}:{taskId}'
+    def get_task(self, token: str, token_id: int, taskId: str ):
+        cache_key = f'cache:task_id:{token}:{taskId}'
         cache_data =  self.get_cache(cache_key)
         if cache_data is None:
             sql = (
@@ -251,12 +252,17 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
     def get_interaction(self, key)-> int:
         return self.redis_get_interaction(key=key)
     
-    def update_status(self, taskId: str, status:TaskStatus , token_id = None) -> None:
-        self.redis_task(token_id= token_id,  taskId=taskId, status= status, ttl= config['wait_time'] )
+    def update_status(self, taskId: str, status:TaskStatus ) -> None:
+        self.redis_space_ongoing_prompt(spaceId=taskId, status= status, ttl= config['wait_time'] )
+
+
+
     def commit_task(self,  taskId: str ,  worker_id: int, status: TaskStatus = TaskStatus.COMMITTED):
 
         self.redis_set_onwer(worker_id=worker_id, taskId=taskId)
         self.update_status(taskId=taskId, status=status)
+
+
 
     def cleanup(self, taskId: str, type: DetailType):
         #if type is DetailType.OUTPUT_MJ_PROMPT or type is DetailType.OUTPUT_MJ_TIMEOUT:

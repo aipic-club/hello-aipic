@@ -94,7 +94,7 @@ def validate_pagination(page: int = 1, size: int = 10,) -> dict[int, int]:
     size = 10 if size < 10 else size
     return {'page':page,'size':size}
 
-def get_token_id(authorization: str = Header(None)):
+def token_context(authorization: str = Header(None)):
     if authorization is None:
         #return {"error": "Authorization header is missing"}
         raise HTTPException(401)
@@ -103,19 +103,28 @@ def get_token_id(authorization: str = Header(None)):
         #return {"error": "Authorization header is invalid"}
         raise HTTPException(401)
     token = parts[1]
-    id,code = data.get_token_id(token= token)
+
+    token_id, info , code = data.get_token_info(token= token)
+
     if code is SysCode.OK and id is not None:
-        return id
+        return (token, token_id, info)
     else:
         raise HTTPException(401)
     
-def get_token_id_and_task_id(taskId: str = Path(...), token_id: int = Depends(get_token_id) ):
-    task_id = data.get_task(taskId= taskId, token_id= token_id)
+    
+def task_context(taskId: str = Path(...), context: tuple = Depends(token_context) ):
+    token, token_id, _ = context
+    task_id = data.get_task(
+        token = token, 
+        token_id= token_id, 
+        taskId= taskId
+    )
     if task_id is None:
         raise HTTPException(404) 
-    return  (taskId, token_id, task_id, )
+    return  (taskId, task_id, context )
 
-def get_image(id:int = Path(...), token_id: int = Depends(get_token_id)) -> dict :
+def get_image(id:int = Path(...), context: tuple = Depends(token_context)) -> dict :
+    _, token_id, _ = context
     record = data.get_detail_by_id(token_id=token_id, detail_id= id)
     if record is None:
         raise HTTPException(404) 
@@ -140,7 +149,7 @@ def get_image(id:int = Path(...), token_id: int = Depends(get_token_id)) -> dict
 
     
 def get_task_jobs(token_id: int, taskId: str):
-    status = data.redis_task_status(token_id= token_id, taskId=taskId)
+    status = data.redis_space_ongoing_prompt_status(token_id= token_id, taskId=taskId)
     job = data.redis_task_job_status(taskId=taskId)
     describe_data = data.redis_get_describe(taskId=taskId)
     describe = describe_data.get("url") if describe_data is not None else None
@@ -171,7 +180,7 @@ app.add_middleware(
 router = APIRouter(
     prefix="/api/v1.0",
     dependencies=[
-        Depends(get_token_id)
+        Depends(token_context)
     ]
 )
 
@@ -216,9 +225,10 @@ async def mp(request: Request):
 
 @router.get("/tasks")
 async def list_tasks( 
-    token_id: int = Depends(get_token_id), 
+    context: tuple = Depends(token_context), 
     pagination = Depends(validate_pagination)
 ):
+    _, token_id, _ = context
     return data.get_tasks_by_token_id(
         token_id=token_id, 
         page= pagination['page'], 
@@ -227,7 +237,8 @@ async def list_tasks(
 
 
 @router.post("/tasks")
-async def create_task(token_id: int = Depends(get_token_id) ):
+async def create_task(context: tuple = Depends(token_context)):
+    _, token_id, _ = context
     taskId = random_id(11)
     data.create_task(token_id= token_id, taskId= taskId)
     return {
@@ -235,8 +246,8 @@ async def create_task(token_id: int = Depends(get_token_id) ):
     }
 
 @router.put("/tasks/{taskId}")
-async def update_task(task: Task, token_id_and_task_id = Depends(get_token_id_and_task_id)):
-    taskId, _ , _ = token_id_and_task_id   
+async def update_task(task: Task, task_context: tuple  = Depends(task_context)):
+    taskId, _ , _ = task_context
     name = task.name
     if name is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
@@ -248,8 +259,10 @@ async def update_task(task: Task, token_id_and_task_id = Depends(get_token_id_an
     }
 
 @router.post("/tasks/{taskId}")
-async def add_task_item(item: Prompt, token_id_and_task_id = Depends(get_token_id_and_task_id) ):
-    taskId, token_id, task_id  = token_id_and_task_id
+async def add_task_item(item: Prompt, task_context: tuple  = Depends(task_context) ):
+    taskId, _ , context  = task_context
+    _, token_id,_ = context
+    print(context)
     if is_busy(token_id= token_id, taskId= taskId):
         return Response(status_code=202)
      
@@ -257,36 +270,36 @@ async def add_task_item(item: Prompt, token_id_and_task_id = Depends(get_token_i
     execute = item.execute
     raw = item.raw
 
-    #record = data.get_fist_input_id(task_id=task_id)
     
     broker_id = None
     account_id = None
-    # if record is not None:
-    #     first_id = int(record.get('id'))
-    #     broker_id , account_id = Snowflake.parse_snowflake_id(first_id)
-    #     queue = f"queue_{broker_id}"
 
-    data.update_status(taskId=taskId, status= TaskStatus.ACCEPTED, token_id= token_id)
+    
+
+
+    data.update_status(taskId=taskId, status= TaskStatus.ACCEPTED)
+
         
-    celery.send_task('prompt',
-        (
-            broker_id,
-            account_id,
-            token_id,
-            taskId,
-            prompt,
-            raw,
-            execute,
-        ),
-        queue= 'develop' if is_dev else 'celery'
-    )  
+    # celery.send_task('prompt',
+    #     (
+    #         broker_id,
+    #         account_id,
+    #         token_id,
+    #         taskId,
+    #         prompt,
+    #         raw,
+    #         execute,
+    #     ),
+    #     queue= 'develop' if is_dev else 'celery'
+    # )  
   
     return {
         "status": "ok"
     }
 @router.delete("/tasks/{taskId}")
-async def delete_task(token_id_and_task_id  = Depends(get_token_id_and_task_id) ):
-    taskId, token_id, _  = token_id_and_task_id
+async def delete_task(task_context: tuple  = Depends(task_context) ):
+    taskId, _ , context  = task_context
+    _, token_id,_ = context
     if is_busy(token_id= token_id, taskId= taskId):
         return Response(status_code=202)    
     cache_key = f'cache:{token_id}:{taskId}'
@@ -294,12 +307,12 @@ async def delete_task(token_id_and_task_id  = Depends(get_token_id_and_task_id) 
     data.remove_cache(cache_key)
     return {
         'status': 'ok',
-        'detail': ""
+        'detail': ''
     }
 
 
 @router.post("/tasks/{taskId}/describe")
-def describe_a_img(describe:Describe, token_id_and_task_id = Depends(get_token_id_and_task_id) ):
+def describe_a_img(describe:Describe, token_id_and_task_id = Depends(task_context) ):
     taskId, _, _ = token_id_and_task_id 
     url = describe.url
     celery.send_task('describe',
@@ -315,7 +328,7 @@ def describe_a_img(describe:Describe, token_id_and_task_id = Depends(get_token_i
 
 
 @router.get("/tasks/{taskId}/status")
-def get_task_status(token_id_and_task_id = Depends(get_token_id_and_task_id) ):
+def get_task_status(token_id_and_task_id = Depends(task_context) ):
     taskId, token_id, _ = token_id_and_task_id 
     status, job,  describe  = get_task_jobs(token_id= token_id, taskId=taskId)
     return{
@@ -327,7 +340,7 @@ def get_task_status(token_id_and_task_id = Depends(get_token_id_and_task_id) ):
 async def get_task_detail(
     before: datetime = None,
     after: datetime = None,    
-    token_id_and_task_id = Depends(get_token_id_and_task_id) , 
+    token_id_and_task_id = Depends(task_context) , 
     pagination = Depends(validate_pagination)
 ):
     _,_,task_id  = token_id_and_task_id
@@ -418,13 +431,18 @@ async def zoom():
 
 
 @router.get("/profile")
-async def get_profile(token_id: int = Depends(get_token_id)):
-    temp = data.redis_get_cost(token_id= token_id)
-    return temp
-
+async def get_profile(context: tuple = Depends(token_context)):
+    _, token_id, info = context
+    cost = data.redis_get_cost(token_id= token_id)
+    del info["id"]
+    return {
+        **info,
+        "cost": int(cost)
+    }
 
 @router.post("/sign")
-async def get_sign( token_id: int = Depends(get_token_id)):
+async def get_sign( context: tuple = Depends(token_context)):
+    _, token_id, _ = context
     path = calculate_md5(f'aipic.{token_id}')
     full_url = f'upload/{path}/{random_id(10)}.jpg'
     sign = data.file_generate_presigned_url(full_url)  
