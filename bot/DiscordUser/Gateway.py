@@ -7,7 +7,7 @@ import random
 from . import UserProxy
 from .MessageHandler import MessageHandler
 from .utils import *
-from data import Data_v2, config, DetailType,Snowflake
+from data import Data, config, DetailType,Snowflake
 
 
 pool = concurrent.futures.ThreadPoolExecutor(max_workers=10)
@@ -16,7 +16,7 @@ class Gateway:
     def __init__(
             self,
             celery_id: int,
-            data: Data_v2,
+            data: Data,
             pool: concurrent.futures.ProcessPoolExecutor
         ) -> None:
             self.celery_id = celery_id
@@ -75,16 +75,13 @@ class Gateway:
 
     def create_prompt(
             self, 
-            broker_id: int | None, 
-            account_id: int | None, 
-            token_id: int , 
-            taskId: str, 
+            space_name: str, 
             prompt: str,
             new_prompt: str,
             raw: str, 
             execute: bool 
     ) -> None:
-        _account_id = self.pick_a_worker_id() if account_id is None else account_id
+        _account_id = self.pick_a_worker_id()
         if self.users[_account_id] is not None:
             current_user = self.users[_account_id]
             id = current_user.generate_id()
@@ -93,21 +90,32 @@ class Gateway:
                 'raw':  raw
             }
             
-            self.data.update_status(taskId=taskId, status= TaskStatus.CREATED)
-            self.data.save_input(id=id, taskId= taskId, type= DetailType.INPUT_MJ_PROMPT , detail= detail )
-            if execute:
-                print(f"🚀 send prompt {new_prompt}, nonce: {id}")
 
-                self.data.commit_task(
-                    taskId= taskId, 
+
+            self.data.save_input( 
+                id=id, 
+                space_name=space_name, 
+                type= DetailType.INPUT_MJ_PROMPT ,
+                detail= detail 
+            )
+
+            if execute:
+                print(f" 🟢 receive prompt {new_prompt}, nonce: {id}")
+
+                self.data.update_status(
+                    space_name=space_name, 
+                    status= TaskStatus.CREATED
+                )
+
+                self.data.redis_set_owner(
                     worker_id= current_user.worker_id,
-                    status= TaskStatus.CREATED 
+                    space_name= space_name,
+                    type=DetailType.INPUT_MJ_PROMPT
                 )
 
                 self.loop.create_task(current_user.remove_suffix())
                 self.loop.create_task(current_user.send_prompt(new_prompt, id))
-                self.data.update_status(taskId=taskId, status= TaskStatus.CONFIRMED)
-                self.loop.create_task(self.check_task( account_id = _account_id, ref_id=id, taskId= taskId ))
+                self.loop.create_task(self.check_task( account_id = _account_id, ref_id=id, space_name= space_name ))
 
     def create_variation(self, prompt: str, new_prompt: str,  task: dict[str, str], index: str):
         worker_id =  self.get_task_account_id(task)
@@ -209,11 +217,11 @@ class Gateway:
 
 
 
-    async def check_task(self, account_id: int, ref_id: int, taskId: str):
+    async def check_task(self, account_id: int, ref_id: int, space_name: str):
         await asyncio.sleep(config['wait_time'] - 10)
         id = self.users[account_id].generate_id()
         self.data.check_task(
             id = id, 
             ref_id= ref_id, 
-            taskId= taskId
+            space_name= space_name
         )

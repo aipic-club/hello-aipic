@@ -8,7 +8,7 @@ from .DiscordUser import DiscordUser
 from .payloads import payloads
 from .values import Events, MJBotId
 from .MessageHandler import MessageHandler
-from .utils import get_taskId
+from .utils import get_space_name
 from data import  Snowflake, random_id
 
 
@@ -82,7 +82,7 @@ class UserProxy:
                             elif title == 'Job queued':
                                 return
                             elif title == 'Invalid parameter':
-                                taskId = get_taskId(embeds[0].get('footer',{}).get('text'))
+                                taskId = get_space_name(embeds[0].get('footer',{}).get('text'))
                                 id = self.generate_id()
                                 self.messageHandler.on_invalid_parameter(
                                     id,
@@ -136,7 +136,8 @@ class UserProxy:
     async def remove_suffix(self):
         await self.remove_prefix(nonce=self.generate_id())
     async def send_prompt(self, prompt, nonce):
-        payload = payloads.prompt_v1118961510123847772(self.ids, prompt, nonce)
+        print("🪄 send prompt to mj")
+        payload = payloads.prompt(self.ids, prompt, nonce)
         payload_str = json.dumps(payload)
         try:
             await self.user.send_form_interactions(payload=payload_str)

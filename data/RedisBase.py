@@ -82,8 +82,23 @@ class RedisBase(RedisInterface):
     
 
     
-    def redis_space_ongoing_prompt(self, spaceId: str, status: TaskStatus, ttl: int = None) -> None:
-        key = f'space:{spaceId}:prompt'
+
+
+    def redis_set_owner(self, worker_id: int, space_name: str, type: DetailType):
+        self.redis.setex(f'onwer:{space_name}:{type.value}', config['wait_time'], worker_id)
+
+    def redis_is_onwer(self, worker_id: int, space_name: str, type: DetailType ):
+        temp = self.redis.get(f'onwer:{space_name}:{type.value}')
+        return temp is not None and int(temp) == worker_id
+    
+    def redis_clear_onwer(self, space_name: str, type: DetailType):
+        self.__remove_keys(f'onwer:{space_name}:{type.value}')
+
+ 
+
+
+    def redis_space_prompt(self, space_name: str, status: TaskStatus, ttl: int = None) -> None:
+        key = f'space:{space_name}:prompt'
         if ttl is not None:
             _ttl = ttl
         else:
@@ -91,22 +106,31 @@ class RedisBase(RedisInterface):
         if _ttl > 0:
             self.redis.setex(key, _ttl , status.value )
 
-    def redis_space_ongoing_prompt_status(self, spaceId: str) -> int | None:
-        key = f'space:{spaceId}:prompt'
+    def redis_space_prompt_status(self, space_name: str) -> int | None:
+        key = f'space:{space_name}:prompt'
         val = self.redis.get(key)
         return int(val) if val else None
     
-    def redis_space_ongoing_prompt_cleanup(self, spaceId: str) -> int | None:
-        self.__remove_keys(f'space:{spaceId}:prompt') 
+    def redis_space_prompt_cleanup(self, space_name: str) -> int | None:
+        self.__remove_keys(f'space:{space_name}:prompt') 
+
+    def redis_add_job(self, space_name: str, id: int, data: dict):
+        self.redis.setex(f'space:{space_name}:jobs:{id}', config['wait_time'] ,  json.dumps(data))
+  
+    def redis_ongoing_jobs(self,  space_name: str) -> list:
+        keys = self.redis.keys(f'space:{space_name}:jobs:*')
+        return self.redis.mget(keys)
     
-    def redis_task_cleanup(self, taskId):
-        self.__remove_keys(f'task:prompt:{taskId}')
+    def redis_space_cleanup(self, space_name: str):
+        self.__remove_keys(f'space:{space_name}:*')
         
     # def redis_image(self,  taskId: str, imageHash: str, type: ImageOperationType, index: str):
     #     self.redis.setex(f'image:{taskId}:{imageHash}', config['wait_time'] ,  f'{imageHash}.{type.name}.{index}')
 
-    def redis_space_job(self, spaceId: str,):
-        key = f'space:{spaceId}:job' 
+
+
+    def redis_space_job(self, space_name: str,):
+        key = f'space:{space_name}:job' 
         pass
 
 

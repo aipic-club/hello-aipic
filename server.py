@@ -24,7 +24,7 @@ from wechatpy.events import SubscribeEvent
 from bot.DiscordUser.values import MJ_VARY_TYPE
 
 
-from data import Data_v2,  SysCode, random_id
+from data import Data,  SysCode, random_id
 from data.values import DetailType, TaskStatus, output_type,image_hostname
 from data.Snowflake import Snowflake
 from config import *
@@ -34,7 +34,7 @@ EncodingAESKey = os.environ.get("MP.EncodingAESKey")
 AppID = os.environ.get("MP.AppID")
 
 
-data = Data_v2(
+data = Data(
     redis_url = redis_url,
     mysql_url = mysql_url,
     proxy = None, 
@@ -112,16 +112,16 @@ def token_context(authorization: str = Header(None)):
         raise HTTPException(401)
     
     
-def task_context(taskId: str = Path(...), context: tuple = Depends(token_context) ):
+def space_context(space_name: str = Path(...), context: tuple = Depends(token_context) ):
     token, token_id, _ = context
-    task_id = data.get_task(
+    space_id = data.get_space(
         token = token, 
         token_id= token_id, 
-        taskId= taskId
+        space_name= space_name
     )
-    if task_id is None:
+    if space_id is None:
         raise HTTPException(404) 
-    return  (taskId, task_id, context )
+    return  (space_name, space_id, context )
 
 def get_image(id:int = Path(...), context: tuple = Depends(token_context)) -> dict :
     _, token_id, _ = context
@@ -148,16 +148,18 @@ def get_image(id:int = Path(...), context: tuple = Depends(token_context)) -> di
 
 
     
-def get_task_jobs(token_id: int, taskId: str):
-    status = data.redis_space_ongoing_prompt_status(token_id= token_id, taskId=taskId)
-    job = data.redis_task_job_status(taskId=taskId)
-    describe_data = data.redis_get_describe(taskId=taskId)
-    describe = describe_data.get("url") if describe_data is not None else None
-    return (status, job, describe,)
+def get_space_jobs(token_id: int, space_name: str):
+    # status = data.redis_space_ongoing_prompt_status(token_id= token_id, space_name=space_name)
+    # job = data.redis_task_job_status(space_name=space_name)
+    # describe_data = data.redis_get_describe(space_name=space_name)
+    # describe = describe_data.get("url") if describe_data is not None else None
+    # return (status, job, describe,)
+    pass
 
-def is_busy(token_id: int, taskId: str):
-    status, job, describe  = get_task_jobs(token_id= token_id, taskId=taskId)
-    return status is not None or len(job) > 0 or describe is not None
+def is_busy(token_id: int, space_name: str):
+    # status, job, describe  = get_space_jobs(token_id= token_id, space_name=space_name)
+    # return status is not None or len(job) > 0 or describe is not None
+    pass
 
 app = FastAPI()
 
@@ -223,233 +225,229 @@ async def mp(request: Request):
 
 
 
-@router.get("/tasks")
+@router.get("/spaces")
 async def list_tasks( 
     context: tuple = Depends(token_context), 
     pagination = Depends(validate_pagination)
 ):
     _, token_id, _ = context
-    return data.get_tasks_by_token_id(
+    return data.get_spaces_by_token_id(
         token_id=token_id, 
         page= pagination['page'], 
         page_size= pagination['size']
     )
 
 
-@router.post("/tasks")
-async def create_task(context: tuple = Depends(token_context)):
+@router.post("/spaces")
+async def create_space(context: tuple = Depends(token_context)):
     _, token_id, _ = context
-    taskId = random_id(11)
-    data.create_task(token_id= token_id, taskId= taskId)
+    name = random_id(11)
+    data.create_space(token_id= token_id, name = name)
     return {
-        'id':  taskId
+        'id':  name
     }
 
-@router.put("/tasks/{taskId}")
-async def update_task(task: Task, task_context: tuple  = Depends(task_context)):
-    taskId, _ , _ = task_context
+@router.put("/spaces/{space_name}")
+async def update_task(task: Task, context: tuple  = Depends(space_context)):
+    space_name, _ , _ = context
     name = task.name
     if name is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
     
-    data.update_task_topic(taskId=taskId, topic=name)
+    data.update_space_topic(name=space_name, topic=name)
 
     return {
         'status': 'ok',
     }
 
-@router.post("/tasks/{taskId}")
-async def add_task_item(item: Prompt, task_context: tuple  = Depends(task_context) ):
-    taskId, _ , context  = task_context
-    _, token_id,_ = context
-    print(context)
-    if is_busy(token_id= token_id, taskId= taskId):
+@router.post("/spaces/{space_name}")
+async def add_task_to_space(item: Prompt, context: tuple  = Depends(space_context) ):
+    space_name, _ , token_context  = context
+    _, token_id, info = token_context
+
+    if is_busy(token_id= token_id, space_name= space_name):
         return Response(status_code=202)
      
     prompt = item.prompt
     execute = item.execute
     raw = item.raw
 
-    
-    broker_id = None
-    account_id = None
-
-    
+    token_type = info.get("type")
 
 
-    data.update_status(taskId=taskId, status= TaskStatus.ACCEPTED)
+    data.update_status(space_name=space_name, status= TaskStatus.ACCEPTED)      
 
-        
-    # celery.send_task('prompt',
-    #     (
-    #         broker_id,
-    #         account_id,
-    #         token_id,
-    #         taskId,
-    #         prompt,
-    #         raw,
-    #         execute,
-    #     ),
-    #     queue= 'develop' if is_dev else 'celery'
-    # )  
-  
+
+    celery.send_task('prompt',
+        (
+            token_id,
+            token_type,
+            space_name,
+            prompt,
+            raw,
+            execute,
+        ),
+        queue= 'develop' if is_dev else 'celery'
+    )
     return {
         "status": "ok"
     }
-@router.delete("/tasks/{taskId}")
-async def delete_task(task_context: tuple  = Depends(task_context) ):
-    taskId, _ , context  = task_context
-    _, token_id,_ = context
-    if is_busy(token_id= token_id, taskId= taskId):
-        return Response(status_code=202)    
-    cache_key = f'cache:{token_id}:{taskId}'
-    data.delete_task(taskId= taskId)
-    data.remove_cache(cache_key)
-    return {
-        'status': 'ok',
-        'detail': ''
-    }
 
 
-@router.post("/tasks/{taskId}/describe")
-def describe_a_img(describe:Describe, token_id_and_task_id = Depends(task_context) ):
-    taskId, _, _ = token_id_and_task_id 
-    url = describe.url
-    celery.send_task('describe',
-        (
-            taskId,
-            url
-        ),
-        queue= 'develop' if is_dev else 'celery'
-    ) 
-    return {
-        'status': 'ok',
-    }
+# @router.delete("/tasks/{taskId}")
+# async def delete_task(task_context: tuple  = Depends(task_context) ):
+#     taskId, _ , context  = task_context
+#     _, token_id,_ = context
+#     if is_busy(token_id= token_id, taskId= taskId):
+#         return Response(status_code=202)    
+#     cache_key = f'cache:{token_id}:{taskId}'
+#     data.delete_task(taskId= taskId)
+#     data.remove_cache(cache_key)
+#     return {
+#         'status': 'ok',
+#         'detail': ''
+#     }
 
 
-@router.get("/tasks/{taskId}/status")
-def get_task_status(token_id_and_task_id = Depends(task_context) ):
-    taskId, token_id, _ = token_id_and_task_id 
-    status, job,  describe  = get_task_jobs(token_id= token_id, taskId=taskId)
-    return{
-        'status': status,
-        'jobs': job,
-        'describing': describe
-    }
-@router.get("/tasks/{taskId}/detail")
-async def get_task_detail(
-    before: datetime = None,
-    after: datetime = None,    
-    token_id_and_task_id = Depends(task_context) , 
-    pagination = Depends(validate_pagination)
-):
-    _,_,task_id  = token_id_and_task_id
-
-    detail = data.get_detail(
-        task_id=task_id, 
-        page= pagination['page'] , 
-        page_size= pagination['size'] ,
-        before = before,
-        after= after
-    )
-    return detail
-
-@router.post("/upscale/{id}")
-async def upscale( item: Upscale, detail: dict = Depends(get_image)):
-    if is_busy(token_id= detail.get('token_id'), taskId= detail.get('detail',{}).get('taskId')):
-        return Response(status_code=202)
-    broker_id , account_id = Snowflake.parse_snowflake_id(detail.get('id'))
-    celery.send_task('upscale',
-        (
-            {
-                **detail.get('detail',{}),
-                'ref_id': detail.get('id'),
-                'broker_id': broker_id,
-                'account_id' : account_id
-            },
-            item.index,
-        ),
-        queue= f"queue_{broker_id}"
-    )
-    return {
-        'status': 'ok'
-    }
-
-@router.post("/variation/{id}")
-async def upscale( item:  Remix,  detail: dict = Depends(get_image)):
-
-    if is_busy(token_id= detail.get('token_id'), taskId= detail.get('detail',{}).get('taskId')):
-        return Response(status_code=202)
-
-    broker_id , account_id = Snowflake.parse_snowflake_id(detail.get('id'))
-    celery.send_task('variation',
-        (
-            item.prompt,
-            {
-                **detail.get('detail',{}),
-                'ref_id': detail.get('id'),
-                'broker_id': broker_id,
-                'account_id' : account_id
-            },
-            item.index,
-        ),
-        queue= f"queue_{broker_id}"
-    )
-    return {
-        'status': 'ok'
-    }
-
-@router.post("/vary/{id}")
-async def vary(item: Vary, detail: dict = Depends(get_image)):
-    if detail.get('type') is not DetailType.OUTPUT_MJ_UPSCALE.value:
-         raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE)
-    if is_busy(token_id= detail.get('token_id'), taskId= detail.get('detail',{}).get('taskId')):
-        return Response(status_code=202)
-    broker_id , account_id = Snowflake.parse_snowflake_id(detail.get('id'))
-    print(item.type)
-    celery.send_task('vary',
-        (
-            item.type,
-            {
-                **detail.get('detail',{}),
-                'ref_id': detail.get('id'),
-                'broker_id': broker_id,
-                'account_id' : account_id
-            }
-        ),
-        queue= f"queue_{broker_id}"
-    )
-    return {
-        'status': 'ok'
-    }
-
-@router.post("/zoom/{id}")
-async def zoom():
-    pass
+# @router.post("/tasks/{taskId}/describe")
+# def describe_a_img(describe:Describe, token_id_and_task_id = Depends(task_context) ):
+#     taskId, _, _ = token_id_and_task_id 
+#     url = describe.url
+#     celery.send_task('describe',
+#         (
+#             taskId,
+#             url
+#         ),
+#         queue= 'develop' if is_dev else 'celery'
+#     ) 
+#     return {
+#         'status': 'ok',
+#     }
 
 
+# @router.get("/tasks/{taskId}/status")
+# def get_task_status(token_id_and_task_id = Depends(task_context) ):
+#     taskId, token_id, _ = token_id_and_task_id 
+#     status, job,  describe  = get_task_jobs(token_id= token_id, taskId=taskId)
+#     return{
+#         'status': status,
+#         'jobs': job,
+#         'describing': describe
+#     }
+# @router.get("/tasks/{taskId}/detail")
+# async def get_task_detail(
+#     before: datetime = None,
+#     after: datetime = None,    
+#     token_id_and_task_id = Depends(task_context) , 
+#     pagination = Depends(validate_pagination)
+# ):
+#     _,_,task_id  = token_id_and_task_id
+
+#     detail = data.get_detail(
+#         task_id=task_id, 
+#         page= pagination['page'] , 
+#         page_size= pagination['size'] ,
+#         before = before,
+#         after= after
+#     )
+#     return detail
+
+# @router.post("/upscale/{id}")
+# async def upscale( item: Upscale, detail: dict = Depends(get_image)):
+#     if is_busy(token_id= detail.get('token_id'), taskId= detail.get('detail',{}).get('taskId')):
+#         return Response(status_code=202)
+#     broker_id , account_id = Snowflake.parse_snowflake_id(detail.get('id'))
+#     celery.send_task('upscale',
+#         (
+#             {
+#                 **detail.get('detail',{}),
+#                 'ref_id': detail.get('id'),
+#                 'broker_id': broker_id,
+#                 'account_id' : account_id
+#             },
+#             item.index,
+#         ),
+#         queue= f"queue_{broker_id}"
+#     )
+#     return {
+#         'status': 'ok'
+#     }
+
+# @router.post("/variation/{id}")
+# async def upscale( item:  Remix,  detail: dict = Depends(get_image)):
+
+#     if is_busy(token_id= detail.get('token_id'), taskId= detail.get('detail',{}).get('taskId')):
+#         return Response(status_code=202)
+
+#     broker_id , account_id = Snowflake.parse_snowflake_id(detail.get('id'))
+#     celery.send_task('variation',
+#         (
+#             item.prompt,
+#             {
+#                 **detail.get('detail',{}),
+#                 'ref_id': detail.get('id'),
+#                 'broker_id': broker_id,
+#                 'account_id' : account_id
+#             },
+#             item.index,
+#         ),
+#         queue= f"queue_{broker_id}"
+#     )
+#     return {
+#         'status': 'ok'
+#     }
+
+# @router.post("/vary/{id}")
+# async def vary(item: Vary, detail: dict = Depends(get_image)):
+#     if detail.get('type') is not DetailType.OUTPUT_MJ_UPSCALE.value:
+#          raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE)
+#     if is_busy(token_id= detail.get('token_id'), taskId= detail.get('detail',{}).get('taskId')):
+#         return Response(status_code=202)
+#     broker_id , account_id = Snowflake.parse_snowflake_id(detail.get('id'))
+#     print(item.type)
+#     celery.send_task('vary',
+#         (
+#             item.type,
+#             {
+#                 **detail.get('detail',{}),
+#                 'ref_id': detail.get('id'),
+#                 'broker_id': broker_id,
+#                 'account_id' : account_id
+#             }
+#         ),
+#         queue= f"queue_{broker_id}"
+#     )
+#     return {
+#         'status': 'ok'
+#     }
+
+# @router.post("/zoom/{id}")
+# async def zoom():
+#     pass
 
 
-@router.get("/profile")
-async def get_profile(context: tuple = Depends(token_context)):
-    _, token_id, info = context
-    cost = data.redis_get_cost(token_id= token_id)
-    del info["id"]
-    return {
-        **info,
-        "cost": int(cost)
-    }
 
-@router.post("/sign")
-async def get_sign( context: tuple = Depends(token_context)):
-    _, token_id, _ = context
-    path = calculate_md5(f'aipic.{token_id}')
-    full_url = f'upload/{path}/{random_id(10)}.jpg'
-    sign = data.file_generate_presigned_url(full_url)  
-    return   {
-        'sign': sign,
-        'url': f'{image_hostname}/{full_url}'
-    }
+
+# @router.get("/profile")
+# async def get_profile(context: tuple = Depends(token_context)):
+#     _, token_id, info = context
+#     cost = data.redis_get_cost(token_id= token_id)
+#     del info["id"]
+#     return {
+#         **info,
+#         "cost": int(cost)
+#     }
+
+# @router.post("/sign")
+# async def get_sign( context: tuple = Depends(token_context)):
+#     _, token_id, _ = context
+#     path = calculate_md5(f'aipic.{token_id}')
+#     full_url = f'upload/{path}/{random_id(10)}.jpg'
+#     sign = data.file_generate_presigned_url(full_url)  
+#     return   {
+#         'sign': sign,
+#         'url': f'{image_hostname}/{full_url}'
+#     }
 
 app.include_router(router)
 if __name__ == "__main__":

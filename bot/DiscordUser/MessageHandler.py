@@ -3,13 +3,13 @@ import os
 import concurrent.futures
 from .utils import *
 from .values import Events
-from data import Data_v2
+from data import Data
 from data import Snowflake
 
 class MessageHandler:
     def __init__(
             self, 
-            data: Data_v2, 
+            data: Data, 
             pool: concurrent.futures.ProcessPoolExecutor,
             loop: asyncio.AbstractEventLoop
         ):
@@ -68,13 +68,13 @@ class MessageHandler:
             if content is None:
                 return
             reference_id = get_dict_value(data, 'message_reference.message_id')
-            taskId = get_taskId(content)
+            space_name = get_space_name(content)
    
 
-            if taskId is None:
+            if space_name is None:
                 return
             
-            print(f'⏰ taskId {taskId}')
+            print(f'⏰ Space Name {space_name}')
 
  
 
@@ -82,20 +82,30 @@ class MessageHandler:
             if task_is_committed:
                 #### check the worker id
                 if  worker_id == message_worker_id:
-                        self.data.commit_task(
-                            taskId = taskId,
-                            worker_id= worker_id
+                        self.data.update_status(
+                            space_name=space_name, 
+                            status= TaskStatus.COMMITTED
                         )
+                        
+                        # self.data.commit_task(
+                        #     taskId = taskId,
+                        #     worker_id= worker_id
+                        # )
 
             else:
                 curType = output_type(content)
-                if curType is not None and   self.data.redis_get_onwer( worker_id=  worker_id, taskId= taskId) is not None:
+                if curType is not None and  self.data.redis_is_onwer(
+                    worker_id=worker_id, 
+                    space_name= space_name, 
+                    type= curType
+                ):
+
                     attachments =  data.get('attachments',[])
                     url =  attachments[0].get("url") if len(attachments) > 0  else None
                     self.loop.run_in_executor(self.pool, lambda: 
                         self.data.process_output(
                             id = id,
-                            taskId = taskId, 
+                            space_name = space_name, 
                             type= curType , 
                             reference= reference_id,
                             message_id= message_id , 

@@ -12,7 +12,7 @@ from celery.signals import worker_init
 from bot.DiscordUser.Gateway import Gateway
 from bot.DiscordUser.utils import refine_prompt
 from bot.DiscordUser.values import MJ_VARY_TYPE
-from data import Data_v2
+from data import Data
 from config import *
 
 
@@ -21,7 +21,7 @@ pool = concurrent.futures.ThreadPoolExecutor(max_workers=10)
 
 celery = Celery('tasks', broker= celery_broker)
 
-data = Data_v2(
+data = Data(
         redis_url = redis_url,
         mysql_url= mysql_url,
         proxy = proxy,
@@ -64,22 +64,18 @@ def ping():
 @celery.task(name='prompt',bind=True, base=BaseTask)
 def add_task(
         self,
-        broker_id: int | None, 
-        account_id: int | None, 
         token_id: int , 
-        taskId: str, 
+        token_type: int,
+        space_name: str, 
         prompt: str, 
         raw: str, 
         execute: bool
     ):
-    new_prompt = refine_prompt(taskId, prompt)
+    new_prompt = refine_prompt(space_name, prompt)
     gateway.loop.run_in_executor(
         pool, 
         lambda: gateway.create_prompt(
-            broker_id,
-            account_id,
-            token_id,
-            taskId, 
+            space_name, 
             prompt, 
             new_prompt,
             raw,
