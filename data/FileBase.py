@@ -15,7 +15,11 @@ class FileInterface:
 class FileBase(FileInterface):
     def __init__(self, config : dict, proxy: str | None) -> None:
         self.proxy = proxy
-        self.bucket_name = 'cloudfront'
+        self.bucket_name = config.get('aws_bucket_name')
+
+        if 'aws_bucket_name' in config:
+            del config['aws_bucket_name']
+
         self.s3client = boto3.client(
             's3', 
             **config

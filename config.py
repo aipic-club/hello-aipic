@@ -10,9 +10,10 @@ proxy =  os.environ.get("http_proxy")
 redis_url = os.environ.get("REDIS")
 mysql_url = os.environ.get("MYSQL")
 s3config= {
+    'aws_bucket_name': os.environ.get("AWS.BUCKET_NAME"),
     'aws_access_key_id' : os.environ.get("AWS.ACCESS_KEY_ID"),
     'aws_secret_access_key' : os.environ.get("AWS.SECRET_ACCESS_KEY"),
     'endpoint_url' : os.environ.get("AWS.ENDPOINT")
 }
 
-print(is_dev)
+print(f'is dev mode : {is_dev}')

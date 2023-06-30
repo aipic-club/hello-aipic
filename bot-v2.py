@@ -22,10 +22,11 @@ pool = concurrent.futures.ThreadPoolExecutor(max_workers=10)
 celery = Celery('tasks', broker= celery_broker)
 
 data = Data(
-        redis_url = redis_url,
-        mysql_url= mysql_url,
-        proxy = proxy,
-        s3config = s3config
+    is_dev= is_dev,
+    redis_url = redis_url,
+    mysql_url= mysql_url,
+    proxy = proxy,
+    s3config = s3config
 )
 atexit.register(data.close)
 
@@ -64,7 +65,6 @@ def ping():
 @celery.task(name='prompt',bind=True, base=BaseTask)
 def add_task(
         self,
-        token_id: int , 
         token_type: int,
         space_name: str, 
         prompt: str, 
@@ -75,6 +75,7 @@ def add_task(
     gateway.loop.run_in_executor(
         pool, 
         lambda: gateway.create_prompt(
+            token_type,
             space_name, 
             prompt, 
             new_prompt,
@@ -90,7 +91,12 @@ def variation(self, prompt: str,  task: dict[str, str],  index: str):
 
     gateway.loop.run_in_executor(
         pool, 
-        lambda: gateway.create_variation(prompt, new_prompt, task=task, index= index)
+        lambda: gateway.create_variation(
+            prompt,
+            new_prompt, 
+            task=task, 
+            index= index
+        )
     )    
     return
 @celery.task(name='upscale',bind=True, base=BaseTask)
@@ -98,7 +104,10 @@ def upscale(self,  task: dict[str, str], index: str):
 
     gateway.loop.run_in_executor(
         pool, 
-        lambda: gateway.create_upscale( task=task, index= index)
+        lambda: gateway.create_upscale( 
+            task=task, 
+            index= index
+        )
     )   
     return
 

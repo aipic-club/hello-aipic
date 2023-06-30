@@ -79,6 +79,8 @@ class MessageHandler:
  
 
             task_is_committed = is_committed(content)
+
+
             if task_is_committed:
                 #### check the worker id
                 if  worker_id == message_worker_id:
@@ -93,20 +95,28 @@ class MessageHandler:
                         # )
 
             else:
-                curType = output_type(content)
-                if curType is not None and  self.data.redis_is_onwer(
+                types  = input_output_type(content)
+
+                if types is None:
+                    return
+
+                curInputType, curOutputType = types
+
+                print(f'output: {worker_id}, {space_name}, {curInputType.value}')
+
+                if self.data.redis_is_onwer(
                     worker_id=worker_id, 
                     space_name= space_name, 
-                    type= curType
+                    type= curInputType
                 ):
-
                     attachments =  data.get('attachments',[])
                     url =  attachments[0].get("url") if len(attachments) > 0  else None
+                    
                     self.loop.run_in_executor(self.pool, lambda: 
                         self.data.process_output(
                             id = id,
                             space_name = space_name, 
-                            type= curType , 
+                            types= types , 
                             reference= reference_id,
                             message_id= message_id , 
                             url = url

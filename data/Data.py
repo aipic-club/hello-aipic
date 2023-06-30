@@ -12,6 +12,7 @@ from .values import DetailType,output_type,get_cost, image_hostname, config,SysC
 
 class Data(MySQLBase, RedisBase, FileBase):
     def __init__(self, 
+            is_dev: bool,
             redis_url: str, 
             mysql_url:str, 
             proxy: str | None,
@@ -20,6 +21,7 @@ class Data(MySQLBase, RedisBase, FileBase):
         super().__init__(url = mysql_url)
         RedisBase.__init__(self, url = redis_url)
         FileBase.__init__(self, config= s3config, proxy= proxy)
+        self.is_dev = is_dev
         self.snowflake = Snowflake(worker_id= 0, epoch= None)
     def close(self):
         self.mysql_close()
@@ -243,21 +245,20 @@ class Data(MySQLBase, RedisBase, FileBase):
         return self.redis_get_interaction(key=key)
     
     def update_status(self, space_name: str, status:TaskStatus ) -> None:
-        self.redis_space_prompt(space_name= space_name, status= status, ttl= config['wait_time'] )
+        self.redis_space_prompt(
+            space_name= space_name, 
+            status= status, 
+            ttl= config['wait_time'] 
+        )
 
 
-
-    def commit_task(self,  taskId: str ,  worker_id: int, status: TaskStatus = TaskStatus.COMMITTED):
-
-        self.redis_set_onwer(worker_id=worker_id, taskId=taskId)
-        self.update_status(taskId=taskId, status=status)
-
-    def onwer(self):
-        pass
-
-
-
-    def cleanup(self, space_name: str, type: DetailType):
+    def cleanup(self, space_name: str, inputType: DetailType, outputType : DetailType):
+        if outputType.value in [
+            DetailType.OUTPUT_MJ_PROMPT.value,
+        ] : 
+            self.redis_space_prompt_cleanup(space_name= space_name)
+            self.redis_clear_onwer(space_name=space_name, type= inputType)
+              
         #if type is DetailType.OUTPUT_MJ_PROMPT or type is DetailType.OUTPUT_MJ_TIMEOUT:
         # if type.value in [
         #     DetailType.OUTPUT_MJ_PROMPT.value,
@@ -296,25 +297,30 @@ class Data(MySQLBase, RedisBase, FileBase):
             self, 
             id: int,
             space_name: str ,  
-            type: DetailType, 
+            types: tuple[DetailType,DetailType], 
             reference: int | None,  
             message_id: str,  
             url: str
         ):
+        curInputType, curOutputType = types
         file_name = str(url.split("_")[-1])
         hash = str(file_name.split(".")[0])
         url_cn = f'{image_hostname}/{space_name}/{file_name}' 
         # copy to s3 bucket
-        print("🖼upload image")
-        loop = asyncio.new_event_loop()
-        loop.run_until_complete(
-            self.file_copy_url_to_bucket(
-                url = url,
-                path =  space_name,
-                file_name = file_name
-            )
-        )  
-        loop.close()  
+        if self.is_dev:
+            print(f"🖼dev mode , output url is {url}")
+            url_cn = url
+        else:
+            print("🖼upload image")
+            loop = asyncio.new_event_loop()
+            loop.run_until_complete(
+                self.file_copy_url_to_bucket(
+                    url = url,
+                    path =  space_name,
+                    file_name = file_name
+                )
+            )  
+            loop.close()  
         detail = {
             'id': message_id,
             'hash': hash,
@@ -324,17 +330,24 @@ class Data(MySQLBase, RedisBase, FileBase):
         self.__insert_detail_and_audit(
             id=id,
             space_name= space_name, 
-            type= type, 
+            type= curOutputType, 
             detail= detail
         )
-        self.update_space_cover(space_name= space_name, cover= url_cn)
-        self.cleanup(space_name= space_name, type= type)
+        self.update_space_cover(
+            space_name= space_name, 
+            cover= url_cn
+        )
+        self.cleanup(
+            space_name= space_name, 
+            inputType= curInputType, 
+            outputType = curOutputType
+        )
 
     def get_detail_by_id(self, token_id: int, detail_id: int, type: DetailType = None):
         sql = (
-            "SELECT t.taskId, d.detail, d.type FROM detail d" 
-            " LEFT JOIN task t ON d.task_id = t.id"
-            " WHERE t.token_id = %(token_id)s AND  d.id=%(id)s"
+            "SELECT s.name, d.detail, d.type FROM detail d" 
+            " LEFT JOIN space s ON d.space_id = s.id"
+            " WHERE s.token_id = %(token_id)s AND  d.id=%(id)s"
         )
 
         if type is not None:
@@ -359,13 +372,13 @@ class Data(MySQLBase, RedisBase, FileBase):
         }
         return self.mysql_execute(sql = sql, params= params, lastrowid= True)
     
-    def update_space_topic(self,  name: str, topic: str, update_when_none : bool = False):
-        self.__update_space_feild( name=name, field = 'topic', value=topic, update_when_none= update_when_none )
+    def update_space_topic(self,  space_name: str, topic: str, update_when_none : bool = False):
+        self.__update_space_feild( space_name=space_name, field = 'topic', value=topic, update_when_none= update_when_none )
 
     def update_space_cover(self, space_name: str, cover: str):
-        self.__update_space_feild(name=space_name,field = 'cover', value=cover )
-    def delete_space(self, name: str):
-        self.__update_space_feild(name=name, field = 'status', value=0 )
+        self.__update_space_feild(space_name=space_name,field = 'cover', value=cover )
+    def delete_space(self, space_name: str):
+        self.__update_space_feild(space_name=space_name, field = 'status', value=0 )
 
     def get_spaces_by_token_id(self, token_id,  page: int = 0, page_size: int = 10):
         sql =(

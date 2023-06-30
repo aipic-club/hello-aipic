@@ -105,23 +105,32 @@ def is_upsacle(content: str) -> bool:
     #Image #1
     return re.search(r"Image\s#\d", content)
 
-
-def status_type(content: str):
-    if is_committed(content):
-        return TaskStatus.COMMITTED
-    elif output_type(content) is not None:
-        return TaskStatus.FINISHED
     
-def output_type(content: str) -> DetailType | None:
+def input_output_type(content: str) -> tuple[DetailType,DetailType] | None :
     if is_remix(content):
-        return DetailType.OUTPUT_MJ_REMIX
+        return (
+            DetailType.INPUT_MJ_REMIX,
+            DetailType.OUTPUT_MJ_REMIX
+        )
     elif is_variation(content):
-        return DetailType.OUTPUT_MJ_VARIATION
+        return (
+            DetailType.INPUT_MJ_VARIATION,
+            DetailType.OUTPUT_MJ_VARIATION
+        )
     elif is_upsacle(content):
-        return DetailType.OUTPUT_MJ_UPSCALE
+        return (
+            DetailType.INPUT_MJ_UPSCALE,
+            DetailType.OUTPUT_MJ_UPSCALE
+        )
     elif is_draft(content):
-        return DetailType.OUTPUT_MJ_PROMPT
+        return (
+            DetailType.INPUT_MJ_PROMPT,
+            DetailType.OUTPUT_MJ_PROMPT
+        )
     elif is_zoom(content):
-        return DetailType.OUTPUT_MJ_ZOOM
+        return (
+            DetailType.INPUT_MJ_ZOOM,
+            DetailType.OUTPUT_MJ_ZOOM
+        )
     else:
-        return None
+        return (None, None)

@@ -35,6 +35,7 @@ AppID = os.environ.get("MP.AppID")
 
 
 data = Data(
+    is_dev=is_dev,
     redis_url = redis_url,
     mysql_url = mysql_url,
     proxy = None, 
@@ -123,7 +124,7 @@ def space_context(space_name: str = Path(...), context: tuple = Depends(token_co
         raise HTTPException(404) 
     return  (space_name, space_id, context )
 
-def get_image(id:int = Path(...), context: tuple = Depends(token_context)) -> dict :
+def image_context(id:int = Path(...), context: tuple = Depends(token_context)) -> dict :
     _, token_id, _ = context
     record = data.get_detail_by_id(token_id=token_id, detail_id= id)
     if record is None:
@@ -136,7 +137,7 @@ def get_image(id:int = Path(...), context: tuple = Depends(token_context)) -> di
                 'token_id': token_id,
                 'type': record['type'],
                 'detail': {
-                    'taskId': record.get('taskId'),
+                    'space_name': record.get('name'),
                     'id': detail.get('id'),
                     'hash': detail.get('hash')
                 }
@@ -271,16 +272,12 @@ async def add_task_to_space(item: Prompt, context: tuple  = Depends(space_contex
     prompt = item.prompt
     execute = item.execute
     raw = item.raw
-
     token_type = info.get("type")
-
-
     data.update_status(space_name=space_name, status= TaskStatus.ACCEPTED)      
 
 
     celery.send_task('prompt',
         (
-            token_id,
             token_type,
             space_name,
             prompt,
@@ -352,26 +349,29 @@ async def add_task_to_space(item: Prompt, context: tuple  = Depends(space_contex
 #     )
 #     return detail
 
-# @router.post("/upscale/{id}")
-# async def upscale( item: Upscale, detail: dict = Depends(get_image)):
-#     if is_busy(token_id= detail.get('token_id'), taskId= detail.get('detail',{}).get('taskId')):
-#         return Response(status_code=202)
-#     broker_id , account_id = Snowflake.parse_snowflake_id(detail.get('id'))
-#     celery.send_task('upscale',
-#         (
-#             {
-#                 **detail.get('detail',{}),
-#                 'ref_id': detail.get('id'),
-#                 'broker_id': broker_id,
-#                 'account_id' : account_id
-#             },
-#             item.index,
-#         ),
-#         queue= f"queue_{broker_id}"
-#     )
-#     return {
-#         'status': 'ok'
-#     }
+@router.post("/upscale/{id}")
+async def upscale( item: Upscale, context: dict = Depends(image_context)):
+    # if is_busy(token_id= context.get('token_id'), taskId= context.get('detail',{}).get('taskId')):
+    #     return Response(status_code=202)
+    print(context)
+    worker_id = Snowflake.parse_snowflake_worker_id(snowflake_id = context.get('id'))
+    broker_id , _ = Snowflake.parse_worker_id(worker_id = worker_id)
+
+
+    # celery.send_task('upscale',
+    #     (
+    #         {
+    #             **context.get('detail',{}),
+    #             'ref_id': context.get('id'),
+    #             'worker_id': worker_id
+    #         },
+    #         item.index,
+    #     ),
+    #     queue= f"queue_{broker_id}"
+    # )
+    return {
+        'status': 'ok'
+    }
 
 # @router.post("/variation/{id}")
 # async def upscale( item:  Remix,  detail: dict = Depends(get_image)):
@@ -428,26 +428,26 @@ async def add_task_to_space(item: Prompt, context: tuple  = Depends(space_contex
 
 
 
-# @router.get("/profile")
-# async def get_profile(context: tuple = Depends(token_context)):
-#     _, token_id, info = context
-#     cost = data.redis_get_cost(token_id= token_id)
-#     del info["id"]
-#     return {
-#         **info,
-#         "cost": int(cost)
-#     }
+@router.get("/profile")
+async def get_profile(context: tuple = Depends(token_context)):
+    _, token_id, info = context
+    cost = data.redis_get_cost(token_id= token_id)
+    del info["id"]
+    return {
+        **info,
+        "cost": int(cost)
+    }
 
-# @router.post("/sign")
-# async def get_sign( context: tuple = Depends(token_context)):
-#     _, token_id, _ = context
-#     path = calculate_md5(f'aipic.{token_id}')
-#     full_url = f'upload/{path}/{random_id(10)}.jpg'
-#     sign = data.file_generate_presigned_url(full_url)  
-#     return   {
-#         'sign': sign,
-#         'url': f'{image_hostname}/{full_url}'
-#     }
+@router.post("/sign")
+async def get_sign( context: tuple = Depends(token_context)):
+    _, token_id, _ = context
+    path = calculate_md5(f'aipic.{token_id}')
+    full_url = f'upload/{path}/{random_id(10)}.jpg'
+    sign = data.file_generate_presigned_url(full_url)  
+    return   {
+        'sign': sign,
+        'url': f'{image_hostname}/{full_url}'
+    }
 
 app.include_router(router)
 if __name__ == "__main__":

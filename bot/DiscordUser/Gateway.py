@@ -34,15 +34,15 @@ class Gateway:
             raise Exception("no available users!!!")
         for user in dbusers:
             worker_id = user['worker_id']
-            _, account_id = Snowflake.parse_worker_id(worker_id= worker_id)
+  
 
             token = user['authorization']
             guild_id= user['guild_id']
             channel_id=  user['channel_id']
 
-            print(f'current user: worker_id:{worker_id}, account_id: {account_id}')
+            print(f'current user: worker_id:{worker_id}')
 
-            self.users[account_id] = UserProxy( 
+            self.users[worker_id] = UserProxy( 
                 worker_id = worker_id,
                 token = token, 
                 guild_id=guild_id,
@@ -66,24 +66,27 @@ class Gateway:
         return random.choice(temp)        
 
     
-    def get_task_account_id(self,  task: dict[str, str]) -> int | None:
-        account_id = task['account_id']
-        if account_id is not None and self.users[account_id] is not None:
-            return account_id
+    def get_task_worker_id(self,  task: dict[str, str]) -> int | None:
+        worker_id = task['worker_id']
+        if worker_id is not None and self.users[worker_id] is not None:
+            return worker_id
         else:
             return None
 
     def create_prompt(
             self, 
+            token_type: int,
             space_name: str, 
             prompt: str,
             new_prompt: str,
             raw: str, 
             execute: bool 
     ) -> None:
-        _account_id = self.pick_a_worker_id()
-        if self.users[_account_id] is not None:
-            current_user = self.users[_account_id]
+        worker_id = self.pick_a_worker_id()
+
+        print(worker_id)
+        if self.users[worker_id] is not None:
+            current_user = self.users[worker_id]
             id = current_user.generate_id()
             detail = {
                 'prompt': prompt,
@@ -113,9 +116,14 @@ class Gateway:
                     type=DetailType.INPUT_MJ_PROMPT
                 )
 
-                self.loop.create_task(current_user.remove_suffix())
                 self.loop.create_task(current_user.send_prompt(new_prompt, id))
-                self.loop.create_task(self.check_task( account_id = _account_id, ref_id=id, space_name= space_name ))
+                self.loop.create_task(
+                        self.check_task( 
+                        worker_id = worker_id, 
+                        ref_id=id, 
+                        space_name= space_name 
+                    )
+                )
 
     def create_variation(self, prompt: str, new_prompt: str,  task: dict[str, str], index: str):
         worker_id =  self.get_task_account_id(task)
@@ -131,10 +139,10 @@ class Gateway:
             self.data.save_input(id=id, taskId= task['taskId'], type= input_type , detail= detail )
             self.data.redis_task_job(taskId=task['taskId'], id= task['ref_id'], type = input_type, index= index)
 
-            self.data.commit_task(
-                taskId = task['taskId'],
-                worker_id= worker_id
-            )
+            # self.data.commit_task(
+            #     taskId = task['taskId'],
+            #     worker_id= worker_id
+            # )
 
 
             self.loop.create_task(
@@ -147,10 +155,9 @@ class Gateway:
             )
 
     def create_upscale(self, task: dict[str, str], index: str):
-        worker_id =  self.get_task_account_id(task)
+        worker_id =  self.get_task_worker_id(task)
         if worker_id is not None:
             id = self.users[worker_id].generate_id()
-            broker_id  =  task['broker_id']
             detail = {
                 'ref': str(task['ref_id']),
                 'index': index
@@ -159,10 +166,10 @@ class Gateway:
             self.data.save_input(id=id, taskId= task['taskId'], type= input_type , detail= detail )
             self.data.redis_task_job(taskId=task['taskId'], id= task['ref_id'], type = input_type, index= index)
 
-            self.data.commit_task(
-                taskId = task['taskId'],
-                worker_id= worker_id
-            )
+            # self.data.commit_task(
+            #     taskId = task['taskId'],
+            #     worker_id= worker_id
+            # )
 
             self.loop.create_task(
                 self.users[worker_id].send_upscale(
@@ -173,7 +180,7 @@ class Gateway:
             )
     
     def create_vary(self, task: dict[str, str]):
-        worker_id =  self.get_task_account_id(task)
+        worker_id =  self.get_task_worker_id(task)
         if worker_id is not None:
             id = self.users[worker_id].generate_id()
             detail = {
@@ -217,9 +224,9 @@ class Gateway:
 
 
 
-    async def check_task(self, account_id: int, ref_id: int, space_name: str):
+    async def check_task(self, worker_id: int, ref_id: int, space_name: str):
         await asyncio.sleep(config['wait_time'] - 10)
-        id = self.users[account_id].generate_id()
+        id = self.users[worker_id].generate_id()
         self.data.check_task(
             id = id, 
             ref_id= ref_id, 

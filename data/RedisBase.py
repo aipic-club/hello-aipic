@@ -85,14 +85,19 @@ class RedisBase(RedisInterface):
 
 
     def redis_set_owner(self, worker_id: int, space_name: str, type: DetailType):
-        self.redis.setex(f'onwer:{space_name}:{type.value}', config['wait_time'], worker_id)
+        key = f'onwer:{space_name}:{type.value}'
+        self.redis.setex(key, config['wait_time'], worker_id)
 
     def redis_is_onwer(self, worker_id: int, space_name: str, type: DetailType ):
-        temp = self.redis.get(f'onwer:{space_name}:{type.value}')
+        key = f'onwer:{space_name}:{type.value}'
+        temp = self.redis.get(key)
+        print(key)
+        print(temp)
         return temp is not None and int(temp) == worker_id
     
     def redis_clear_onwer(self, space_name: str, type: DetailType):
-        self.__remove_keys(f'onwer:{space_name}:{type.value}')
+        key = f'onwer:{space_name}:{type.value}'
+        self.__remove_keys(key)
 
  
 
@@ -114,15 +119,16 @@ class RedisBase(RedisInterface):
     def redis_space_prompt_cleanup(self, space_name: str) -> int | None:
         self.__remove_keys(f'space:{space_name}:prompt') 
 
+
     def redis_add_job(self, space_name: str, id: int, data: dict):
-        self.redis.setex(f'space:{space_name}:jobs:{id}', config['wait_time'] ,  json.dumps(data))
+        self.redis.setex(f'space:{space_name}:job:{id}', config['wait_time'] ,  json.dumps(data))
   
     def redis_ongoing_jobs(self,  space_name: str) -> list:
-        keys = self.redis.keys(f'space:{space_name}:jobs:*')
+        keys = self.redis.keys(f'space:{space_name}:job:*')
         return self.redis.mget(keys)
     
     def redis_space_cleanup(self, space_name: str):
-        self.__remove_keys(f'space:{space_name}:*')
+        self.__remove_keys(f'space:{space_name}:job:*')
         
     # def redis_image(self,  taskId: str, imageHash: str, type: ImageOperationType, index: str):
     #     self.redis.setex(f'image:{taskId}:{imageHash}', config['wait_time'] ,  f'{imageHash}.{type.name}.{index}')

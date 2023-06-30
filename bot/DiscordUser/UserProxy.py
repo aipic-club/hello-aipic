@@ -137,6 +137,8 @@ class UserProxy:
         await self.remove_prefix(nonce=self.generate_id())
     async def send_prompt(self, prompt, nonce):
         print("🪄 send prompt to mj")
+        await self.remove_suffix()
+        await asyncio.sleep(1)
         payload = payloads.prompt(self.ids, prompt, nonce)
         payload_str = json.dumps(payload)
         try:
