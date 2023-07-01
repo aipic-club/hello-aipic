@@ -84,7 +84,7 @@ def get_dict_value(dct, keys):
     return reduce(lambda d, key: d.get(key) if d else None, keys.split("."), dct)
 
 
-def is_draft(content: str) -> str | None:
+def is_imagine(content: str) -> str | None:
     return "(relaxed)"  in content or "(fast)" in content
 
 def get_space_name(content: str) -> str | None:
@@ -95,8 +95,9 @@ def get_space_name(content: str) -> str | None:
 def is_committed(content: str) -> bool:
     return "(Waiting to start)" in content
 def is_variation(content: str) -> bool:
-    #Variations by
     return  "Variations by" in content
+def is_vary(content: str) -> bool:
+    return "Variations (Strong) by" in content or "Variations (Subtle) by" in content
 def  is_remix(content: str) -> bool:
     return "Remix by" in content
 def is_zoom(content: str) -> bool:
@@ -122,10 +123,15 @@ def input_output_type(content: str) -> tuple[DetailType,DetailType] | None :
             DetailType.INPUT_MJ_UPSCALE,
             DetailType.OUTPUT_MJ_UPSCALE
         )
-    elif is_draft(content):
+    elif is_imagine(content):
         return (
-            DetailType.INPUT_MJ_PROMPT,
-            DetailType.OUTPUT_MJ_PROMPT
+            DetailType.INPUT_MJ_IMAGINE,
+            DetailType.OUTPUT_MJ_IMAGINE
+        )
+    elif is_vary(content):
+        return (
+            DetailType.INPUT_MJ_VARY,
+            DetailType.OUTPUT_MJ_VARY
         )
     elif is_zoom(content):
         return (

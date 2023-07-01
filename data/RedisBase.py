@@ -119,44 +119,23 @@ class RedisBase(RedisInterface):
     def redis_space_prompt_cleanup(self, space_name: str) -> int | None:
         self.__remove_keys(f'space:{space_name}:prompt') 
 
-
-    def redis_add_job(self, space_name: str, id: int, data: dict):
-        self.redis.setex(f'space:{space_name}:job:{id}', config['wait_time'] ,  json.dumps(data))
+    def redis_add_job(self, space_name: str, id: int, type: DetailType):
+        self.redis.setex(f'space:{space_name}:job:{id}:{type.name}', config['wait_time'] ,  type.value)
   
     def redis_ongoing_jobs(self,  space_name: str) -> list:
         keys = self.redis.keys(f'space:{space_name}:job:*')
         return self.redis.mget(keys)
     
-    def redis_space_cleanup(self, space_name: str):
-        self.__remove_keys(f'space:{space_name}:job:*')
+    def redis_jobs_cleanup(self, space_name: str):
+        self.__remove_keys(f'space:{space_name}:job:*:*')
         
-    # def redis_image(self,  taskId: str, imageHash: str, type: ImageOperationType, index: str):
-    #     self.redis.setex(f'image:{taskId}:{imageHash}', config['wait_time'] ,  f'{imageHash}.{type.name}.{index}')
-
-
-
-    def redis_space_job(self, space_name: str,):
-        key = f'space:{space_name}:job' 
-        pass
-
-
-
-
-    def redis_task_job(self,  taskId: str, id: int, type: DetailType, index: int):
-        self.redis.setex(f'job:{taskId}:{id}', config['wait_time'] ,  f'{id}.{type.name}.{index}')
-        
-    def redis_task_job_status(self,  taskId: str) -> list:
-        keys = self.redis.keys(f'job:{taskId}:*')
-        return self.redis.mget(keys)
-    def redis_task_job_remove(self,  taskId: str, id: int) -> list:
-        self.__remove_keys(f'job:{taskId}:{id}' )
-    def redis_task_job_cleanup(self,  taskId: str,):
-        self.__remove_keys(f'job:{taskId}:*' )
-
     def redis_set_interaction(self, key: str | int, value: str | int  ) -> bool:
-        return self.redis.setex(f'interaction:{key}', config['wait_time'] ,  value)
+        redis_key = f'interaction:{key}'
+        return self.redis.setex(redis_key, config['interaction_ttl'] ,  value)
     def redis_get_interaction(self, key)-> int | None:
-        value = self.redis.get(f'interaction:{key}')
+        redis_key = f'interaction:{key}'
+        value = self.redis.get(redis_key)
+        self.__remove_keys(redis_key)
         return int(value) if value is not None else None
     
     def redis_set_describe(self, worker_id: int, key: str, taskId: str, url: str) -> bool:

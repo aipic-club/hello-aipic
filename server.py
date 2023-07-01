@@ -25,7 +25,7 @@ from bot.DiscordUser.values import MJ_VARY_TYPE
 
 
 from data import Data,  SysCode, random_id
-from data.values import DetailType, TaskStatus, output_type,image_hostname
+from data.values import DetailType, TaskStatus, mj_output_type,image_hostname
 from data.Snowflake import Snowflake
 from config import *
 
@@ -129,7 +129,7 @@ def image_context(id:int = Path(...), context: tuple = Depends(token_context)) -
     record = data.get_detail_by_id(token_id=token_id, detail_id= id)
     if record is None:
         raise HTTPException(404) 
-    if record['type'] in output_type:
+    if record['type'] in mj_output_type:
         try:
             detail = json.loads(record['detail'])
             return {
@@ -276,7 +276,7 @@ async def add_task_to_space(item: Prompt, context: tuple  = Depends(space_contex
     data.update_status(space_name=space_name, status= TaskStatus.ACCEPTED)      
 
 
-    celery.send_task('prompt',
+    celery.send_task('imagine',
         (
             token_type,
             space_name,
@@ -353,49 +353,42 @@ async def add_task_to_space(item: Prompt, context: tuple  = Depends(space_contex
 async def upscale( item: Upscale, context: dict = Depends(image_context)):
     # if is_busy(token_id= context.get('token_id'), taskId= context.get('detail',{}).get('taskId')):
     #     return Response(status_code=202)
-    print(context)
     worker_id = Snowflake.parse_snowflake_worker_id(snowflake_id = context.get('id'))
     broker_id , _ = Snowflake.parse_worker_id(worker_id = worker_id)
-
-
-    # celery.send_task('upscale',
-    #     (
-    #         {
-    #             **context.get('detail',{}),
-    #             'ref_id': context.get('id'),
-    #             'worker_id': worker_id
-    #         },
-    #         item.index,
-    #     ),
-    #     queue= f"queue_{broker_id}"
-    # )
+    celery.send_task('upscale',
+        (
+            {
+                **context.get('detail',{}),
+                'ref_id': context.get('id'),
+                'worker_id': worker_id
+            },
+            item.index,
+        ),
+        queue= f"queue_{broker_id}"
+    )
     return {
         'status': 'ok'
     }
 
-# @router.post("/variation/{id}")
-# async def upscale( item:  Remix,  detail: dict = Depends(get_image)):
-
-#     if is_busy(token_id= detail.get('token_id'), taskId= detail.get('detail',{}).get('taskId')):
-#         return Response(status_code=202)
-
-#     broker_id , account_id = Snowflake.parse_snowflake_id(detail.get('id'))
-#     celery.send_task('variation',
-#         (
-#             item.prompt,
-#             {
-#                 **detail.get('detail',{}),
-#                 'ref_id': detail.get('id'),
-#                 'broker_id': broker_id,
-#                 'account_id' : account_id
-#             },
-#             item.index,
-#         ),
-#         queue= f"queue_{broker_id}"
-#     )
-#     return {
-#         'status': 'ok'
-#     }
+@router.post("/variation/{id}")
+async def upscale( item:  Remix,  context: dict = Depends(image_context)):
+    worker_id = Snowflake.parse_snowflake_worker_id(snowflake_id = context.get('id'))
+    broker_id , _ = Snowflake.parse_worker_id(worker_id = worker_id)
+    celery.send_task('variation',
+        (
+            item.prompt,
+            {
+                **context.get('detail',{}),
+                'ref_id': context.get('id'),
+                'worker_id': worker_id
+            },
+            item.index,
+        ),
+        queue= f"queue_{broker_id}"
+    )
+    return {
+        'status': 'ok'
+    }
 
 # @router.post("/vary/{id}")
 # async def vary(item: Vary, detail: dict = Depends(get_image)):

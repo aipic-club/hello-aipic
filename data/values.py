@@ -25,7 +25,7 @@ class DetailType(Enum):
     SYS_WELCOME = 1
     SYS_FAILED = 5
     ## MIDJOURNEY INPUT 
-    INPUT_MJ_PROMPT = 11
+    INPUT_MJ_IMAGINE = 11
     INPUT_MJ_VARIATION = 12
     INPUT_MJ_REMIX = 13
     INPUT_MJ_UPSCALE = 14
@@ -33,7 +33,7 @@ class DetailType(Enum):
     INPUT_MJ_VARY = 16
     INPUT_MJ_ZOOM = 17
     ## MIDJOURNEY OUTPUT 
-    OUTPUT_MJ_PROMPT = 21
+    OUTPUT_MJ_IMAGINE = 21
     OUTPUT_MJ_VARIATION = 22
     OUTPUT_MJ_REMIX = 23
     OUTPUT_MJ_UPSCALE = 24
@@ -44,8 +44,8 @@ class DetailType(Enum):
     OUTPUT_MJ_TIMEOUT = 31
     OUTPUT_MJ_INVALID_PARAMETER = 32
 
-output_type = [
-    DetailType.OUTPUT_MJ_PROMPT.value,
+mj_output_type = [
+    DetailType.OUTPUT_MJ_IMAGINE.value,
     DetailType.OUTPUT_MJ_REMIX.value,
     DetailType.OUTPUT_MJ_UPSCALE.value,
     DetailType.OUTPUT_MJ_VARIATION.value,
@@ -54,10 +54,15 @@ output_type = [
     DetailType.OUTPUT_MJ_ZOOM.value
 ]
 
+error_mj_output_type = [
+    DetailType.OUTPUT_MJ_TIMEOUT,
+    DetailType.OUTPUT_MJ_INVALID_PARAMETER
+]
+
 
 
 def get_cost(type: DetailType):
-    if type is DetailType.OUTPUT_MJ_PROMPT:
+    if type is DetailType.OUTPUT_MJ_IMAGINE:
         return 4
     elif type is DetailType.OUTPUT_MJ_REMIX:
         return 4    
@@ -83,6 +88,8 @@ class Cost(Enum):
     VARIATION = 4
     UPSCALE = 4
     REMIX = 4
+    VARY = 4
+    ZOOM = 4
     @staticmethod
     def get_cost(output: OutputType):
         if output == OutputType.DRAFT.value:
@@ -92,7 +99,7 @@ class Cost(Enum):
         elif output == OutputType.UPSCALE.value:
             return Cost.UPSCALE.value 
         elif output == OutputType.REMIX.value:
-            return Cost.REMIX.value 
+            return Cost.REMIX.value    
         else:
             return 0
     
@@ -113,7 +120,8 @@ class TokenType(Enum):
 
 config = {
     'wait_time': 60 * 10,  # 10 minutes
-    'cache_time': 6 * 60 * 60  # half day
+    'cache_time': 24 * 60 * 60,  # one day
+    'interaction_ttl': 60
 }
     
 image_hostname = 'https://imgcdn.aipic.club'

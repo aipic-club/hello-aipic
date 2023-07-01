@@ -62,7 +62,7 @@ def ping():
     print('pong')
 
 
-@celery.task(name='prompt',bind=True, base=BaseTask)
+@celery.task(name='imagine',bind=True, base=BaseTask)
 def add_task(
         self,
         token_type: int,
@@ -87,8 +87,7 @@ def add_task(
 
 @celery.task(name='variation', bind=True,  base=BaseTask)
 def variation(self, prompt: str,  task: dict[str, str],  index: str):
-    new_prompt = refine_prompt(task['taskId'], prompt)
-
+    new_prompt = refine_prompt(task['space_name'], prompt)
     gateway.loop.run_in_executor(
         pool, 
         lambda: gateway.create_variation(
@@ -101,7 +100,6 @@ def variation(self, prompt: str,  task: dict[str, str],  index: str):
     return
 @celery.task(name='upscale',bind=True, base=BaseTask)
 def upscale(self,  task: dict[str, str], index: str):
-
     gateway.loop.run_in_executor(
         pool, 
         lambda: gateway.create_upscale( 

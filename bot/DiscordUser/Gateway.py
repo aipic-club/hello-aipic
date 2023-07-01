@@ -83,11 +83,10 @@ class Gateway:
             execute: bool 
     ) -> None:
         worker_id = self.pick_a_worker_id()
-
-        print(worker_id)
         if self.users[worker_id] is not None:
             current_user = self.users[worker_id]
             id = current_user.generate_id()
+            task_type = DetailType.INPUT_MJ_IMAGINE
             detail = {
                 'prompt': prompt,
                 'raw':  raw
@@ -98,7 +97,7 @@ class Gateway:
             self.data.save_input( 
                 id=id, 
                 space_name=space_name, 
-                type= DetailType.INPUT_MJ_PROMPT ,
+                type= task_type ,
                 detail= detail 
             )
 
@@ -113,7 +112,7 @@ class Gateway:
                 self.data.redis_set_owner(
                     worker_id= current_user.worker_id,
                     space_name= space_name,
-                    type=DetailType.INPUT_MJ_PROMPT
+                    type=task_type
                 )
 
                 self.loop.create_task(current_user.send_prompt(new_prompt, id))
@@ -126,27 +125,36 @@ class Gateway:
                 )
 
     def create_variation(self, prompt: str, new_prompt: str,  task: dict[str, str], index: str):
-        worker_id =  self.get_task_account_id(task)
+        worker_id =  self.get_task_worker_id(task)
+        print(worker_id)
         if worker_id is not None:
-            id = self.users[worker_id].generate_id()
-            broker_id  =  task['broker_id']
-            input_type = DetailType.INPUT_MJ_REMIX
+            current_user = self.users[worker_id]
+            space_name = task['space_name']
+            id = current_user.generate_id()
+            task_type = DetailType.INPUT_MJ_REMIX
             detail = {
                 'ref': str(task['ref_id']),
                 'prompt': prompt,
                 'index': index
             }
-            self.data.save_input(id=id, taskId= task['taskId'], type= input_type , detail= detail )
-            self.data.redis_task_job(taskId=task['taskId'], id= task['ref_id'], type = input_type, index= index)
-
-            # self.data.commit_task(
-            #     taskId = task['taskId'],
-            #     worker_id= worker_id
-            # )
-
-
+            self.data.save_input(
+                id=id, 
+                space_name= space_name, 
+                type= task_type  , 
+                detail= detail 
+            )
+            self.data.redis_set_owner(
+                worker_id= current_user.worker_id,
+                space_name= space_name,
+                type=task_type
+            )
+            self.data.space_job_add(
+                space_name= space_name,
+                id=task['ref_id'],
+                type= task_type
+            )
             self.loop.create_task(
-                self.users[worker_id].send_variation(
+                current_user.send_variation(
                     prompt = new_prompt,
                     index = index,
                     messageId = task['id'],
@@ -157,19 +165,27 @@ class Gateway:
     def create_upscale(self, task: dict[str, str], index: str):
         worker_id =  self.get_task_worker_id(task)
         if worker_id is not None:
-            id = self.users[worker_id].generate_id()
+            current_user = self.users[worker_id]
+            space_name = task['space_name']
+            id = current_user.generate_id()
             detail = {
                 'ref': str(task['ref_id']),
                 'index': index
             }
-            input_type = DetailType.INPUT_MJ_UPSCALE
-            self.data.save_input(id=id, taskId= task['taskId'], type= input_type , detail= detail )
-            self.data.redis_task_job(taskId=task['taskId'], id= task['ref_id'], type = input_type, index= index)
+            task_type = DetailType.INPUT_MJ_UPSCALE
 
-            # self.data.commit_task(
-            #     taskId = task['taskId'],
-            #     worker_id= worker_id
-            # )
+            self.data.save_input(
+                id=id, 
+                space_name= space_name, 
+                type= task_type, 
+                detail= detail 
+            )
+
+            self.data.redis_set_owner(
+                worker_id= current_user.worker_id,
+                space_name= space_name,
+                type=task_type
+            )
 
             self.loop.create_task(
                 self.users[worker_id].send_upscale(

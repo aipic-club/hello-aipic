@@ -228,7 +228,7 @@ class payloads:
             "type":5,
             "data":{
                 "id": data_id,
-                "custom_id": f"MJ::RemixModal::{messageHash}::{index}",  #  "MJ::RemixModal::548034f0-49db-43fb-86f8-1ca09a72e786::1",
+                "custom_id": f"MJ::RemixModal::{messageHash}::{index}::0",  #  "MJ::RemixModal::548034f0-49db-43fb-86f8-1ca09a72e786::1",
                 "components":[
                     {
                         "type":1,

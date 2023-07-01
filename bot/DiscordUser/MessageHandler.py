@@ -54,15 +54,12 @@ class MessageHandler:
                 detail = detail
             )
             self.data.redis_describe_cleanup(key= name_without_extension)
-
+    def on_interaction(self, data: dict):
+        if data.get('nonce') is not None and data.get('id') is not None:
+            self.data.add_interaction(data.get('nonce'), data.get('id'))
 
     def on_message(self, id: int, worker_id: int,  message_worker_id: int, event: Events, data: dict):
-        #print(event, data)
-        
-        if event is Events.INTERACTION_SUCCESS:
-            if data.get('nonce') is not None and data.get('id') is not None:
-                self.data.add_interaction(data.get('nonce'), data.get('id'))
-        elif  event is Events.MESSAGE_CREATE:
+        if  event is Events.MESSAGE_CREATE:
             message_id =  data.get("id")
             content = data.get('content', None)
             if content is None:
@@ -76,27 +73,17 @@ class MessageHandler:
             
             print(f'⏰ Space Name {space_name}')
 
- 
+            task_committed = is_committed(content)
 
-            task_is_committed = is_committed(content)
-
-
-            if task_is_committed:
+            if task_committed:
                 #### check the worker id
                 if  worker_id == message_worker_id:
-                        self.data.update_status(
-                            space_name=space_name, 
-                            status= TaskStatus.COMMITTED
-                        )
-                        
-                        # self.data.commit_task(
-                        #     taskId = taskId,
-                        #     worker_id= worker_id
-                        # )
-
+                    self.data.update_status(
+                        space_name=space_name, 
+                        status= TaskStatus.COMMITTED
+                    )
             else:
                 types  = input_output_type(content)
-
                 if types is None:
                     return
 

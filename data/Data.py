@@ -8,7 +8,7 @@ from .MySQLBase import MySQLBase
 from .RedisBase import RedisBase
 from .FileBase import FileBase
 from .Snowflake import Snowflake
-from .values import DetailType,output_type,get_cost, image_hostname, config,SysCode, TokenType
+from .values import DetailType,mj_output_type,get_cost, image_hostname, config,SysCode, TokenType
 
 class Data(MySQLBase, RedisBase, FileBase):
     def __init__(self, 
@@ -71,7 +71,7 @@ class Data(MySQLBase, RedisBase, FileBase):
                     detail= detail,
                     cnx= cnx
                 )
-                if type.value in output_type:
+                if type.value in mj_output_type:
                     print("add audit")
                     cost = get_cost(type= type)
                     sql = ("INSERT INTO `token_audit` (`token_id`, `task_id`, `cost`) VALUES (%(token_id)s, %(task_id)s,%(cost)s)")
@@ -229,7 +229,7 @@ class Data(MySQLBase, RedisBase, FileBase):
         )
         params = {
             'task_id': task_id,
-            'type': DetailType.INPUT_MJ_PROMPT.value
+            'type': DetailType.INPUT_MJ_IMAGINE.value
         }
         return self.mysql_fetchone(sql=sql, params=params)
     def save_input(self, id: int, space_name: str, type: DetailType , detail: dict ):
@@ -251,30 +251,30 @@ class Data(MySQLBase, RedisBase, FileBase):
             ttl= config['wait_time'] 
         )
 
+    def space_job_add(self, space_name: str, id: int, type: DetailType):
+        self.redis_add_job(
+            space_name=space_name, 
+            id= id, 
+            type= type
+        )
+    
 
     def cleanup(self, space_name: str, inputType: DetailType, outputType : DetailType):
-        if outputType.value in [
-            DetailType.OUTPUT_MJ_PROMPT.value,
-        ] : 
+        print(f"🧹 clean  space {space_name}")
+        self.redis_clear_onwer(space_name=space_name, type= inputType)
+        if outputType is DetailType.OUTPUT_MJ_IMAGINE : 
             self.redis_space_prompt_cleanup(space_name= space_name)
-            self.redis_clear_onwer(space_name=space_name, type= inputType)
+        elif outputType.value in [
+            DetailType.OUTPUT_MJ_UPSCALE.value,
+            DetailType.OUTPUT_MJ_VARIATION.value,
+            DetailType.OUTPUT_MJ_REMIX.value,
+            DetailType.OUTPUT_MJ_VARY.value,
+            DetailType.OUTPUT_MJ_ZOOM.value
+        ]:
+            self.redis_jobs_cleanup(space_name=space_name)
               
-        #if type is DetailType.OUTPUT_MJ_PROMPT or type is DetailType.OUTPUT_MJ_TIMEOUT:
-        # if type.value in [
-        #     DetailType.OUTPUT_MJ_PROMPT.value,
-        #     DetailType.OUTPUT_MJ_TIMEOUT.value,
-        #     DetailType.OUTPUT_MJ_INVALID_PARAMETER.value
-        # ]:
-        #     self.redis_task_cleanup(taskId= taskId)
-        # else:
-        #     self.redis_task_job_cleanup(taskId= taskId)
-        pass
-
-
     def is_task_onwer(self,  worker_id: int,  taskId: str) -> bool:
-    
         return self.redis_get_onwer( worker_id=  worker_id, taskId= taskId) is not None
-
 
     def process_error(
             self,

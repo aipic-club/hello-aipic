@@ -11,10 +11,6 @@ from .MessageHandler import MessageHandler
 from .utils import get_space_name
 from data import  Snowflake, random_id
 
-
-accept_events = [Events.INTERACTION_SUCCESS.value, Events.MESSAGE_CREATE.value]
-
-
 class UserProxy:
     def __init__(
             self, 
@@ -47,7 +43,6 @@ class UserProxy:
     def generate_id(self) -> int:
         return self.snowflake.generate_id()
     def __on_message(self, event: Events, data: dict) -> None:
-
         try:
             if event is Events.MESSAGE_CREATE:
                 message_worker_id = None            
@@ -118,11 +113,8 @@ class UserProxy:
                         # print(name_without_extension)
                         
                         # ###
-
-
-
-
-                pass
+            elif event is Events.INTERACTION_SUCCESS:
+                self.messageHandler.on_interaction(data=data)
         except Exception as e:
             print("error when handle message", e)
     async def remove_prefix(self, nonce):
