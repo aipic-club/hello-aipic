@@ -1,4 +1,4 @@
-from .values import MJ_VARY_TYPE, MJBotId
+from .values import MJBotId
 class payloads:
 
     @staticmethod
@@ -222,13 +222,13 @@ class payloads:
             "nonce": nonce
         }
     @staticmethod
-    def remix(ids: dict[str, str], prompt: str, data_id: int, messageHash : str, index: int):
+    def remix(ids: dict[str, str], prompt: str, data_id: int, messageHash : str, index: int , remix_type: int = 0):
        return {
            **ids,
             "type":5,
             "data":{
                 "id": data_id,
-                "custom_id": f"MJ::RemixModal::{messageHash}::{index}::0",  #  "MJ::RemixModal::548034f0-49db-43fb-86f8-1ca09a72e786::1",
+                "custom_id": f"MJ::RemixModal::{messageHash}::{index}::{remix_type}",  #  "MJ::RemixModal::548034f0-49db-43fb-86f8-1ca09a72e786::1",
                 "components":[
                     {
                         "type":1,
@@ -281,7 +281,7 @@ class payloads:
     # {"type":3,"nonce":"1122489989028904960","guild_id":"1121633108689698856","channel_id":"1121633108689698859","message_flags":64,"message_id":"1122489887665430589","application_id":"936929561302675456","session_id":"6e5e35098c7a55166f73ab21ee06875e","data":{"component_type":2,"custom_id":"MJ::Prompts::Appeal::OqWLXki2ZMU"}}
 
     @staticmethod
-    def vary(ids: dict[str,str], type: MJ_VARY_TYPE , messageId : str, messageHash : str,  nonce: int):
+    def vary(ids: dict[str,str], job_type: str , messageId : str, messageHash : str,  nonce: int):
         return {
             "type":3,
             "nonce":str(nonce),
@@ -291,7 +291,7 @@ class payloads:
             "session_id":"42c6e0ad8006f8c0b457f8d480d7ac9f",
             "data":{
                 "component_type":2,
-                "custom_id": f"MJ::JOB::{MJ_VARY_TYPE.value}::1::{messageHash}::SOLO" 
+                "custom_id": f"MJ::JOB::{job_type}::1::{messageHash}::SOLO" 
             }
         }
     #custom_id: MJ::JOB::low_variation::1::6e3ee661-7947-4bf7-b42c-4ea9290d54cf::SOLO

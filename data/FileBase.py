@@ -1,4 +1,5 @@
 from abc import abstractmethod
+import copy
 
 import boto3
 import aiohttp
@@ -8,23 +9,21 @@ class FileInterface:
     @abstractmethod
     def __init__(self, config : dict, proxy: str | None) -> None:
         pass
-    @abstractmethod
-    def generate_presigned_url(self, content_type, key):
-        pass
 
 class FileBase(FileInterface):
     def __init__(self, config : dict, proxy: str | None) -> None:
         self.proxy = proxy
-        self.bucket_name = config.get('aws_bucket_name')
-
+        self.bucket_name = None
         if 'aws_bucket_name' in config:
-            del config['aws_bucket_name']
+            self.bucket_name = config.pop('aws_bucket_name')
 
         self.s3client = boto3.client(
             's3', 
             **config
         )
+
     def file_generate_presigned_url(self, key):
+ 
         url = self.s3client.generate_presigned_url(
             'put_object',
             Params={

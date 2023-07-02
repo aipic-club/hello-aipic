@@ -33,13 +33,6 @@ class Events(Enum):
     MESSAGE_UPDATE = 'MESSAGE_UPDATE'
     CHANNEL_UNREAD_UPDATE = 'CHANNEL_UNREAD_UPDATE'
 
-class MJ_VARY_TYPE(str, Enum):
-    LOW_VARIATION = 'low_variation'
-    HIGH_VARIATION = 'high_variation'
-
-class MJ_OUTPAINT_VALUE(int, Enum):
-    ZOOMOUT2X = 50
-    ZOOMOUT1_5X =  75
 
 
 

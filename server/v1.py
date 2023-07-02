@@ -1,33 +1,31 @@
 import os
-import random
-import string
 import hashlib
 import json
-from datetime import datetime
-
-from celery import Celery
 
 from functools import partial
+
 from typing import Annotated, Callable, Optional, Union
 from pydantic import BaseModel, Json
-from fastapi import FastAPI,APIRouter, HTTPException, Depends,  Header, Request, Response, status, Path
+from fastapi import Body, FastAPI,APIRouter, HTTPException, Depends,  Header, Request, Response, status, Path
 from fastapi import BackgroundTasks
 from fastapi.routing import APIRoute
 from fastapi.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
+
+from celery import Celery
 
 from wechatpy import parse_message, create_reply
 from wechatpy.utils import check_signature
 from wechatpy.exceptions import InvalidSignatureException, InvalidAppIdException
 from wechatpy.events import SubscribeEvent
 
-from bot.DiscordUser.values import MJ_VARY_TYPE
-
 
 from data import Data,  SysCode, random_id
 from data.values import DetailType, TaskStatus, mj_output_type,image_hostname
 from data.Snowflake import Snowflake
 from config import *
+from .model import *
+from .values import *
 
 Token = os.environ.get("MP.Token")
 EncodingAESKey = os.environ.get("MP.EncodingAESKey")
@@ -42,34 +40,9 @@ data = Data(
     s3config= s3config
 )
 
-class Prompt(BaseModel):
-    prompt: str
-    raw: Union[str , None] = None
-    execute: Union[bool , None] = None
-
-class Task(BaseModel):
-    name: str | None
-
-class Upscale(BaseModel):
-    index: int
-class Remix(BaseModel):
-    prompt: str
-    index: int
-
-class Describe(BaseModel):
-    url: str
-
-
-class Vary(BaseModel):
-    type:  MJ_VARY_TYPE
-
-class Zoom(BaseModel):
-    type: int
 
 
 celery = Celery('tasks', broker=celery_broker)
-
-
 
 
 def check_wechat_signature(request: Request):
@@ -124,28 +97,30 @@ def space_context(space_name: str = Path(...), context: tuple = Depends(token_co
         raise HTTPException(404) 
     return  (space_name, space_id, context )
 
-def image_context(id:int = Path(...), context: tuple = Depends(token_context)) -> dict :
+def image_context(
+        id:int = Path(...),
+        context: tuple = Depends(token_context),
+        allowed_types:list[DetailType] =[]
+    ) -> dict :
     _, token_id, _ = context
-    record = data.get_detail_by_id(token_id=token_id, detail_id= id)
+    record = data.get_detail_by_id(token_id=token_id, detail_id= id, types= allowed_types)
+
     if record is None:
         raise HTTPException(404) 
-    if record['type'] in mj_output_type:
-        try:
-            detail = json.loads(record['detail'])
-            return {
-                'id': id,
-                'token_id': token_id,
-                'type': record['type'],
-                'detail': {
-                    'space_name': record.get('name'),
-                    'id': detail.get('id'),
-                    'hash': detail.get('hash')
-                }
+    try:
+        detail = json.loads(record['detail'])
+        return {
+            'id': id,
+            'token_id': token_id,
+            'type': record['type'],
+            'detail': {
+                'space_name': record.get('name'),
+                'id': detail.get('id'),
+                'hash': detail.get('hash')
             }
-        except:
-            raise HTTPException(500)
-    else:
-        raise HTTPException(405) 
+        }
+    except:
+        raise HTTPException(500)
 
 
     
@@ -249,13 +224,13 @@ async def create_space(context: tuple = Depends(token_context)):
     }
 
 @router.put("/spaces/{space_name}")
-async def update_task(task: Task, context: tuple  = Depends(space_context)):
+async def update_space(space: Space, context: tuple  = Depends(space_context)):
     space_name, _ , _ = context
-    name = task.name
+    name = space.name
     if name is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
     
-    data.update_space_topic(name=space_name, topic=name)
+    data.update_space_topic(space_name=space_name, topic=name)
 
     return {
         'status': 'ok',
@@ -273,9 +248,7 @@ async def add_task_to_space(item: Prompt, context: tuple  = Depends(space_contex
     execute = item.execute
     raw = item.raw
     token_type = info.get("type")
-    data.update_status(space_name=space_name, status= TaskStatus.ACCEPTED)      
-
-
+    data.update_status(space_name=space_name, status= TaskStatus.ACCEPTED) 
     celery.send_task('imagine',
         (
             token_type,
@@ -350,7 +323,19 @@ async def add_task_to_space(item: Prompt, context: tuple  = Depends(space_contex
 #     return detail
 
 @router.post("/upscale/{id}")
-async def upscale( item: Upscale, context: dict = Depends(image_context)):
+async def upscale( 
+    index: Annotated[int , Body()],
+    context: dict = Depends(
+        partial(
+            image_context, 
+            allowed_types =[
+                DetailType.OUTPUT_MJ_IMAGINE,
+                DetailType.OUTPUT_MJ_REMIX,
+                DetailType.OUTPUT_MJ_VARIATION
+            ]
+        )
+    )
+):
     # if is_busy(token_id= context.get('token_id'), taskId= context.get('detail',{}).get('taskId')):
     #     return Response(status_code=202)
     worker_id = Snowflake.parse_snowflake_worker_id(snowflake_id = context.get('id'))
@@ -362,7 +347,7 @@ async def upscale( item: Upscale, context: dict = Depends(image_context)):
                 'ref_id': context.get('id'),
                 'worker_id': worker_id
             },
-            item.index,
+            index,
         ),
         queue= f"queue_{broker_id}"
     )
@@ -371,24 +356,80 @@ async def upscale( item: Upscale, context: dict = Depends(image_context)):
     }
 
 @router.post("/variation/{id}")
-async def upscale( item:  Remix,  context: dict = Depends(image_context)):
+async def upscale( 
+    index: Annotated[int , Body()],
+    prompt: Annotated[str , Body()], 
+    context: dict = Depends(
+        partial(
+            image_context, 
+            allowed_types =[
+                DetailType.OUTPUT_MJ_IMAGINE,
+                DetailType.OUTPUT_MJ_REMIX,
+                DetailType.OUTPUT_MJ_VARIATION
+            ]
+        )
+    )
+):
     worker_id = Snowflake.parse_snowflake_worker_id(snowflake_id = context.get('id'))
     broker_id , _ = Snowflake.parse_worker_id(worker_id = worker_id)
     celery.send_task('variation',
         (
-            item.prompt,
+            prompt,
             {
                 **context.get('detail',{}),
                 'ref_id': context.get('id'),
                 'worker_id': worker_id
             },
-            item.index,
+            index,
         ),
         queue= f"queue_{broker_id}"
     )
     return {
         'status': 'ok'
     }
+
+
+
+@router.post("/vary/{id}")
+async def vary(
+    type: Annotated[MJ_VARY_TYPE , Body()],
+    prompt: Annotated[str , Body()], 
+    context: dict = Depends(
+        partial(
+            image_context, 
+            allowed_types =[
+                DetailType.OUTPUT_MJ_UPSCALE
+            ]
+        )
+    )
+):
+    worker_id = Snowflake.parse_snowflake_worker_id(snowflake_id = context.get('id'))
+    broker_id , _ = Snowflake.parse_worker_id(worker_id = worker_id)
+
+    type_index =  get_vary_type(type) 
+
+    celery.send_task('vary',
+        (
+            prompt,
+            {
+                **context.get('detail',{}),
+                'ref_id': context.get('id'),
+                'worker_id': worker_id
+            },
+            type_index
+        ),
+        queue= f"queue_{broker_id}"
+    )
+
+    return {
+        'status': 'ok'
+    }
+@router.post("/zoom/{id}")
+async def zoom():
+    pass
+
+
+
 
 # @router.post("/vary/{id}")
 # async def vary(item: Vary, detail: dict = Depends(get_image)):
@@ -414,9 +455,6 @@ async def upscale( item:  Remix,  context: dict = Depends(image_context)):
 #         'status': 'ok'
 #     }
 
-# @router.post("/zoom/{id}")
-# async def zoom():
-#     pass
 
 
 
@@ -443,6 +481,3 @@ async def get_sign( context: tuple = Depends(token_context)):
     }
 
 app.include_router(router)
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("server:app", host='0.0.0.0', port=8000, log_level="info", reload= True)

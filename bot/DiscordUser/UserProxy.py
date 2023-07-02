@@ -146,7 +146,14 @@ class UserProxy:
             await asyncio.sleep(3)
             data_id = self.get_interaction_id(nonce)
             if data_id is not None:
-                payload = payloads.remix(self.ids, prompt= prompt,data_id= str(data_id), messageHash= messageHash, index= index )
+                payload = payloads.remix(
+                    self.ids, 
+                    prompt= prompt,
+                    data_id= str(data_id), 
+                    messageHash= messageHash, 
+                    index= index,
+                    remix_type=0
+                )
                 await self.user.send_interactions(payload)
             
         except Exception as e:
@@ -154,8 +161,37 @@ class UserProxy:
     async def send_upscale(self, index : int, messageId : str, messageHash : str):
         nonce = self.snowflake.generate_id()
         payload = payloads.upscale(self.ids, messageId= messageId, messageHash=messageHash, index=index, nonce=nonce)
+        print(payload)
         try:
             await self.user.send_interactions(payload)
+        except Exception as e:
+            print("error when upscale message", e)
+
+    async def send_vary(self,prompt: str, job_type: str, type_index: int, messageId : str, messageHash : str ):
+        nonce = self.snowflake.generate_id()
+        payload = payloads.vary(
+            self.ids, 
+            job_type=job_type, 
+            messageId= messageId, 
+            messageHash=messageHash, 
+            nonce= nonce 
+        )
+        print(payload)
+        try:
+            await self.user.send_interactions(payload)
+            await asyncio.sleep(3)
+            data_id = self.get_interaction_id(nonce)
+            if data_id is not None:
+                payload = payloads.remix(
+                    self.ids, 
+                    prompt= prompt,
+                    data_id= str(data_id), 
+                    messageHash= messageHash, 
+                    index= 1,
+                    remix_type=type_index
+                )
+                print(payload)
+                await self.user.send_interactions(payload)            
         except Exception as e:
             print("error when upscale message", e)
 

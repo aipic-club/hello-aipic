@@ -18,7 +18,7 @@ class Data(MySQLBase, RedisBase, FileBase):
             proxy: str | None,
             s3config : dict
     ) -> None:
-        super().__init__(url = mysql_url)
+        MySQLBase.__init__(self, url = mysql_url)
         RedisBase.__init__(self, url = redis_url)
         FileBase.__init__(self, config= s3config, proxy= proxy)
         self.is_dev = is_dev
@@ -343,20 +343,23 @@ class Data(MySQLBase, RedisBase, FileBase):
             outputType = curOutputType
         )
 
-    def get_detail_by_id(self, token_id: int, detail_id: int, type: DetailType = None):
+    def get_detail_by_id(self, token_id: int, detail_id: int, types: list[DetailType] = None):
         sql = (
             "SELECT s.name, d.detail, d.type FROM detail d" 
             " LEFT JOIN space s ON d.space_id = s.id"
             " WHERE s.token_id = %(token_id)s AND  d.id=%(id)s"
         )
-
-        if type is not None:
-            sql += " AND type=%(type)s"
-
+        if types is not None and len(types) > 0:
+            if len(types) == 1:
+                sql += f" AND `type`={types[0].value}"
+            else:
+                types_list = [t.value for t in types]
+                types_sql = ','.join(map(str, types_list))
+                sql += f" AND `type` in ({types_sql})"
         params = {
             'token_id': token_id,
             'id': detail_id,
-            'type': type.value if type else None
+
         }
         return self.mysql_fetchone(sql=sql,params=params)
 

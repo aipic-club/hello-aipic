@@ -195,13 +195,44 @@ class Gateway:
                 )
             )
     
-    def create_vary(self, task: dict[str, str]):
+    def create_vary(self, prompt: str, new_prompt: str, task: dict[str, str], type_index: int):
         worker_id =  self.get_task_worker_id(task)
         if worker_id is not None:
-            id = self.users[worker_id].generate_id()
+            current_user = self.users[worker_id]
+            id = current_user.generate_id()
+            space_name = task['space_name']
+            if type_index == 1:
+                job_type = 'high_variation'
+            else:
+                job_type = 'low_variation'
             detail = {
                 'ref': str(task['ref_id']),
+                'type': type_index,
+                'prompt': prompt
             }
+            task_type = DetailType.INPUT_MJ_VARY
+            self.data.save_input(
+                id=id, 
+                space_name= space_name, 
+                type= task_type, 
+                detail= detail 
+            )
+
+            self.data.redis_set_owner(
+                worker_id= current_user.worker_id,
+                space_name= space_name,
+                type=task_type
+            )
+            self.loop.create_task(
+                self.users[worker_id].send_vary(
+                    prompt = new_prompt,
+                    job_type= job_type,
+                    type_index = type_index,
+                    messageId = task['id'],
+                    messageHash = task['hash'], 
+                )
+            )            
+
         pass
 
     def create_zoom(self,):

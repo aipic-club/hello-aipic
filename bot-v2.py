@@ -11,7 +11,6 @@ from celery import Celery
 from celery.signals import worker_init
 from bot.DiscordUser.Gateway import Gateway
 from bot.DiscordUser.utils import refine_prompt
-from bot.DiscordUser.values import MJ_VARY_TYPE
 from data import Data
 from config import *
 
@@ -98,6 +97,22 @@ def variation(self, prompt: str,  task: dict[str, str],  index: str):
         )
     )    
     return
+
+@celery.task(name='vary',bind=True, base=BaseTask)
+def vary(self, prompt: str, task: dict[str, str], type_index: str ):
+    new_prompt = refine_prompt(task['space_name'], prompt)
+    gateway.loop.run_in_executor(
+        pool, 
+        lambda: gateway.create_vary( 
+            prompt, 
+            new_prompt, 
+            task=task, 
+            type_index = type_index
+        )
+    )   
+    return
+
+
 @celery.task(name='upscale',bind=True, base=BaseTask)
 def upscale(self,  task: dict[str, str], index: str):
     gateway.loop.run_in_executor(
@@ -109,14 +124,6 @@ def upscale(self,  task: dict[str, str], index: str):
     )   
     return
 
-@celery.task(name='vary',bind=True, base=BaseTask)
-def vary(self,type: MJ_VARY_TYPE,  task: dict[str, str]):
-
-    # gateway.loop.run_in_executor(
-    #     pool, 
-    #     lambda: gateway.create_upscale( task=task, index= index)
-    # )   
-    return
 
 
 @celery.task(name='zoom',bind=True, base=BaseTask)
