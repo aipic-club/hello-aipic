@@ -191,9 +191,15 @@ class Data(MySQLBase, RedisBase, FileBase):
                 return None
         else:
             return int(cache_data) 
+        
+    def clean_space(self, token: str, space_name: str):
+        cache_key = f'cache:space_id:{token}:{space_name}'
+        self.remove_cache(cache_key)
+        self.__update_space_feild(space_name=space_name, field = 'status', value=0 )
+
     def get_detail(
             self, 
-            task_id: int, 
+            space_id: int, 
             page: int = 0, 
             page_size: int = 10,
             before: str = None,
@@ -203,21 +209,21 @@ class Data(MySQLBase, RedisBase, FileBase):
         if after is not None:
             sql = (
                 "SELECT  `id`, `type`, `detail`,`create_at` FROM detail"
-                " WHERE `task_id`=%(task_id)s AND `create_at` >'{after}'"
+                " WHERE `space_id`=%(space_id)s AND `create_at` >'{after}'"
                 " LIMIT %(page_size)s OFFSET %(offset)s"
             ).format(after= after)
         else:
             sql = (
                 "SELECT  `id`, `type`, `detail`,`create_at` FROM "
                 " ( SELECT  * FROM detail"
-                " WHERE `task_id`=%(task_id)s AND `create_at` <'{before}'"
+                " WHERE `space_id`=%(space_id)s AND `create_at` <'{before}'"
                 " ORDER BY `id` DESC"
                 " LIMIT %(page_size)s OFFSET %(offset)s "
                 " ) sub ORDER BY `id` ASC"
             ).format(before= before if before is not None else datetime.now(timezone(offset= timedelta(hours= 0))))
         offset = (page - 1) * page_size
         params = {
-            'task_id': task_id,
+            'space_id': space_id,
             'offset': offset,
             'page_size': page_size,
         }
@@ -259,8 +265,11 @@ class Data(MySQLBase, RedisBase, FileBase):
         )
     
 
-    def cleanup(self, space_name: str, inputType: DetailType, outputType : DetailType):
+    def cleanup(self, space_name: str, inputType: DetailType = None, outputType : DetailType = None):
         print(f"🧹 clean  space {space_name}")
+        if inputType is None and outputType is None:
+            self.redis_jobs_cleanup(space_name=space_name)
+
         self.redis_clear_onwer(space_name=space_name, type= inputType)
         if outputType is DetailType.OUTPUT_MJ_IMAGINE : 
             self.redis_space_prompt_cleanup(space_name= space_name)
@@ -273,25 +282,21 @@ class Data(MySQLBase, RedisBase, FileBase):
         ]:
             self.redis_jobs_cleanup(space_name=space_name)
               
-    def is_task_onwer(self,  worker_id: int,  taskId: str) -> bool:
-        return self.redis_get_onwer( worker_id=  worker_id, taskId= taskId) is not None
-
     def process_error(
             self,
             id: int,
-            taskId: str ,  
+            space_name: str ,  
             type: DetailType, 
             detail: dict
     ):
         type = DetailType.OUTPUT_MJ_INVALID_PARAMETER
         self.save_input(
             id=id,
-            taskId=taskId,
+            space_name=space_name,
             type=type,
             detail= detail
         )
-        self.cleanup(taskId=taskId, type=type)
-
+        self.cleanup(space_name=space_name)
 
     def process_output(
             self, 
@@ -380,8 +385,7 @@ class Data(MySQLBase, RedisBase, FileBase):
 
     def update_space_cover(self, space_name: str, cover: str):
         self.__update_space_feild(space_name=space_name,field = 'cover', value=cover )
-    def delete_space(self, space_name: str):
-        self.__update_space_feild(space_name=space_name, field = 'status', value=0 )
+
 
     def get_spaces_by_token_id(self, token_id,  page: int = 0, page_size: int = 10):
         sql =(

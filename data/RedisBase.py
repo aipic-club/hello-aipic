@@ -24,33 +24,6 @@ class RedisBase(RedisInterface):
         self.redis.setex(key, config['cache_time'], value)
     def redis_get_cache_data(self, key):
         return self.redis.get(key)
-    # def redis_get_token(self, token: str):
-    #     val = self.redis.get(f'token:{token}')
-    #     return int(val) if val is not None else None
-    # def redis_set_token(self, token: str, ttl: int, id: int):
-    #     self.redis.setex(f'token:{token}', ttl, id )
-
-    # def redis_init_cost(self,  token_id: str, ttl: int , data: dict   ):
-    #     self.redis.setex(f'tokenId:{token_id}', ttl, json.dumps(data))
-    # def redis_add_cost(self, token_id: str, cost ):
-    #     key = f'tokenId:{token_id}'
-    #     current = self.redis_get_cost(token_id=token_id)
-    #     if current is not None:
-    #         data = {
-    #             **current,
-    #             'cost': current.get("cost") + cost, 
-    #         }
-    #         _ttl = self.redis.ttl(key)
-    #         self.redis.setex(key , _ttl, json.dumps(data))
-
-    # def redis_get_cost(self, token_id: str | None):
-    #     if token_id is None:
-    #         return None
-    #     val = self.redis.get(f'tokenId:{token_id}')
-    #     return json.loads(val) if val is not None else None
-    ### 
-
-
 
     def redis_set_token(self, token: str, ttl: int, data: dict):
         self.redis.setex(f'token:{token}', ttl, json.dumps(data))
@@ -73,18 +46,7 @@ class RedisBase(RedisInterface):
         key = f'cost:{token_id}'
         return self.redis.get(key)
 
-
-    
-    def redis_set_onwer(self, worker_id: int, taskId: str):
-        self.redis.setex(f'onwer:{taskId}:{worker_id}', config['wait_time'], str(worker_id))
-    def redis_get_onwer(self, worker_id: int, taskId: str,):
-        return self.redis.get(f'onwer:{taskId}:{worker_id}')
-    
-
-    
-
-
-    def redis_set_owner(self, worker_id: int, space_name: str, type: DetailType):
+    def redis_set_onwer(self, worker_id: int, space_name: str, type: DetailType):
         key = f'onwer:{space_name}:{type.value}'
         self.redis.setex(key, config['wait_time'], worker_id)
 
@@ -96,7 +58,10 @@ class RedisBase(RedisInterface):
         return temp is not None and int(temp) == worker_id
     
     def redis_clear_onwer(self, space_name: str, type: DetailType):
-        key = f'onwer:{space_name}:{type.value}'
+        if type is None:
+            key = f'onwer:{space_name}:*'
+        else:
+            key = f'onwer:{space_name}:{type.value}'
         self.__remove_keys(key)
 
  
@@ -138,32 +103,32 @@ class RedisBase(RedisInterface):
         self.__remove_keys(redis_key)
         return int(value) if value is not None else None
     
-    def redis_set_describe(self, worker_id: int, key: str, taskId: str, url: str) -> bool:
+    def redis_set_describe(self, worker_id: int, key: str, space_name: str, url: str) -> bool:
         data = {
-            'taskId': taskId,
+            'space_name': space_name,
             'url': url
         }
         # print(json.dumps(data))
-        return self.redis.setex(f'describe:{taskId}:{worker_id}:{key}', config['wait_time'] ,  json.dumps(data))
+        return self.redis.setex(f'describe:{space_name}:{worker_id}:{key}', config['wait_time'] ,  json.dumps(data))
     def redis_get_describe(
             self,
-            taskId: str = None,
+            space_name: str = None,
             worker_id: int = None, 
             key: str = None
         ) -> dict| None:
-        if taskId is None and worker_id is not None:
+        if space_name is None and worker_id is not None:
             keys = self.redis.keys(f'describe:*:{worker_id}:{key}')
         
-        if taskId is not None and worker_id is None and key is None:
-            keys = self.redis.keys(f'describe:{taskId}:*:*')
+        if space_name is not None and worker_id is None and key is None:
+            keys = self.redis.keys(f'describe:{space_name}:*:*')
         if len(keys) != 1:
             return
         print(keys)
         data = self.redis.get(keys[0])
         return json.loads(data) if data is not None else None
-    def redis_describe_cleanup(self, taskId = None, key = None):
-        if taskId is not None:
-            self.__remove_keys(f'describe:{taskId}:*:*' )
+    def redis_describe_cleanup(self, space_name = None, key = None):
+        if space_name is not None:
+            self.__remove_keys(f'describe:{space_name}:*:*' )
         if key is not None:
             self.__remove_keys(f'describe:*:*:{key}' )
 

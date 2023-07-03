@@ -13,7 +13,7 @@ utc_offset_seconds = date_object.utcoffset().total_seconds()
 
 
 
-def refine_prompt(taskId: str, prompt: str):
+def refine_prompt(space_name: str, prompt: str):
     pattern = r'(--?\w+\s+[\w:\.]+)+'
     new_prompt = ""
     unique_params = {}
@@ -38,9 +38,10 @@ def refine_prompt(taskId: str, prompt: str):
     ))
     param = re.split(pattern, prompt)
     # # Print the matches
-    for p in param:
-
-        if p == " ":
+    #print(param)
+    for _p in param:
+        p =  _p.strip()
+        if not p:
             continue
         elif p.startswith("--"):
             key,value = p.split(" ",1)
@@ -49,16 +50,23 @@ def refine_prompt(taskId: str, prompt: str):
         else:
             new_prompt += f"{p}"
     for k in unique_params:
-        ["--aspect", ""]
-        new_prompt += f" {k} {unique_params.get(k)}"
+        v = unique_params.get(k)
+        if k == "--no" and v == space_name:
+            continue
+        else:
+            new_prompt += f" {k} {v}"
     if "--no" in new_prompt:
-        new_prompt = new_prompt.replace("--no", f"--no {taskId},")
+        new_prompt = new_prompt.replace("--no", f"--no {space_name},")
     else:
-        new_prompt += f" --no {taskId}"    
+        new_prompt += f" --no {space_name}"    
 
     ### replace image link
     new_prompt = re.sub(r"https://imgcdn.aipic.club/upload/", "http://imgcdn.aipic.club/upload/", new_prompt)
     return new_prompt
+
+def add_zoom(prompt: str, zoom: float):
+    prompt += f" --zoom {zoom}" 
+    return prompt   
 
 
 

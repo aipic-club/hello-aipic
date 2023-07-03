@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import hashlib
 import json
@@ -132,7 +133,7 @@ def get_space_jobs(token_id: int, space_name: str):
     # return (status, job, describe,)
     pass
 
-def is_busy(token_id: int, space_name: str):
+def is_busy( space_name: str):
     # status, job, describe  = get_space_jobs(token_id= token_id, space_name=space_name)
     # return status is not None or len(job) > 0 or describe is not None
     pass
@@ -241,7 +242,7 @@ async def add_task_to_space(item: Prompt, context: tuple  = Depends(space_contex
     space_name, _ , token_context  = context
     _, token_id, info = token_context
 
-    if is_busy(token_id= token_id, space_name= space_name):
+    if is_busy(space_name= space_name):
         return Response(status_code=202)
      
     prompt = item.prompt
@@ -264,63 +265,67 @@ async def add_task_to_space(item: Prompt, context: tuple  = Depends(space_contex
     }
 
 
-# @router.delete("/tasks/{taskId}")
-# async def delete_task(task_context: tuple  = Depends(task_context) ):
-#     taskId, _ , context  = task_context
-#     _, token_id,_ = context
-#     if is_busy(token_id= token_id, taskId= taskId):
-#         return Response(status_code=202)    
-#     cache_key = f'cache:{token_id}:{taskId}'
-#     data.delete_task(taskId= taskId)
-#     data.remove_cache(cache_key)
-#     return {
-#         'status': 'ok',
-#         'detail': ''
-#     }
+
+@router.delete("/spaces/{space_name}")
+async def delete_space(context: tuple  = Depends(space_context) ):
+    space_name, _ , token_context  = context
+    token, _, _ = token_context
+    if is_busy(space_name= space_name):
+        return Response(status_code=202)   
+    data.clean_space(token=token,  space_name=space_name) 
+    return {
+        'status': 'ok',
+        'detail': ''
+    }    
 
 
-# @router.post("/tasks/{taskId}/describe")
-# def describe_a_img(describe:Describe, token_id_and_task_id = Depends(task_context) ):
-#     taskId, _, _ = token_id_and_task_id 
-#     url = describe.url
-#     celery.send_task('describe',
-#         (
-#             taskId,
-#             url
-#         ),
-#         queue= 'develop' if is_dev else 'celery'
-#     ) 
-#     return {
-#         'status': 'ok',
-#     }
+@router.post("/spaces/{space_name}/describe")
+def describe_a_img(
+    url: Annotated[str , Body()], 
+    translate:Annotated[bool , Body()] = None,  
+    context: tuple  = Depends(space_context) 
+):
+    space_name, _ , _  = context
+    celery.send_task('describe',
+        (
+            space_name,
+            url
+        ),
+        queue= 'develop' if is_dev else 'celery'
+    ) 
+    return {
+        'status': 'ok',
+    }
 
 
-# @router.get("/tasks/{taskId}/status")
-# def get_task_status(token_id_and_task_id = Depends(task_context) ):
-#     taskId, token_id, _ = token_id_and_task_id 
-#     status, job,  describe  = get_task_jobs(token_id= token_id, taskId=taskId)
-#     return{
-#         'status': status,
-#         'jobs': job,
-#         'describing': describe
-#     }
-# @router.get("/tasks/{taskId}/detail")
-# async def get_task_detail(
-#     before: datetime = None,
-#     after: datetime = None,    
-#     token_id_and_task_id = Depends(task_context) , 
-#     pagination = Depends(validate_pagination)
-# ):
-#     _,_,task_id  = token_id_and_task_id
+@router.get("/tasks/{space_name}/status")
+def get_space_status( context: tuple  = Depends(space_context),):
+    # taskId, token_id, _ = token_id_and_task_id 
+    # status, job,  describe  = get_task_jobs(token_id= token_id, taskId=taskId)
+    return {
+        # 'status': status,
+        # 'jobs': job,
+        # 'describing': describe
+    }
 
-#     detail = data.get_detail(
-#         task_id=task_id, 
-#         page= pagination['page'] , 
-#         page_size= pagination['size'] ,
-#         before = before,
-#         after= after
-#     )
-#     return detail
+
+@router.get("/spaces/{space_name}/detail")
+async def get_space_detail(
+    before: datetime = None,
+    after: datetime = None,    
+    context: tuple  = Depends(space_context),
+    pagination = Depends(validate_pagination)
+):
+    _, space_id , _  = context
+    detail = data.get_detail(
+        space_id=space_id, 
+        page= pagination['page'] , 
+        page_size= pagination['size'] ,
+        before = before,
+        after= after
+    )
+    return detail
+
 
 @router.post("/upscale/{id}")
 async def upscale( 
@@ -425,37 +430,44 @@ async def vary(
         'status': 'ok'
     }
 @router.post("/zoom/{id}")
-async def zoom():
-    pass
+async def zoom(
+    zoom: Annotated[float , Body()],
+    prompt: Annotated[str , Body()] = None, 
+    context: dict = Depends(
+        partial(
+            image_context, 
+            allowed_types =[
+                DetailType.OUTPUT_MJ_UPSCALE
+            ]
+        )
+    )
+):
 
+    if (zoom < 1 or zoom > 2):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+    if prompt is None and zoom not in [1.5, 2]:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+    
+    
+    worker_id = Snowflake.parse_snowflake_worker_id(snowflake_id = context.get('id'))
+    broker_id , _ = Snowflake.parse_worker_id(worker_id = worker_id)
 
+    celery.send_task('zoom',
+        (
+            prompt,
+            zoom,
+            {
+                **context.get('detail',{}),
+                'ref_id': context.get('id'),
+                'worker_id': worker_id
+            }
+        ),
+        queue= f"queue_{broker_id}"
+    )
 
-
-# @router.post("/vary/{id}")
-# async def vary(item: Vary, detail: dict = Depends(get_image)):
-#     if detail.get('type') is not DetailType.OUTPUT_MJ_UPSCALE.value:
-#          raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE)
-#     if is_busy(token_id= detail.get('token_id'), taskId= detail.get('detail',{}).get('taskId')):
-#         return Response(status_code=202)
-#     broker_id , account_id = Snowflake.parse_snowflake_id(detail.get('id'))
-#     print(item.type)
-#     celery.send_task('vary',
-#         (
-#             item.type,
-#             {
-#                 **detail.get('detail',{}),
-#                 'ref_id': detail.get('id'),
-#                 'broker_id': broker_id,
-#                 'account_id' : account_id
-#             }
-#         ),
-#         queue= f"queue_{broker_id}"
-#     )
-#     return {
-#         'status': 'ok'
-#     }
-
-
+    return {
+        'status': 'ok'
+    }
 
 
 

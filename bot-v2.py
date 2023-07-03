@@ -10,7 +10,7 @@ from PIL import Image
 from celery import Celery
 from celery.signals import worker_init
 from bot.DiscordUser.Gateway import Gateway
-from bot.DiscordUser.utils import refine_prompt
+from bot.DiscordUser.utils import refine_prompt, add_zoom
 from data import Data
 from config import *
 
@@ -127,12 +127,18 @@ def upscale(self,  task: dict[str, str], index: str):
 
 
 @celery.task(name='zoom',bind=True, base=BaseTask)
-def zoom(self,  task: dict[str, str]):
-
-    # gateway.loop.run_in_executor(
-    #     pool, 
-    #     lambda: gateway.create_upscale( task=task, index= index)
-    # )   
+def zoom(self, prompt: str, zoom:float, task: dict[str, str]):
+    new_prompt = refine_prompt(task['space_name'], prompt) if prompt is not None else None
+    new_prompt = add_zoom(prompt= new_prompt, zoom=zoom)
+    gateway.loop.run_in_executor(
+        pool, 
+        lambda: gateway.create_zoom( 
+            prompt=prompt,
+            new_prompt=new_prompt,
+            zoom= zoom,
+            task=task
+        )
+    )   
     return
 
 
@@ -143,10 +149,10 @@ def reroll(self, task: dict[str, str, str]):
 
 
 @celery.task(name="describe",bind=True, base=BaseTask)
-def describe(self, taskId: str, url: str):
+def describe(self, space_name: str, url: str):
     gateway.loop.run_in_executor(
         pool, 
-        lambda: gateway.describe_a_image( taskId=taskId, url= url)
+        lambda: gateway.describe_a_image( space_name=space_name, url= url)
     )  
     return
 

@@ -18,11 +18,11 @@ class MessageHandler:
         self.loop = loop
         pass
 
-    def on_invalid_parameter(self, id: int, taskId: str, detail: dict ):
+    def on_invalid_parameter(self, id: int, space_name: str, detail: dict ):
         self.loop.run_in_executor(self.pool, lambda: 
             self.data.process_error(
                 id=id,
-                taskId=taskId,
+                space_name=space_name,
                 type=DetailType.OUTPUT_MJ_INVALID_PARAMETER,
                 detail= detail
             )
@@ -39,7 +39,6 @@ class MessageHandler:
         
         print(f"describe . {worker_id}, {name_without_extension}")
 
-
         
         if data is not None:
             detail = {
@@ -49,10 +48,11 @@ class MessageHandler:
 
             self.data.save_input(
                 id=id,
-                taskId=data.get('taskId'),
+                space_name=data.get('space_name'),
                 type= DetailType.OUTPUT_MJ_DESCRIBE,
                 detail = detail
             )
+
             self.data.redis_describe_cleanup(key= name_without_extension)
     def on_interaction(self, data: dict):
         if data.get('nonce') is not None and data.get('id') is not None:

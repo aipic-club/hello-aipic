@@ -12,9 +12,4 @@ class Space(BaseModel):
 
 class Describe(BaseModel):
     url: str
-    
-class Vary(BaseModel):
-    type:  str
 
-class Zoom(BaseModel):
-    type: int

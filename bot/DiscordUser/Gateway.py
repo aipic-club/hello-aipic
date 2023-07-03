@@ -109,7 +109,7 @@ class Gateway:
                     status= TaskStatus.CREATED
                 )
 
-                self.data.redis_set_owner(
+                self.data.redis_set_onwer(
                     worker_id= current_user.worker_id,
                     space_name= space_name,
                     type=task_type
@@ -140,10 +140,10 @@ class Gateway:
             self.data.save_input(
                 id=id, 
                 space_name= space_name, 
-                type= task_type  , 
+                type= task_type, 
                 detail= detail 
             )
-            self.data.redis_set_owner(
+            self.data.redis_set_onwer(
                 worker_id= current_user.worker_id,
                 space_name= space_name,
                 type=task_type
@@ -181,7 +181,7 @@ class Gateway:
                 detail= detail 
             )
 
-            self.data.redis_set_owner(
+            self.data.redis_set_onwer(
                 worker_id= current_user.worker_id,
                 space_name= space_name,
                 type=task_type
@@ -218,7 +218,7 @@ class Gateway:
                 detail= detail 
             )
 
-            self.data.redis_set_owner(
+            self.data.redis_set_onwer(
                 worker_id= current_user.worker_id,
                 space_name= space_name,
                 type=task_type
@@ -235,25 +235,69 @@ class Gateway:
 
         pass
 
-    def create_zoom(self,):
-        pass
+    def create_zoom(self, prompt: str, new_prompt: str, zoom: float, task: dict[str, str]):
+        worker_id =  self.get_task_worker_id(task)
+        if worker_id is not None:
+            current_user = self.users[worker_id]
+            id = current_user.generate_id()
+            space_name = task['space_name']
+            task_type = DetailType.INPUT_MJ_ZOOM
+            detail = {
+                'ref': str(task['ref_id']),
+                'zoom': zoom,
+                'prompt': prompt
+            }            
+            self.data.save_input(
+                id=id, 
+                space_name= space_name, 
+                type= task_type, 
+                detail= detail 
+            )
+
+            self.data.redis_set_onwer(
+                worker_id= current_user.worker_id,
+                space_name= space_name,
+                type=task_type
+            )            
+            self.loop.create_task(
+                current_user.send_zoom(
+                    prompt = new_prompt,
+                    zoom= zoom,
+                    messageId = task['id'],
+                    messageHash = task['hash'], 
+                )
+            )   
 
 
-    def describe_a_image(self, taskId: str, url: str):
-        _account_id = self.pick_a_worker_id() 
-        if self.users[_account_id] is not None:
+    def describe_a_image(self, space_name: str, url: str):
+        worker_id = self.pick_a_worker_id()
+        if self.users[worker_id] is not None:
+            current_user = self.users[worker_id]
+            task_type = DetailType.INPUT_MJ_DESCRIBE
+            id = current_user.generate_id()
+            detail = {
+                "url": url
+            }            
+            self.data.save_input(
+                id=id, 
+                space_name= space_name, 
+                type= task_type, 
+                detail= detail 
+            )
+
             self.loop.create_task(
                 self.start_describe(
-                    taskId= taskId,
-                    account_id= _account_id,
+                    space_name= space_name,
+                    worker_id= worker_id,
                     url=url
                 )
             )
 
-    async def start_describe(self,taskId: int, account_id: int, url: str):
+    async def start_describe(self,space_name: int, worker_id: int, url: str):
         file_resp = await self.data.file_download_a_file(url=url)
-        file_id, filename, upload_url, upload_filename = await self.users[account_id].describe_get_upload_url(bytes=io.BytesIO(file_resp))
+        file_id, filename, upload_url, upload_filename = await self.users[worker_id].describe_get_upload_url(bytes=io.BytesIO(file_resp))
         mime_type, _ = mimetypes.guess_type(upload_filename)
+        
         await self.data.upload_a_file(
             url= upload_url, 
             data= file_resp,
@@ -261,13 +305,13 @@ class Gateway:
         )
 
         self.data.redis_set_describe(
-            worker_id= self.users[account_id].worker_id, 
+            worker_id= self.users[worker_id].worker_id, 
             key= file_id, 
-            taskId= taskId, 
+            space_name= space_name, 
             url = url
         )
 
-        await self.users[account_id].describe_send(filename=filename, uploaded_filename= upload_filename)
+        await self.users[worker_id].describe_send(filename=filename, uploaded_filename= upload_filename)
 
 
 

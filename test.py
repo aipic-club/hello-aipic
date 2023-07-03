@@ -1,4 +1,7 @@
-from data import random_id
+from bot.DiscordUser.utils import refine_prompt
 
 
-print(random_id(20))
+
+print("cats faces by Jon Burgerman --v 5.2 --no nCUT4thBAiq")
+print(refine_prompt(space_name= "nCUT4thBAiq",  prompt= "cats faces by Jon Burgerman --v 5.2"))
+print(refine_prompt(space_name= "nCUT4thBAiq",  prompt= "cats faces by Jon Burgerman --v 5.2 --no nCUT4thBAiq"))
