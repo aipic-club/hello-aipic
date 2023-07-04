@@ -8,6 +8,12 @@ class MJ_VARY_TYPE(str, Enum):
     # LOW_VARIATION = 'low_variation'
     # HIGH_VARIATION = 'high_variation'
 
+class MJ_PAN_TYPE(str, Enum):
+    LEFT = 'left'
+    RIGHT = 'right'
+    UP = 'up'
+    DOWN = 'down'
+
 
 def get_vary_type(type: MJ_VARY_TYPE) -> int:
     #low_variation , subtle
@@ -18,8 +24,6 @@ def get_vary_type(type: MJ_VARY_TYPE) -> int:
         return 1
     return None
     
-
-
 
 class MJ_OUTPAINT_VALUE(int, Enum):
     ZOOMOUT2X = 50

@@ -72,6 +72,33 @@ class Gateway:
             return worker_id
         else:
             return None
+    def pre_send(
+            self, 
+            task: dict[str, str],
+            task_type: DetailType, 
+            detail: dict,
+            worker_id: int
+        ):
+        current_user = self.users[worker_id]
+        space_name = task['space_name']
+        id = current_user.generate_id()
+        self.data.save_input(
+            id=id, 
+            space_name= space_name, 
+            type= task_type, 
+            detail= detail 
+        )
+        self.data.redis_set_onwer(
+            worker_id= worker_id,
+            space_name= space_name,
+            type=task_type
+        )
+        self.data.space_job_add(
+            space_name= space_name,
+            id=task['ref_id'],
+            type= task_type
+        ) 
+    
 
     def create_prompt(
             self, 
@@ -92,8 +119,6 @@ class Gateway:
                 'raw':  raw
             }
             
-
-
             self.data.save_input( 
                 id=id, 
                 space_name=space_name, 
@@ -104,7 +129,7 @@ class Gateway:
             if execute:
                 print(f" 🟢 receive prompt {new_prompt}, nonce: {id}")
 
-                self.data.update_status(
+                self.data.space_prompt(
                     space_name=space_name, 
                     status= TaskStatus.CREATED
                 )
@@ -129,29 +154,17 @@ class Gateway:
         print(worker_id)
         if worker_id is not None:
             current_user = self.users[worker_id]
-            space_name = task['space_name']
-            id = current_user.generate_id()
             task_type = DetailType.INPUT_MJ_REMIX
             detail = {
                 'ref': str(task['ref_id']),
                 'prompt': prompt,
                 'index': index
             }
-            self.data.save_input(
-                id=id, 
-                space_name= space_name, 
-                type= task_type, 
-                detail= detail 
-            )
-            self.data.redis_set_onwer(
-                worker_id= current_user.worker_id,
-                space_name= space_name,
-                type=task_type
-            )
-            self.data.space_job_add(
-                space_name= space_name,
-                id=task['ref_id'],
-                type= task_type
+            self.pre_send(
+                task=task,
+                task_type = task_type,
+                detail=detail,
+                worker_id=worker_id
             )
             self.loop.create_task(
                 current_user.send_variation(
@@ -166,25 +179,17 @@ class Gateway:
         worker_id =  self.get_task_worker_id(task)
         if worker_id is not None:
             current_user = self.users[worker_id]
-            space_name = task['space_name']
-            id = current_user.generate_id()
             detail = {
                 'ref': str(task['ref_id']),
                 'index': index
             }
             task_type = DetailType.INPUT_MJ_UPSCALE
 
-            self.data.save_input(
-                id=id, 
-                space_name= space_name, 
-                type= task_type, 
-                detail= detail 
-            )
-
-            self.data.redis_set_onwer(
-                worker_id= current_user.worker_id,
-                space_name= space_name,
-                type=task_type
+            self.pre_send(
+                task=task,
+                task_type = task_type,
+                detail=detail,
+                worker_id=worker_id
             )
 
             self.loop.create_task(
@@ -199,8 +204,6 @@ class Gateway:
         worker_id =  self.get_task_worker_id(task)
         if worker_id is not None:
             current_user = self.users[worker_id]
-            id = current_user.generate_id()
-            space_name = task['space_name']
             if type_index == 1:
                 job_type = 'high_variation'
             else:
@@ -211,17 +214,11 @@ class Gateway:
                 'prompt': prompt
             }
             task_type = DetailType.INPUT_MJ_VARY
-            self.data.save_input(
-                id=id, 
-                space_name= space_name, 
-                type= task_type, 
-                detail= detail 
-            )
-
-            self.data.redis_set_onwer(
-                worker_id= current_user.worker_id,
-                space_name= space_name,
-                type=task_type
+            self.pre_send(
+                task=task,
+                task_type = task_type,
+                detail=detail,
+                worker_id=worker_id
             )
             self.loop.create_task(
                 self.users[worker_id].send_vary(
@@ -239,26 +236,18 @@ class Gateway:
         worker_id =  self.get_task_worker_id(task)
         if worker_id is not None:
             current_user = self.users[worker_id]
-            id = current_user.generate_id()
-            space_name = task['space_name']
             task_type = DetailType.INPUT_MJ_ZOOM
             detail = {
                 'ref': str(task['ref_id']),
                 'zoom': zoom,
                 'prompt': prompt
             }            
-            self.data.save_input(
-                id=id, 
-                space_name= space_name, 
-                type= task_type, 
-                detail= detail 
+            self.pre_send(
+                task=task,
+                task_type = task_type,
+                detail=detail,
+                worker_id=worker_id
             )
-
-            self.data.redis_set_onwer(
-                worker_id= current_user.worker_id,
-                space_name= space_name,
-                type=task_type
-            )            
             self.loop.create_task(
                 current_user.send_zoom(
                     prompt = new_prompt,
@@ -266,7 +255,32 @@ class Gateway:
                     messageId = task['id'],
                     messageHash = task['hash'], 
                 )
-            )   
+            )  
+
+    def create_pan(self, prompt: str, new_prompt: str, type: str, task: dict[str, str]):
+        worker_id =  self.get_task_worker_id(task)
+        if worker_id is not None:
+            current_user = self.users[worker_id]
+            task_type = DetailType.INPUT_MJ_PAN
+            detail = {
+                'ref': str(task['ref_id']),
+                'type': type,
+                'prompt': prompt,
+            } 
+            self.pre_send(
+                task=task,
+                task_type = task_type,
+                detail=detail,
+                worker_id=worker_id
+            )
+            self.loop.create_task(
+                current_user.send_pan(
+                    prompt = new_prompt,
+                    type= type,
+                    messageId = task['id'],
+                    messageHash = task['hash'], 
+                )
+            )  
 
 
     def describe_a_image(self, space_name: str, url: str):

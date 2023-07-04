@@ -227,7 +227,29 @@ class UserProxy:
                 nonce=self.snowflake.generate_id()
             )    
             await self.user.send_interactions(payload2)     
-         
+
+    async def send_pan(self, prompt: str, type: str, messageId : str, messageHash : str):
+        nonce = self.snowflake.generate_id()
+        payload1 =  payloads.pan_step_1(
+            self.ids,
+            type=type,
+            messageId= messageId,
+            messageHash= messageHash, 
+            nonce=  nonce
+        )
+        await self.user.send_interactions(payload1)   
+        await asyncio.sleep(3) 
+        data_id = self.get_interaction_id(nonce)
+        payload2 = payloads.pan_step_2(
+            self.ids,
+            prompt=prompt,
+            type=type,
+            data_id=data_id,
+            messageHash=messageHash,
+            nonce=self.snowflake.generate_id()
+        )    
+        await self.user.send_interactions(payload2)   
+
 
     async def describe_get_upload_url(self, bytes: io.BytesIO):
         image = Image.open(bytes)

@@ -106,10 +106,12 @@ def is_variation(content: str) -> bool:
     return  "Variations by" in content
 def is_vary(content: str) -> bool:
     return "Variations (Strong) by" in content or "Variations (Subtle) by" in content
-def  is_remix(content: str) -> bool:
+def is_remix(content: str) -> bool:
     return "Remix by" in content
 def is_zoom(content: str) -> bool:
     return "Zoom Out by" in content
+def is_pan(content: str) -> bool:
+    return any(keyword in content for keyword in ["Pan Left by", "Pan Right by", "Pan Up by", "Pan Down by"])
 def is_upsacle(content: str) -> bool:
     #Image #1
     return re.search(r"Image\s#\d", content)
@@ -131,11 +133,6 @@ def input_output_type(content: str) -> tuple[DetailType,DetailType] | None :
             DetailType.INPUT_MJ_UPSCALE,
             DetailType.OUTPUT_MJ_UPSCALE
         )
-    elif is_imagine(content):
-        return (
-            DetailType.INPUT_MJ_IMAGINE,
-            DetailType.OUTPUT_MJ_IMAGINE
-        )
     elif is_vary(content):
         return (
             DetailType.INPUT_MJ_VARY,
@@ -146,5 +143,15 @@ def input_output_type(content: str) -> tuple[DetailType,DetailType] | None :
             DetailType.INPUT_MJ_ZOOM,
             DetailType.OUTPUT_MJ_ZOOM
         )
+    elif is_pan(content):
+        return (
+            DetailType.INPUT_MJ_PAN,
+            DetailType.OUTPUT_MJ_PAN
+        )
+    elif is_imagine(content):
+        return (
+            DetailType.INPUT_MJ_IMAGINE,
+            DetailType.OUTPUT_MJ_IMAGINE
+        )    
     else:
         return (None, None)

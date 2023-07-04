@@ -384,13 +384,49 @@ class payloads:
                             {
                                 "type":4,
                                 "custom_id":"MJ::OutpaintModal::new_prompt",#reroll for zoom
-                                "value":"dogs by Jon Burgerman --v 5.2 --no nCUT4thBAiq --zoom 1.7"
+                                "value": prompt
                             }
                         ]
                     }
                 ]
             },
             "nonce":str(nonce),
+        }
+    @staticmethod
+    def pan_step_1(ids: dict[str,str],type: str, messageId : str, messageHash : str,  nonce: int):
+        return {
+            "type":3,
+             **ids,
+            "nonce":str(nonce),
+            "message_flags":0,
+            "message_id": messageId,
+            "data":{
+                "component_type":2,
+                "custom_id": f"MJ::JOB::pan_{type}::1::{messageHash}::SOLO"
+            }
+        }
+    @staticmethod
+    def pan_step_2(ids: dict[str,str], prompt: str, type: str, data_id: int,  messageHash : str,  nonce: int):
+        return {
+            "type":5,
+            **ids,
+            "nonce":str(nonce),
+            "data":{
+                "id": str(data_id),
+                "custom_id": f"MJ::PanModal::{type}::{messageHash}",
+                "components":[
+                    {
+                        "type":1,
+                        "components":[
+                            {
+                                "type":4,
+                                "custom_id":"MJ::PanModal::prompt",
+                                "value": prompt
+                            }
+                        ]
+                    }
+                ]
+            }
         }
 
     @staticmethod

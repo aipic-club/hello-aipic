@@ -141,6 +141,21 @@ def zoom(self, prompt: str, zoom:float, task: dict[str, str]):
     )   
     return
 
+@celery.task(name='pan',bind=True, base=BaseTask)
+def pan(self, prompt: str, type: str, task: dict[str, str]):
+    new_prompt = refine_prompt(task['space_name'], prompt) if prompt is not None else None
+    gateway.loop.run_in_executor(
+        pool, 
+        lambda: gateway.create_pan( 
+            prompt=prompt,
+            new_prompt=new_prompt,
+            type=type,
+            task=task
+        )
+    )   
+    return
+
+
 
 
 @celery.task(name='reroll',bind=True, base=BaseTask)

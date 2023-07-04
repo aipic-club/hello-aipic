@@ -250,35 +250,40 @@ class Data(MySQLBase, RedisBase, FileBase):
     def get_interaction(self, key)-> int:
         return self.redis_get_interaction(key=key)
     
-    def update_status(self, space_name: str, status:TaskStatus ) -> None:
+    def space_prompt(self, space_name: str, status:TaskStatus ) -> None:
         self.redis_space_prompt(
             space_name= space_name, 
             status= status, 
             ttl= config['wait_time'] 
         )
-
+    def space_prompt_status(self, space_name: str):
+        return self.redis_space_prompt_status(space_name= space_name)
+    
     def space_job_add(self, space_name: str, id: int, type: DetailType):
         self.redis_add_job(
             space_name=space_name, 
             id= id, 
             type= type
         )
-    
+    def spaces_jobs(self, space_name: str):
+        return self.redis_ongoing_jobs(space_name=space_name)
+
+
 
     def cleanup(self, space_name: str, inputType: DetailType = None, outputType : DetailType = None):
         print(f"🧹 clean  space {space_name}")
-        if inputType is None and outputType is None:
-            self.redis_jobs_cleanup(space_name=space_name)
 
         self.redis_clear_onwer(space_name=space_name, type= inputType)
-        if outputType is DetailType.OUTPUT_MJ_IMAGINE : 
+        if (inputType is None and outputType is None) or outputType is DetailType.OUTPUT_MJ_INVALID_PARAMETER:
+            self.redis_jobs_cleanup(space_name=space_name)
+        if outputType is DetailType.OUTPUT_MJ_IMAGINE or outputType is DetailType.OUTPUT_MJ_INVALID_PARAMETER : 
             self.redis_space_prompt_cleanup(space_name= space_name)
         elif outputType.value in [
             DetailType.OUTPUT_MJ_UPSCALE.value,
             DetailType.OUTPUT_MJ_VARIATION.value,
             DetailType.OUTPUT_MJ_REMIX.value,
             DetailType.OUTPUT_MJ_VARY.value,
-            DetailType.OUTPUT_MJ_ZOOM.value
+            DetailType.OUTPUT_MJ_ZOOM.value,
         ]:
             self.redis_jobs_cleanup(space_name=space_name)
               
@@ -296,7 +301,10 @@ class Data(MySQLBase, RedisBase, FileBase):
             type=type,
             detail= detail
         )
-        self.cleanup(space_name=space_name)
+        self.cleanup(
+            space_name=space_name,
+            outputType= type
+        )
 
     def process_output(
             self, 

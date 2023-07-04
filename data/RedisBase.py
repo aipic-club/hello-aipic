@@ -89,7 +89,7 @@ class RedisBase(RedisInterface):
   
     def redis_ongoing_jobs(self,  space_name: str) -> list:
         keys = self.redis.keys(f'space:{space_name}:job:*')
-        return self.redis.mget(keys)
+        return keys,self.redis.mget(keys)
     
     def redis_jobs_cleanup(self, space_name: str):
         self.__remove_keys(f'space:{space_name}:job:*:*')

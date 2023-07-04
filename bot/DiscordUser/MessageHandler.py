@@ -77,8 +77,8 @@ class MessageHandler:
 
             if task_committed:
                 #### check the worker id
-                if  worker_id == message_worker_id:
-                    self.data.update_status(
+                if  worker_id == message_worker_id and self.data.space_prompt_status(space_name=space_name) is not None:
+                    self.data.space_prompt(
                         space_name=space_name, 
                         status= TaskStatus.COMMITTED
                     )
@@ -87,9 +87,10 @@ class MessageHandler:
                 if types is None:
                     return
 
-                curInputType, curOutputType = types
+                curInputType, _ = types
 
                 print(f'output: {worker_id}, {space_name}, {curInputType.value}')
+                print(types)
 
                 if self.data.redis_is_onwer(
                     worker_id=worker_id, 
