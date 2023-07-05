@@ -182,7 +182,7 @@ async def mp(request: Request):
         token,days = data.create_trial_token(msg.source) 
         template =  f'👏👏 欢迎关注 👏👏\n这里是一个充满创造力的空间，我们相信您将在这里找到灵感的源泉。'
         if days >= 0:
-            template += '\n<a href="https://aipic.club/trial/{token}">👉👉 免费使用Midjourney 👈👈</a>'
+            template += f'\n<a href="https://aipic.club/trial/{token}">👉👉 免费使用Midjourney 👈👈</a>'
 
         reply = create_reply(template , msg)
     elif msg.type == "text":
