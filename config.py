@@ -16,4 +16,6 @@ s3config= {
     'endpoint_url' : os.environ.get("AWS.ENDPOINT")
 }
 
+image_hostname = os.environ.get("IMG.HOSTNAME")
+
 print(f'is dev mode : {is_dev}')

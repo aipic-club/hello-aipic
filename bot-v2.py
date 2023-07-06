@@ -13,6 +13,7 @@ from bot.DiscordUser.Gateway import Gateway
 from bot.DiscordUser.utils import refine_prompt, add_zoom
 from data import Data
 from config import *
+from data.values import MJ_VARY_TYPE
 
 
 
@@ -99,7 +100,8 @@ def variation(self, prompt: str,  task: dict[str, str],  index: str):
     return
 
 @celery.task(name='vary',bind=True, base=BaseTask)
-def vary(self, prompt: str, task: dict[str, str], type_index: str ):
+def vary(self, prompt: str, task: dict[str, str], type: str ):
+    vary_type = MJ_VARY_TYPE(type)
     new_prompt = refine_prompt(task['space_name'], prompt)
     gateway.loop.run_in_executor(
         pool, 
@@ -107,7 +109,7 @@ def vary(self, prompt: str, task: dict[str, str], type_index: str ):
             prompt, 
             new_prompt, 
             task=task, 
-            type_index = type_index
+            type = vary_type
         )
     )   
     return

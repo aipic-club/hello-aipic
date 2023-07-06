@@ -27,6 +27,12 @@ class MessageHandler:
                 detail= detail
             )
         )
+    def on_job_queued(self,  space_name: str):
+        if self.data.space_prompt_status(space_name=space_name) is not None:
+            self.data.space_prompt(
+                space_name=space_name, 
+                status= TaskStatus.COMMITTED
+            )
     def on_receive_describe(self,id: int, worker_id: int, embed):
         # # is describe
 

@@ -259,11 +259,12 @@ class Data(MySQLBase, RedisBase, FileBase):
     def space_prompt_status(self, space_name: str):
         return self.redis_space_prompt_status(space_name= space_name)
     
-    def space_job_add(self, space_name: str, id: int, type: DetailType):
+    def space_job_add(self, space_name: str, id: int, type: DetailType, data: str):
         self.redis_add_job(
             space_name=space_name, 
             id= id, 
-            type= type
+            type= type,
+            data= data
         )
     def spaces_jobs(self, space_name: str):
         return self.redis_ongoing_jobs(space_name=space_name)

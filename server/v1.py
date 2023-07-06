@@ -22,11 +22,10 @@ from wechatpy.events import SubscribeEvent
 
 
 from data import Data,  SysCode, random_id
-from data.values import DetailType, TaskStatus, mj_output_type,image_hostname
+from data.values import DetailType, TaskStatus
 from data.Snowflake import Snowflake
 from config import *
 from .model import *
-from .values import *
 
 Token = os.environ.get("MP.Token")
 EncodingAESKey = os.environ.get("MP.EncodingAESKey")
@@ -131,8 +130,9 @@ class ImageContext:
     
 def get_space_jobs( space_name: str):
     status = data.space_prompt_status(space_name=space_name)
-    job_keys,_ = data.spaces_jobs(space_name=space_name)
-    jobs = list(map(lambda x: ":".join(x.decode().split(":")[-3:]), job_keys))
+    jobs = data.spaces_jobs(space_name=space_name)
+    print(jobs)
+    #jobs = list(map(lambda x: ":".join(x.decode().split(":")[-3:]), job_keys))
     describe_data = data.redis_get_describe(space_name=space_name)
     describe = describe_data.get("url") if describe_data is not None else None
     return status, jobs, describe
@@ -186,7 +186,7 @@ async def mp(request: Request):
         token,days = data.create_trial_token(msg.source) 
         template =  f'👏👏 欢迎关注 👏👏\n这里是一个充满创造力的空间，我们相信您将在这里找到灵感的源泉。'
         if days >= 0:
-            template += '\n<a href="https://aipic.club/trial/{token}">👉👉 免费使用Midjourney 👈👈</a>'
+            template += f'\n<a href="https://aipic.club/trial/{token}">👉👉 免费使用Midjourney 👈👈</a>'
 
         reply = create_reply(template , msg)
     elif msg.type == "text":
@@ -299,12 +299,10 @@ def describe(
     }
 
 
-@router.get("/tasks/{space_name}/status")
+@router.get("/spaces/{space_name}/status")
 def get_space_status( context: tuple  = Depends(space_context),):
     space_name, _ , _  = context
     status, jobs,  describe  = get_space_jobs(space_name=space_name)
-    job_keys,_ = data.spaces_jobs(space_name=space_name)
-    jobs = list(map(lambda x: ":".join(x.decode().split(":")[-3:]), job_keys))
     return {
         'status': status,
         'jobs': jobs,
@@ -338,7 +336,10 @@ async def upscale(
             allowed_types =[
                 DetailType.OUTPUT_MJ_IMAGINE,
                 DetailType.OUTPUT_MJ_REMIX,
-                DetailType.OUTPUT_MJ_VARIATION
+                DetailType.OUTPUT_MJ_VARIATION,
+                DetailType.OUTPUT_MJ_VARY,
+                DetailType.OUTPUT_MJ_PAN,
+                DetailType.OUTPUT_MJ_ZOOM
             ]
         )
     )
@@ -371,7 +372,10 @@ async def upscale(
             allowed_types =[
                 DetailType.OUTPUT_MJ_IMAGINE,
                 DetailType.OUTPUT_MJ_REMIX,
-                DetailType.OUTPUT_MJ_VARIATION
+                DetailType.OUTPUT_MJ_VARIATION,
+                DetailType.OUTPUT_MJ_VARY,
+                DetailType.OUTPUT_MJ_PAN,
+                DetailType.OUTPUT_MJ_ZOOM
             ]
         )
     )
@@ -417,8 +421,6 @@ async def vary(
     worker_id = Snowflake.parse_snowflake_worker_id(snowflake_id = context.get('id'))
     broker_id , _ = Snowflake.parse_worker_id(worker_id = worker_id)
 
-    type_index =  get_vary_type(body.type) 
-
     celery.send_task('vary',
         (
             body.prompt,
@@ -427,7 +429,7 @@ async def vary(
                 'ref_id': context.get('id'),
                 'worker_id': worker_id
             },
-            type_index
+            body.type
         ),
         queue= f"queue_{broker_id}"
     )

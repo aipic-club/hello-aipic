@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import Annotated, Callable, Optional, Union
-from .values import MJ_VARY_TYPE, MJ_PAN_TYPE
+from data.values import MJ_VARY_TYPE, MJ_PAN_TYPE
 
 
 class ImagineBody(BaseModel):

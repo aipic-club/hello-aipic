@@ -93,7 +93,9 @@ def get_dict_value(dct, keys):
 
 
 def is_imagine(content: str) -> str | None:
-    return "(relaxed)"  in content or "(fast)" in content
+    return any(keyword in content for keyword in ["(relaxed)", "(relaxed, stealth)", "(fast)", "(fast, stealth)"])
+    #return "(relaxed)"  in content or "(fast)" in content
+
 
 def get_space_name(content: str) -> str | None:
     match = re.search(r"--no\s([\.\w]+)", content)

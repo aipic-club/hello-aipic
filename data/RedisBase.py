@@ -84,12 +84,15 @@ class RedisBase(RedisInterface):
     def redis_space_prompt_cleanup(self, space_name: str) -> int | None:
         self.__remove_keys(f'space:{space_name}:prompt') 
 
-    def redis_add_job(self, space_name: str, id: int, type: DetailType):
-        self.redis.setex(f'space:{space_name}:job:{id}:{type.name}', config['wait_time'] ,  type.value)
+    def redis_add_job(self, space_name: str, id: int, type: DetailType, data: str):
+        self.redis.setex(f'space:{space_name}:job:{id}:{type.name}', config['wait_time'] ,  data)
   
     def redis_ongoing_jobs(self,  space_name: str) -> list:
         keys = self.redis.keys(f'space:{space_name}:job:*')
-        return keys,self.redis.mget(keys)
+        values = self.redis.mget(keys)
+        result_dict = {key.decode(): value.decode() for key, value in zip(keys, values)}
+        jobs =  list(map(lambda item: ":".join(item.split(":")[-2:]) + f":{result_dict[item]}", result_dict))
+        return jobs
     
     def redis_jobs_cleanup(self, space_name: str):
         self.__remove_keys(f'space:{space_name}:job:*:*')

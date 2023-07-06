@@ -63,26 +63,21 @@ class UserProxy:
                             print(f'== debug embeeds == {title}, {description}')
                             if title == 'Action needed to continue':
                                 print(data)
-
                                 components = data.get("components", [])
-
-
                                 print(components)
-
                                 custom_id = components[0].get("custom_id")
                                 pass
                             elif title == 'Queue full':
-
-
                                 return
                             elif title == 'Job queued':
-                                return
-                            elif title == 'Invalid parameter':
-                                taskId = get_space_name(embeds[0].get('footer',{}).get('text'))
+                                space_name = get_space_name(embeds[0].get('footer',{}).get('text'))
+                                self.messageHandler.on_job_queued(space_name=space_name)
+                            elif title == 'Invalid parameter' or title == "Invalid link":
+                                space_name = get_space_name(embeds[0].get('footer',{}).get('text'))
                                 id = self.generate_id()
                                 self.messageHandler.on_invalid_parameter(
                                     id,
-                                    taskId,
+                                    space_name,
                                     detail= {
                                         'ref': str(nonce),
                                         'title': title,

@@ -4,6 +4,8 @@ import io
 import concurrent.futures
 import mimetypes
 import random
+
+from data.values import MJ_VARY_TYPE, get_vary_type
 from . import UserProxy
 from .MessageHandler import MessageHandler
 from .utils import *
@@ -93,10 +95,12 @@ class Gateway:
             space_name= space_name,
             type=task_type
         )
+        
         self.data.space_job_add(
             space_name= space_name,
             id=task['ref_id'],
-            type= task_type
+            type= task_type,
+            data = detail.get("type", "")
         ) 
     
 
@@ -200,17 +204,19 @@ class Gateway:
                 )
             )
     
-    def create_vary(self, prompt: str, new_prompt: str, task: dict[str, str], type_index: int):
+    def create_vary(self, prompt: str, new_prompt: str, task: dict[str, str], type: MJ_VARY_TYPE):
         worker_id =  self.get_task_worker_id(task)
         if worker_id is not None:
             current_user = self.users[worker_id]
+            type_index = get_vary_type(type = type)
             if type_index == 1:
                 job_type = 'high_variation'
             else:
                 job_type = 'low_variation'
+
             detail = {
                 'ref': str(task['ref_id']),
-                'type': type_index,
+                'type': type.value,
                 'prompt': prompt
             }
             task_type = DetailType.INPUT_MJ_VARY
@@ -239,7 +245,7 @@ class Gateway:
             task_type = DetailType.INPUT_MJ_ZOOM
             detail = {
                 'ref': str(task['ref_id']),
-                'zoom': zoom,
+                'type': zoom,
                 'prompt': prompt
             }            
             self.pre_send(
