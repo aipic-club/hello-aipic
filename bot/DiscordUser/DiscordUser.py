@@ -83,7 +83,7 @@ class DiscordUser:
   
 
     async def __on_message(self, op: Opcodes , data: dict, sequence_number: int, event_name: str | None):
-        #print(op, data, event_name)
+        # print(op, data, event_name)
         self.sequence_number = sequence_number
         if op is Opcodes.HELLO:
             self.hb = self.loop.create_task(self.__send_heartbeat(data['heartbeat_interval']))
@@ -96,7 +96,9 @@ class DiscordUser:
         # print("=====")
         ##########
         if self.on_message is not None:
-            if event_name == Events.INTERACTION_SUCCESS.value:
+            if event_name == Events.READY.value:
+                self.session_id = data['session_id']
+            elif event_name == Events.INTERACTION_SUCCESS.value:
                 self.on_message(Events.INTERACTION_SUCCESS, data)
             elif event_name == Events.MESSAGE_CREATE.value:
                 if get_dict_value(data, 'author.id')  == str(MJBotId):

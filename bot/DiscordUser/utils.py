@@ -13,7 +13,7 @@ utc_offset_seconds = date_object.utcoffset().total_seconds()
 
 
 
-def refine_prompt(taskId: str, prompt: str):
+def refine_prompt(space_name: str, prompt: str):
     pattern = r'(--?\w+\s+[\w:\.]+)+'
     new_prompt = ""
     unique_params = {}
@@ -38,9 +38,10 @@ def refine_prompt(taskId: str, prompt: str):
     ))
     param = re.split(pattern, prompt)
     # # Print the matches
-    for p in param:
-
-        if p == " ":
+    #print(param)
+    for _p in param:
+        p =  _p.strip()
+        if not p:
             continue
         elif p.startswith("--"):
             key,value = p.split(" ",1)
@@ -49,16 +50,23 @@ def refine_prompt(taskId: str, prompt: str):
         else:
             new_prompt += f"{p}"
     for k in unique_params:
-        ["--aspect", ""]
-        new_prompt += f" {k} {unique_params.get(k)}"
+        v = unique_params.get(k)
+        if k == "--no" and v == space_name:
+            continue
+        else:
+            new_prompt += f" {k} {v}"
     if "--no" in new_prompt:
-        new_prompt = new_prompt.replace("--no", f"--no {taskId},")
+        new_prompt = new_prompt.replace("--no", f"--no {space_name},")
     else:
-        new_prompt += f" --no {taskId}"    
+        new_prompt += f" --no {space_name}"    
 
     ### replace image link
     new_prompt = re.sub(r"https://imgcdn.aipic.club/upload/", "http://imgcdn.aipic.club/upload/", new_prompt)
     return new_prompt
+
+def add_zoom(prompt: str, zoom: float):
+    prompt += f" --zoom {zoom}" 
+    return prompt   
 
 
 
@@ -84,10 +92,12 @@ def get_dict_value(dct, keys):
     return reduce(lambda d, key: d.get(key) if d else None, keys.split("."), dct)
 
 
-def is_draft(content: str) -> str | None:
-    return "(relaxed)"  in content or "(fast)" in content
+def is_imagine(content: str) -> str | None:
+    return any(keyword in content for keyword in ["(relaxed)", "(relaxed, stealth)", "(fast)", "(fast, stealth)"])
+    #return "(relaxed)"  in content or "(fast)" in content
 
-def get_taskId(content: str) -> str | None:
+
+def get_space_name(content: str) -> str | None:
     match = re.search(r"--no\s([\.\w]+)", content)
     if match:
         return match.group(1)
@@ -95,30 +105,55 @@ def get_taskId(content: str) -> str | None:
 def is_committed(content: str) -> bool:
     return "(Waiting to start)" in content
 def is_variation(content: str) -> bool:
-    #Variations by
     return  "Variations by" in content
-def  is_remix(content: str) -> bool:
+def is_vary(content: str) -> bool:
+    return "Variations (Strong) by" in content or "Variations (Subtle) by" in content
+def is_remix(content: str) -> bool:
     return "Remix by" in content
+def is_zoom(content: str) -> bool:
+    return "Zoom Out by" in content
+def is_pan(content: str) -> bool:
+    return any(keyword in content for keyword in ["Pan Left by", "Pan Right by", "Pan Up by", "Pan Down by"])
 def is_upsacle(content: str) -> bool:
     #Image #1
     return re.search(r"Image\s#\d", content)
 
-
-
-def status_type(content: str):
-    if is_committed(content):
-        return TaskStatus.COMMITTED
-    elif output_type(content) is not None:
-        return TaskStatus.FINISHED
     
-def output_type(content: str) -> DetailType | None:
+def input_output_type(content: str) -> tuple[DetailType,DetailType] | None :
     if is_remix(content):
-        return DetailType.OUTPUT_MJ_REMIX
+        return (
+            DetailType.INPUT_MJ_REMIX,
+            DetailType.OUTPUT_MJ_REMIX
+        )
     elif is_variation(content):
-        return DetailType.OUTPUT_MJ_VARIATION
+        return (
+            DetailType.INPUT_MJ_VARIATION,
+            DetailType.OUTPUT_MJ_VARIATION
+        )
     elif is_upsacle(content):
-        return DetailType.OUTPUT_MJ_UPSCALE
-    elif is_draft(content):
-        return DetailType.OUTPUT_MJ_PROMPT
+        return (
+            DetailType.INPUT_MJ_UPSCALE,
+            DetailType.OUTPUT_MJ_UPSCALE
+        )
+    elif is_vary(content):
+        return (
+            DetailType.INPUT_MJ_VARY,
+            DetailType.OUTPUT_MJ_VARY
+        )
+    elif is_zoom(content):
+        return (
+            DetailType.INPUT_MJ_ZOOM,
+            DetailType.OUTPUT_MJ_ZOOM
+        )
+    elif is_pan(content):
+        return (
+            DetailType.INPUT_MJ_PAN,
+            DetailType.OUTPUT_MJ_PAN
+        )
+    elif is_imagine(content):
+        return (
+            DetailType.INPUT_MJ_IMAGINE,
+            DetailType.OUTPUT_MJ_IMAGINE
+        )    
     else:
-        return None
+        return (None, None)

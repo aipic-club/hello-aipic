@@ -10,9 +10,10 @@ from PIL import Image
 from celery import Celery
 from celery.signals import worker_init
 from bot.DiscordUser.Gateway import Gateway
-from bot.DiscordUser.utils import refine_prompt
-from data import Data_v2
+from bot.DiscordUser.utils import refine_prompt, add_zoom
+from data import Data
 from config import *
+from data.values import MJ_VARY_TYPE
 
 
 
@@ -20,11 +21,12 @@ pool = concurrent.futures.ThreadPoolExecutor(max_workers=10)
 
 celery = Celery('tasks', broker= celery_broker)
 
-data = Data_v2(
-        redis_url = redis_url,
-        mysql_url= mysql_url,
-        proxy = proxy,
-        s3config = s3config
+data = Data(
+    is_dev= is_dev,
+    redis_url = redis_url,
+    mysql_url= mysql_url,
+    proxy = proxy,
+    s3config = s3config
 )
 atexit.register(data.close)
 
@@ -60,25 +62,21 @@ def ping():
     print('pong')
 
 
-@celery.task(name='prompt',bind=True, base=BaseTask)
+@celery.task(name='imagine',bind=True, base=BaseTask)
 def add_task(
         self,
-        broker_id: int | None, 
-        account_id: int | None, 
-        token_id: int , 
-        taskId: str, 
+        token_type: int,
+        space_name: str, 
         prompt: str, 
         raw: str, 
         execute: bool
     ):
-    new_prompt = refine_prompt(taskId, prompt)
+    new_prompt = refine_prompt(space_name, prompt)
     gateway.loop.run_in_executor(
         pool, 
         lambda: gateway.create_prompt(
-            broker_id,
-            account_id,
-            token_id,
-            taskId, 
+            token_type,
+            space_name, 
             prompt, 
             new_prompt,
             raw,
@@ -89,21 +87,78 @@ def add_task(
 
 @celery.task(name='variation', bind=True,  base=BaseTask)
 def variation(self, prompt: str,  task: dict[str, str],  index: str):
-    new_prompt = refine_prompt(task['taskId'], prompt)
-
+    new_prompt = refine_prompt(task['space_name'], prompt)
     gateway.loop.run_in_executor(
         pool, 
-        lambda: gateway.create_variation(prompt, new_prompt, task=task, index= index)
+        lambda: gateway.create_variation(
+            prompt,
+            new_prompt, 
+            task=task, 
+            index= index
+        )
     )    
     return
-@celery.task(name='upscale',bind=True, base=BaseTask)
-def upscale(self,  task: dict[str, str], index: str):
 
+@celery.task(name='vary',bind=True, base=BaseTask)
+def vary(self, prompt: str, task: dict[str, str], type: str ):
+    vary_type = MJ_VARY_TYPE(type)
+    new_prompt = refine_prompt(task['space_name'], prompt)
     gateway.loop.run_in_executor(
         pool, 
-        lambda: gateway.create_upscale( task=task, index= index)
+        lambda: gateway.create_vary( 
+            prompt, 
+            new_prompt, 
+            task=task, 
+            type = vary_type
+        )
     )   
     return
+
+
+@celery.task(name='upscale',bind=True, base=BaseTask)
+def upscale(self,  task: dict[str, str], index: str):
+    gateway.loop.run_in_executor(
+        pool, 
+        lambda: gateway.create_upscale( 
+            task=task, 
+            index= index
+        )
+    )   
+    return
+
+
+
+@celery.task(name='zoom',bind=True, base=BaseTask)
+def zoom(self, prompt: str, zoom:float, task: dict[str, str]):
+    new_prompt = refine_prompt(task['space_name'], prompt) if prompt is not None else None
+    new_prompt = add_zoom(prompt= new_prompt, zoom=zoom)
+    gateway.loop.run_in_executor(
+        pool, 
+        lambda: gateway.create_zoom( 
+            prompt=prompt,
+            new_prompt=new_prompt,
+            zoom= zoom,
+            task=task
+        )
+    )   
+    return
+
+@celery.task(name='pan',bind=True, base=BaseTask)
+def pan(self, prompt: str, type: str, task: dict[str, str]):
+    new_prompt = refine_prompt(task['space_name'], prompt) if prompt is not None else None
+    gateway.loop.run_in_executor(
+        pool, 
+        lambda: gateway.create_pan( 
+            prompt=prompt,
+            new_prompt=new_prompt,
+            type=type,
+            task=task
+        )
+    )   
+    return
+
+
+
 
 @celery.task(name='reroll',bind=True, base=BaseTask)
 def reroll(self, task: dict[str, str, str]):
@@ -111,10 +166,10 @@ def reroll(self, task: dict[str, str, str]):
 
 
 @celery.task(name="describe",bind=True, base=BaseTask)
-def describe(self, taskId: str, url: str):
+def describe(self, space_name: str, url: str):
     gateway.loop.run_in_executor(
         pool, 
-        lambda: gateway.describe_a_image( taskId=taskId, url= url)
+        lambda: gateway.describe_a_image( space_name=space_name, url= url)
     )  
     return
 

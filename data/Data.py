@@ -8,18 +8,20 @@ from .MySQLBase import MySQLBase
 from .RedisBase import RedisBase
 from .FileBase import FileBase
 from .Snowflake import Snowflake
-from .values import DetailType,output_type,get_cost, image_hostname, config,SysCode, TokenType
+from .values import DetailType,mj_output_type,get_cost, image_hostname, config,SysCode, TokenType
 
-class Data_v2(MySQLBase, RedisBase, FileBase):
+class Data(MySQLBase, RedisBase, FileBase):
     def __init__(self, 
+            is_dev: bool,
             redis_url: str, 
             mysql_url:str, 
             proxy: str | None,
             s3config : dict
     ) -> None:
-        super().__init__(url = mysql_url)
+        MySQLBase.__init__(self, url = mysql_url)
         RedisBase.__init__(self, url = redis_url)
         FileBase.__init__(self, config= s3config, proxy= proxy)
+        self.is_dev = is_dev
         self.snowflake = Snowflake(worker_id= 0, epoch= None)
     def close(self):
         self.mysql_close()
@@ -34,54 +36,42 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
     def generate_unique_id(self):
         return self.redis.incr("unique_id_counter")
 
-    def __insert_detail(self, id: int, task_id: int, type: DetailType, detail: dict, cnx):
+    def __insert_detail(self, id: int, space_id: int, type: DetailType, detail: dict, cnx):
         sql = (
             "INSERT INTO `detail` "
-            "( `id`, `task_id`, `type`, `detail`, `create_at` )"
-            "VALUES ( %(id)s, %(task_id)s, %(type)s, %(detail)s, %(create_at)s)"
+            "( `id`, `space_id`, `type`, `detail`, `create_at` )"
+            "VALUES ( %(id)s, %(space_id)s, %(type)s, %(detail)s, %(create_at)s)"
         )
         new_params = {
             'id': id,
-            'task_id': task_id,
+            'space_id': space_id,
             'type': type.value,
             'detail': json.dumps(detail),
             'create_at': datetime.now(timezone(offset= timedelta(hours= 0)))
         }
         self.mysql_execute(sql=sql, params= new_params, lastrowid= False, _cnx = cnx )
     
-    def __insert_detail_and_audit(self, id: int, taskId: str, type: DetailType, detail: dict):
+    def __insert_detail_and_audit(self, id: int, space_name: str, type: DetailType, detail: dict):
         cnx = self.pool.get_connection()
         cursor = cnx.cursor(dictionary=True)
         try:
             cnx.start_transaction()
             ### 
-            sql = "SELECT `id`,`token_id` FROM `task` WHERE taskId = %(taskId)s"
+            sql = "SELECT `id`,`token_id` FROM `space` WHERE name = %(space_name)s"
             new_params = {
-                'taskId': taskId
+                'space_name': space_name
             }
             record = self.mysql_fetchone(sql=sql, params= new_params, _cnx = cnx)
             if record is not None:
                 token_id = record['token_id']
                 self.__insert_detail(
                     id= id,
-                    task_id= record['id'],
+                    space_id= record['id'],
                     type= type,
                     detail= detail,
                     cnx= cnx
                 )
-                # sql = (
-                #     "INSERT INTO `detail` "
-                #     "( `id`, `task_id`, `type`, `detail`) "
-                #     "VALUES ( %(id)s, %(task_id)s, %(type)s, %(detail)s)"
-                # )
-                # new_params = {
-                #     'id': id,
-                #     'task_id': record['id'],
-                #     'type': type.value,
-                #     'detail': json.dumps(detail)
-                # }
-                # self.mysql_execute(sql=sql, params= new_params, lastrowid= False, _cnx = cnx )
-                if type.value in output_type:
+                if type.value in mj_output_type:
                     print("add audit")
                     cost = get_cost(type= type)
                     sql = ("INSERT INTO `token_audit` (`token_id`, `task_id`, `cost`) VALUES (%(token_id)s, %(task_id)s,%(cost)s)")
@@ -100,13 +90,15 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         finally:
             cursor.close()
             cnx.close()
-    def get_token_id(self, token: str) -> tuple:
+    def get_token_info(self, token: str) -> tuple:
         id = None
+        info = {}
         code = SysCode.OK
         try:
-            id = self.redis_get_token(token= token)
-            cost = self.redis_get_cost(token_id= id)
-            if id is None or cost is None:
+            # id = self.redis_get_token(token= token)
+            data  = self.redis_get_token(token= token)
+            cost = self.redis_get_cost(token_id= data.get("id")) if data is not None else None
+            if data is None or cost is None:
                 sql =(
                     "SELECT t.id,TIMESTAMPDIFF(SECOND, NOW(), t.expire_at ) as ttl, t.type, t.balance, t.expire_at, COALESCE(a.cost, 0) AS cost"
                     " FROM tokens AS t"
@@ -127,66 +119,69 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
                     else:
                         id = record['id']
                         ttl = record['ttl']
-                        balance = record['balance']
-                        type = record['type']
-                        cost = int(record['cost'])
                         expire_at = record['expire_at'].strftime("%Y-%m-%dT%H:%M:%SZ")
-                        self.redis_set_token(token=token, ttl = ttl, id= id)
-                        data = {
-                            'balance': balance,
-                            'cost': cost,
-                            'type': type,
+                        info = {
+                            'id': id,
+                            'balance': record['balance'],
+                            'type': record['type'],
                             'expire_at': expire_at
                         }
 
+                        self.redis_set_token(token=token, ttl = ttl, data = info)
                         self.redis_init_cost(
-                            token_id= id, 
-                            ttl = ttl, 
-                            data = data        
+                            token_id = id,
+                            ttl = ttl,
+                            cost = int(record['cost'])
                         )
                 else:
                     code = SysCode.TOKEN_NOT_EXIST_OR_EXPIRED
             else:
-                if cost.get("cost") > cost.get("balance"):
-                    code = SysCode.TOKEN_OUT_OF_BALANCE
-
+                id = data.get("id")
+                info = data
         except Exception as e:
             print(e)
             code = SysCode.FATAL
-        return (id, code, )
-        
+        return (id, info, int(cost), code, )
+    def get_all_spaces(self, token_id: str):
+        spaces =  self.mysql_fetchall(sql="SELECT `name` FROM `space`", params= None)
+        spaces = list(map(lambda x: x.get('name'), spaces))
+        self.redis.rpush(f'token_id:{token_id}', *spaces)
+        return spaces
 
-    def create_task(self, token_id: str, taskId: str, cnx = None) -> int:
-        sql = ("INSERT INTO `task` (`token_id`, `taskId` ) VALUES( %(token_id)s, %(taskId)s)")
+
+    def create_space(self, token_id: str, name: str, cnx = None) -> int:
+        sql = ("INSERT INTO `space` (`token_id`, `name` ) VALUES( %(token_id)s, %(name)s)")
         id = self.mysql_execute(sql, params= {
             'token_id': token_id, 
-            'taskId': taskId
+            'name': name
         }, lastrowid= True, _cnx = cnx)
         return id
-    def check_task(self, id: int, ref_id: int, taskId: str ):
-        status = self.redis_task_status(token_id=None, taskId= taskId)
-        if status is not None:
-            type = DetailType.OUTPUT_MJ_TIMEOUT
-            self.cleanup(taskId=taskId, type= type)
-            self.save_input(
-                id=id,
-                taskId=taskId,
-                type=type,
-                detail={
-                    'ref': str(ref_id),
-                }
-            )
+    
+    def check_task(self, id: int, ref_id: int, space_name: str ):
+        # status = self.redis_space_ongoing_prompt_status(token_id=None, taskId= taskId)
+        # if status is not None:
+        #     type = DetailType.OUTPUT_MJ_TIMEOUT
+        #     self.cleanup(taskId=taskId, type= type)
+        #     self.save_input(
+        #         id=id,
+        #         taskId=taskId,
+        #         type=type,
+        #         detail={
+        #             'ref': str(ref_id),
+        #         }
+        #     )
+        pass
             
 
-    def get_task(self, token_id: int, taskId: str ):
-        cache_key = f'cache:{token_id}:{taskId}'
+    def get_space(self, token: str, token_id: int, space_name: str ):
+        cache_key = f'cache:space_id:{token}:{space_name}'
         cache_data =  self.get_cache(cache_key)
         if cache_data is None:
             sql = (
-                "SELECT id  FROM `task`  WHERE status = 1 AND taskId=%(taskId)s AND token_id=%(token_id)s" 
+                "SELECT id  FROM `space`  WHERE status = 1 AND name=%(name)s AND token_id=%(token_id)s" 
             )
             params = {
-                'taskId': taskId,
+                'name': space_name,
                 'token_id': token_id
             }
             record =  self.mysql_fetchone(sql=sql, params= params)  
@@ -198,9 +193,15 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
                 return None
         else:
             return int(cache_data) 
+        
+    def clean_space(self, token: str, space_name: str):
+        cache_key = f'cache:space_id:{token}:{space_name}'
+        self.remove_cache(cache_key)
+        self.__update_space_feild(space_name=space_name, field = 'status', value=0 )
+
     def get_detail(
             self, 
-            task_id: int, 
+            space_id: int, 
             page: int = 0, 
             page_size: int = 10,
             before: str = None,
@@ -210,21 +211,21 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         if after is not None:
             sql = (
                 "SELECT  `id`, `type`, `detail`,`create_at` FROM detail"
-                " WHERE `task_id`=%(task_id)s AND `create_at` >'{after}'"
+                " WHERE `space_id`=%(space_id)s AND `create_at` >'{after}'"
                 " LIMIT %(page_size)s OFFSET %(offset)s"
             ).format(after= after)
         else:
             sql = (
                 "SELECT  `id`, `type`, `detail`,`create_at` FROM "
                 " ( SELECT  * FROM detail"
-                " WHERE `task_id`=%(task_id)s AND `create_at` <'{before}'"
+                " WHERE `space_id`=%(space_id)s AND `create_at` <'{before}'"
                 " ORDER BY `id` DESC"
                 " LIMIT %(page_size)s OFFSET %(offset)s "
                 " ) sub ORDER BY `id` ASC"
             ).format(before= before if before is not None else datetime.now(timezone(offset= timedelta(hours= 0))))
         offset = (page - 1) * page_size
         params = {
-            'task_id': task_id,
+            'space_id': space_id,
             'offset': offset,
             'page_size': page_size,
         }
@@ -236,13 +237,13 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         )
         params = {
             'task_id': task_id,
-            'type': DetailType.INPUT_MJ_PROMPT.value
+            'type': DetailType.INPUT_MJ_IMAGINE.value
         }
         return self.mysql_fetchone(sql=sql, params=params)
-    def save_input(self, id: int, taskId: int, type: DetailType , detail: dict ):
+    def save_input(self, id: int, space_name: str, type: DetailType , detail: dict ):
         self.__insert_detail_and_audit(
             id=id,
-            taskId= taskId, 
+            space_name= space_name, 
             type= type, 
             detail= detail
         )
@@ -251,77 +252,91 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
     def get_interaction(self, key)-> int:
         return self.redis_get_interaction(key=key)
     
-    def update_status(self, taskId: str, status:TaskStatus , token_id = None) -> None:
-        self.redis_task(token_id= token_id,  taskId=taskId, status= status, ttl= config['wait_time'] )
-    def commit_task(self,  taskId: str ,  worker_id: int, status: TaskStatus = TaskStatus.COMMITTED):
-
-        self.redis_set_onwer(worker_id=worker_id, taskId=taskId)
-        self.update_status(taskId=taskId, status=status)
-
-    def cleanup(self, taskId: str, type: DetailType):
-        #if type is DetailType.OUTPUT_MJ_PROMPT or type is DetailType.OUTPUT_MJ_TIMEOUT:
-        if type.value in [
-            DetailType.OUTPUT_MJ_PROMPT.value,
-            DetailType.OUTPUT_MJ_TIMEOUT.value,
-            DetailType.OUTPUT_MJ_INVALID_PARAMETER.value
-        ]:
-            self.redis_task_cleanup(taskId= taskId)
-        else:
-            self.redis_task_job_cleanup(taskId= taskId)
-        # elif type is DetailType.OUTPUT_MJ_REMIX:
-        #     pass            
-        # elif type is DetailType.OUTPUT_MJ_VARIATION:
-        #     pass
-        # elif type is DetailType.OUTPUT_MJ_UPSCALE:
-        #     pass
-        # elif type is DetailType.OUTPUT_MJ_REMIX:
-        #     pass
-
-    def is_task_onwer(self,  worker_id: int,  taskId: str) -> bool:
+    def space_prompt(self, space_name: str, status:TaskStatus ) -> None:
+        self.redis_space_prompt(
+            space_name= space_name, 
+            status= status, 
+            ttl= config['wait_time'] 
+        )
+    def space_prompt_status(self, space_name: str):
+        return self.redis_space_prompt_status(space_name= space_name)
     
-        return self.redis_get_onwer( worker_id=  worker_id, taskId= taskId) is not None
+    def space_job_add(self, space_name: str, id: int, type: DetailType, data: str):
+        self.redis_add_job(
+            space_name=space_name, 
+            id= id, 
+            type= type,
+            data= data
+        )
+    def spaces_jobs(self, space_name: str):
+        return self.redis_ongoing_jobs(space_name=space_name)
 
 
+
+    def cleanup(self, space_name: str, inputType: DetailType = None, outputType : DetailType = None):
+        print(f"🧹 clean  space {space_name}")
+
+        self.redis_clear_onwer(space_name=space_name, type= inputType)
+        if (inputType is None and outputType is None) or outputType is DetailType.OUTPUT_MJ_INVALID_PARAMETER:
+            self.redis_jobs_cleanup(space_name=space_name)
+        if outputType is DetailType.OUTPUT_MJ_IMAGINE or outputType is DetailType.OUTPUT_MJ_INVALID_PARAMETER : 
+            self.redis_space_prompt_cleanup(space_name= space_name)
+        elif outputType.value in [
+            DetailType.OUTPUT_MJ_UPSCALE.value,
+            DetailType.OUTPUT_MJ_VARIATION.value,
+            DetailType.OUTPUT_MJ_REMIX.value,
+            DetailType.OUTPUT_MJ_VARY.value,
+            DetailType.OUTPUT_MJ_ZOOM.value,
+        ]:
+            self.redis_jobs_cleanup(space_name=space_name)
+              
     def process_error(
             self,
             id: int,
-            taskId: str ,  
+            space_name: str ,  
             type: DetailType, 
             detail: dict
     ):
         type = DetailType.OUTPUT_MJ_INVALID_PARAMETER
         self.save_input(
             id=id,
-            taskId=taskId,
+            space_name=space_name,
             type=type,
             detail= detail
         )
-        self.cleanup(taskId=taskId, type=type)
-
+        self.cleanup(
+            space_name=space_name,
+            outputType= type
+        )
 
     def process_output(
             self, 
             id: int,
-            taskId: str ,  
-            type: DetailType, 
+            space_name: str ,  
+            types: tuple[DetailType,DetailType], 
             reference: int | None,  
             message_id: str,  
             url: str
         ):
+        curInputType, curOutputType = types
         file_name = str(url.split("_")[-1])
         hash = str(file_name.split(".")[0])
-        url_cn = f'{image_hostname}/{taskId}/{file_name}' 
+        url_cn = f'{image_hostname}/{space_name}/{file_name}' 
         # copy to s3 bucket
-        print("🖼upload image")
-        loop = asyncio.new_event_loop()
-        loop.run_until_complete(
-            self.file_copy_url_to_bucket(
-                url = url,
-                path =  taskId,
-                file_name = file_name
-            )
-        )  
-        loop.close()  
+        if self.is_dev:
+            print(f"🖼dev mode , output url is {url}")
+            url_cn = url
+        else:
+            print("🖼upload image")
+            loop = asyncio.new_event_loop()
+            loop.run_until_complete(
+                self.file_copy_url_to_bucket(
+                    url = url,
+                    path =  space_name,
+                    file_name = file_name
+                )
+            )  
+            loop.close()  
         detail = {
             'id': message_id,
             'hash': hash,
@@ -330,44 +345,64 @@ class Data_v2(MySQLBase, RedisBase, FileBase):
         }
         self.__insert_detail_and_audit(
             id=id,
-            taskId= taskId, 
-            type= type, 
+            space_name= space_name, 
+            type= curOutputType, 
             detail= detail
         )
-        self.update_task_cover(taskId= taskId, cover= url_cn)
-        self.cleanup(taskId= taskId, type= type)
-
-    def get_detail_by_id(self, token_id: int, detail_id: int):
-        sql = (
-            "SELECT t.taskId, d.detail, d.type FROM detail d LEFT JOIN task t ON d.task_id = t.id WHERE t.token_id = %(token_id)s AND  d.id=%(id)s"
+        self.update_space_cover(
+            space_name= space_name, 
+            cover= url_cn
         )
+        self.cleanup(
+            space_name= space_name, 
+            inputType= curInputType, 
+            outputType = curOutputType
+        )
+
+    def get_detail_by_id(self, token_id: int, detail_id: int, types: list[DetailType] = None):
+        sql = (
+            "SELECT s.name, d.detail, d.type FROM detail d" 
+            " LEFT JOIN space s ON d.space_id = s.id"
+            " WHERE s.token_id = %(token_id)s AND  d.id=%(id)s"
+        )
+        if types is not None and len(types) > 0:
+            if len(types) == 1:
+                sql += f" AND `type`={types[0].value}"
+            else:
+                types_list = [t.value for t in types]
+                types_sql = ','.join(map(str, types_list))
+                sql += f" AND `type` in ({types_sql})"
         params = {
             'token_id': token_id,
-            'id': detail_id
+            'id': detail_id,
+
         }
         return self.mysql_fetchone(sql=sql,params=params)
 
-    def __update_task_feild(self, taskId: str , field: str, value: str| int, update_when_none : bool = False):
-        additional_sql = " AND {field}='' " if update_when_none else ''
+    def __update_space_feild(self, space_name: str , field: str, value: str| int, update_when_none : bool = False):
         sql = (
-            "UPDATE `task` SET {field}=%(value)s  WHERE taskId=%(taskId)s" +  additional_sql
+            "UPDATE `space` SET {field}=%(value)s  WHERE name=%(name)s"
         ).format(field=field)
+        if update_when_none:
+            sql += " AND {field}='' "
         params = {
-            'taskId': taskId,
+            'name': space_name,
             'value': value
         }
         return self.mysql_execute(sql = sql, params= params, lastrowid= True)
-    def update_task_topic(self,  taskId: str, topic: str, update_when_none : bool = False):
-        self.__update_task_feild( taskId=taskId, field = 'topic', value=topic, update_when_none= update_when_none )
-    def update_task_cover(self, taskId: str, cover: str):
-        self.__update_task_feild(taskId=taskId,field = 'cover', value=cover )
-    def delete_task(self, taskId: str):
-        self.__update_task_feild(taskId=taskId, field = 'status', value=0 )
-    def get_tasks_by_token_id(self, token_id,  page: int = 0, page_size: int = 10):
+    
+    def update_space_topic(self,  space_name: str, topic: str, update_when_none : bool = False):
+        self.__update_space_feild( space_name=space_name, field = 'topic', value=topic, update_when_none= update_when_none )
+
+    def update_space_cover(self, space_name: str, cover: str):
+        self.__update_space_feild(space_name=space_name,field = 'cover', value=cover )
+
+
+    def get_spaces_by_token_id(self, token_id,  page: int = 0, page_size: int = 10):
         sql =(
-            "SELECT t.taskId as id, t.topic, t.cover, t.create_at FROM task t"
-            " WHERE t.token_id = %(token_id)s AND t.status != 0"
-            " ORDER BY t.id DESC"                
+            "SELECT s.name as id, s.topic, s.cover, s.create_at FROM space s"
+            " WHERE s.token_id = %(token_id)s AND s.status != 0"
+            " ORDER BY s.id DESC"                
             " LIMIT %(page_size)s OFFSET %(offset)s"
         )
         offset = (page - 1) * page_size

@@ -1,26 +1,12 @@
 from .values import MJBotId
 class payloads:
+
     @staticmethod
     def prompt(ids: dict[str, str], prompt: str, nonce: int):
         return {
             **ids,
             "type":2,
-            "session_id":"435b587a1db9552069d068c373c6f57a",
-            "data":{
-                "version":"1077969938624553050","id":"938956540159881230",
-                "name":"imagine","type":1,"options":[{"type":3,"name":"prompt","value":prompt}],
-                "application_command":{"id":"994261739745050684","application_id": MJBotId,"version":"994261739745050685","default_member_permissions": None,"type":1,"nsfw":False,"name":"ask","description":"Get an answer to a question.","dm_permission":True,"options":[{"type":3,"name":"question","description":"What is the question?","required":True}]},
-                "attachments":[]
-            },
-            "nonce": nonce
-        }
-
-    @staticmethod
-    def prompt_v1118961510123847772(ids: dict[str, str], prompt: str, nonce: int):
-        return {
-            **ids,
-            "type":2,
-            "session_id":"435b587a1db9552069d068c373c6f57a",
+            # "session_id":"435b587a1db9552069d068c373c6f57a",
             "data":{
                 "version": "1118961510123847772",
                 "id": "938956540159881230",
@@ -60,7 +46,7 @@ class payloads:
         return {
             "type":2,
             **ids,
-            "session_id":"674cb1c3cdf93533745fefc9fd78838f",
+            # "session_id":"674cb1c3cdf93533745fefc9fd78838f",
             "data":{
                 "version":"1121575372539039776",
                 "id":"984273800587776053",
@@ -149,7 +135,7 @@ class payloads:
         return {
             "type":2,
             **ids,
-            "session_id":"674cb1c3cdf93533745fefc9fd78838f",
+            # "session_id":"674cb1c3cdf93533745fefc9fd78838f",
             "data":{
                 "version":"1118961510123847776",
                 "id":"972289487818334209",
@@ -177,7 +163,7 @@ class payloads:
         return {
             "type":2,
             **ids,
-            "session_id":"b65de01dc829af94e28335dd38599517",
+            # "session_id":"b65de01dc829af94e28335dd38599517",
             "data":{
                 "version":"1118961510123847774",
                 "id":"1092492867185950852",
@@ -228,7 +214,6 @@ class payloads:
             "type": 3, 
             "message_flags":0,
             "message_id": messageId,
-            "session_id":"1f3dbdf09efdf93d81a3a6420882c92c",
             "data":{
                 "component_type":2,
                 "custom_id": f"MJ::JOB::variation::{index}::{messageHash}"
@@ -236,13 +221,20 @@ class payloads:
             "nonce": nonce
         }
     @staticmethod
-    def remix(ids: dict[str, str], prompt: str, data_id: int, messageHash : str, index: int):
-       return {
+    def remix(
+        ids: dict[str, str], 
+        prompt: str, 
+        data_id: int, 
+        messageHash : str, 
+        index: int , 
+        remix_type: int = 0
+    ):
+        return {
            **ids,
             "type":5,
             "data":{
                 "id": data_id,
-                "custom_id": f"MJ::RemixModal::{messageHash}::{index}",  #  "MJ::RemixModal::548034f0-49db-43fb-86f8-1ca09a72e786::1",
+                "custom_id": f"MJ::RemixModal::{messageHash}::{index}::{remix_type}",  #  "MJ::RemixModal::548034f0-49db-43fb-86f8-1ca09a72e786::1",
                 "components":[
                     {
                         "type":1,
@@ -256,7 +248,7 @@ class payloads:
                     }
                 ]
             },
-            "session_id":"1f3dbdf09efdf93d81a3a6420882c92c",
+            # "session_id":"3c94f87e745713d2a8adcd6420db1e3f",
        } 
     
     @staticmethod
@@ -266,7 +258,7 @@ class payloads:
             "type":3,
             "message_flags":0,
             "message_id": messageId,
-            "session_id":"45bc04dd4da37141a5f73dfbfaf5bdcf",
+            # "session_id":"45bc04dd4da37141a5f73dfbfaf5bdcf",
             "data":{
                 "component_type":2,
                 "custom_id": f"MJ::JOB::upsample::{index}::{messageHash}"
@@ -283,7 +275,7 @@ class payloads:
             "nonce": nonce,
             "message_flags":64,
             "message_id": messageId,
-            "session_id":"6e5e35098c7a55166f73ab21ee06875e",
+            # "session_id":"6e5e35098c7a55166f73ab21ee06875e",
             "data":{
                 "component_type":2,
                 "custom_id": custom_id
@@ -295,33 +287,33 @@ class payloads:
     # {"type":3,"nonce":"1122489989028904960","guild_id":"1121633108689698856","channel_id":"1121633108689698859","message_flags":64,"message_id":"1122489887665430589","application_id":"936929561302675456","session_id":"6e5e35098c7a55166f73ab21ee06875e","data":{"component_type":2,"custom_id":"MJ::Prompts::Appeal::OqWLXki2ZMU"}}
 
     @staticmethod
-    def vary(ids: dict[str,str], messageId : str, messageHash : str,  nonce: int):
+    def vary(ids: dict[str,str], job_type: str , messageId : str, messageHash : str,  nonce: int):
         return {
             "type":3,
             "nonce":str(nonce),
             **ids,
             "message_flags":0,
             "message_id": messageId,
-            "session_id":"42c6e0ad8006f8c0b457f8d480d7ac9f",
+            # "session_id":"3c94f87e745713d2a8adcd6420db1e3f",
             "data":{
                 "component_type":2,
-                "custom_id": f"MJ::JOB::low_variation::1::{messageHash}::SOLO"
+                "custom_id": f"MJ::JOB::{job_type}::1::{messageHash}::SOLO" 
             }
         }
     #custom_id: MJ::JOB::low_variation::1::6e3ee661-7947-4bf7-b42c-4ea9290d54cf::SOLO
     #custom_id: MJ::JOB::high_variation::1::6e3ee661-7947-4bf7-b42c-4ea9290d54cf::SOLO
     @staticmethod
-    def zoom(ids: dict[str,str], messageId : str, messageHash : str,  nonce: int):
+    def zoom(ids: dict[str,str], zoom: str,  messageId : str, messageHash : str,  nonce: int):
         return {
             "type":3,
             "nonce": str(nonce),
             **ids,
             "message_flags":0,
             "message_id": messageId,
-            "session_id":"42c6e0ad8006f8c0b457f8d480d7ac9f",
+            # "session_id":"42c6e0ad8006f8c0b457f8d480d7ac9f",
             "data":{
                 "component_type":2,
-                "custom_id": f"MJ::Outpaint::75::1::{messageHash}::SOLO"
+                "custom_id": f"MJ::Outpaint::{zoom}::1::{messageHash}::SOLO"
             }
         }
     ## 2x > 50 , 1.5x > 75
@@ -333,19 +325,19 @@ class payloads:
             "nonce": str(nonce),
             "message_flags":0,
             "message_id": messageId,
-            "session_id":"42c6e0ad8006f8c0b457f8d480d7ac9f",
+            # "session_id":"42c6e0ad8006f8c0b457f8d480d7ac9f",
             "data":{
                 "component_type":2,
                 "custom_id": f"MJ::CustomZoom::{messageHash}"
             }
         }
     @staticmethod
-    def custom_zoom_step_2(ids: dict[str,str], value: str, messageHash : str,  nonce: int):
+    def custom_zoom_step_2(ids: dict[str,str], prompt: str, data_id: int, messageHash : str,  nonce: int):
         return {
             "type":5,
             **ids,
             "data":{
-                "id":"1123142966077304853",
+                "id": str(data_id),
                 "custom_id": f"MJ::OutpaintCustomZoomModal::{messageHash}",
                 "components":[
                     {
@@ -354,15 +346,89 @@ class payloads:
                             {
                                 "type":4,
                                 "custom_id":"MJ::OutpaintCustomZoomModal::prompt",
-                                "value": value #"Skulls, by Jon Burgerman --v 5.2 --no QV5xbSPJMRX --ar 1:1 --zoom 1.1"
+                                "value": prompt #"Skulls, by Jon Burgerman --v 5.2 --no QV5xbSPJMRX --ar 1:1 --zoom 1.1"
                             }
                         ]
                     }
                 ]
             },
-            "session_id":"42c6e0ad8006f8c0b457f8d480d7ac9f",
+            # "session_id":"42c6e0ad8006f8c0b457f8d480d7ac9f",
             "nonce": str(nonce)
         }
+    
+    @staticmethod
+    def reroll_step_1(ids: dict[str,str],messageId : str, messageHash : str,  nonce: int):
+        return {
+            "type":3,
+             **ids,
+            "nonce":str(nonce),
+            "message_flags":0,
+            "message_id": messageId,
+            "data":{
+                "component_type":2,
+                "custom_id":"MJ::JOB::reroll::0::3ec59bd4-e58a-47c2-86ab-4c5e1ae1f366::SOLO"
+            }
+        }
+    @staticmethod
+    def reroll_step_2(ids: dict[str,str], prompt: str, data_id: int,  messageHash : str,  nonce: int):
+        return {
+            "type":5,
+            **ids,
+            "data":{
+                "id": str(data_id),
+                "custom_id": f"MJ::OutpaintModal::-1::0::{messageHash}", #reroll for zoom
+                "components":[
+                    {
+                        "type":1,
+                        "components":[
+                            {
+                                "type":4,
+                                "custom_id":"MJ::OutpaintModal::new_prompt",#reroll for zoom
+                                "value": prompt
+                            }
+                        ]
+                    }
+                ]
+            },
+            "nonce":str(nonce),
+        }
+    @staticmethod
+    def pan_step_1(ids: dict[str,str],type: str, messageId : str, messageHash : str,  nonce: int):
+        return {
+            "type":3,
+             **ids,
+            "nonce":str(nonce),
+            "message_flags":0,
+            "message_id": messageId,
+            "data":{
+                "component_type":2,
+                "custom_id": f"MJ::JOB::pan_{type}::1::{messageHash}::SOLO"
+            }
+        }
+    @staticmethod
+    def pan_step_2(ids: dict[str,str], prompt: str, type: str, data_id: int,  messageHash : str,  nonce: int):
+        return {
+            "type":5,
+            **ids,
+            "nonce":str(nonce),
+            "data":{
+                "id": str(data_id),
+                "custom_id": f"MJ::PanModal::{type}::{messageHash}",
+                "components":[
+                    {
+                        "type":1,
+                        "components":[
+                            {
+                                "type":4,
+                                "custom_id":"MJ::PanModal::prompt",
+                                "value": prompt
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+
     @staticmethod
     def square(ids: dict[str,str],):
         return (

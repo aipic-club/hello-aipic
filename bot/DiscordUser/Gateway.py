@@ -4,10 +4,12 @@ import io
 import concurrent.futures
 import mimetypes
 import random
+
+from data.values import MJ_VARY_TYPE, get_vary_type
 from . import UserProxy
 from .MessageHandler import MessageHandler
 from .utils import *
-from data import Data_v2, config, DetailType,Snowflake
+from data import Data, config, DetailType,Snowflake
 
 
 pool = concurrent.futures.ThreadPoolExecutor(max_workers=10)
@@ -16,7 +18,7 @@ class Gateway:
     def __init__(
             self,
             celery_id: int,
-            data: Data_v2,
+            data: Data,
             pool: concurrent.futures.ProcessPoolExecutor
         ) -> None:
             self.celery_id = celery_id
@@ -34,15 +36,15 @@ class Gateway:
             raise Exception("no available users!!!")
         for user in dbusers:
             worker_id = user['worker_id']
-            _, account_id = Snowflake.parse_worker_id(worker_id= worker_id)
+  
 
             token = user['authorization']
             guild_id= user['guild_id']
             channel_id=  user['channel_id']
 
-            print(f'current user: worker_id:{worker_id}, account_id: {account_id}')
+            print(f'current user: worker_id:{worker_id}')
 
-            self.users[account_id] = UserProxy( 
+            self.users[worker_id] = UserProxy( 
                 worker_id = worker_id,
                 token = token, 
                 guild_id=guild_id,
@@ -66,66 +68,110 @@ class Gateway:
         return random.choice(temp)        
 
     
-    def get_task_account_id(self,  task: dict[str, str]) -> int | None:
-        account_id = task['account_id']
-        if account_id is not None and self.users[account_id] is not None:
-            return account_id
+    def get_task_worker_id(self,  task: dict[str, str]) -> int | None:
+        worker_id = task['worker_id']
+        if worker_id is not None and self.users[worker_id] is not None:
+            return worker_id
         else:
             return None
+    def pre_send(
+            self, 
+            task: dict[str, str],
+            task_type: DetailType, 
+            detail: dict,
+            worker_id: int
+        ):
+        current_user = self.users[worker_id]
+        space_name = task['space_name']
+        id = current_user.generate_id()
+        self.data.save_input(
+            id=id, 
+            space_name= space_name, 
+            type= task_type, 
+            detail= detail 
+        )
+        self.data.redis_set_onwer(
+            worker_id= worker_id,
+            space_name= space_name,
+            type=task_type
+        )
+        
+        self.data.space_job_add(
+            space_name= space_name,
+            id=task['ref_id'],
+            type= task_type,
+            data = detail.get("type", "")
+        ) 
+    
 
     def create_prompt(
             self, 
-            broker_id: int | None, 
-            account_id: int | None, 
-            token_id: int , 
-            taskId: str, 
+            token_type: int,
+            space_name: str, 
             prompt: str,
             new_prompt: str,
             raw: str, 
             execute: bool 
     ) -> None:
-        _account_id = self.pick_a_worker_id() if account_id is None else account_id
-        if self.users[_account_id] is not None:
-            current_user = self.users[_account_id]
+        worker_id = self.pick_a_worker_id()
+        if self.users[worker_id] is not None:
+            current_user = self.users[worker_id]
             id = current_user.generate_id()
+            task_type = DetailType.INPUT_MJ_IMAGINE
             detail = {
                 'prompt': prompt,
                 'raw':  raw
             }
             
-            self.data.update_task_topic(taskId=taskId, topic= prompt)
+            self.data.save_input( 
+                id=id, 
+                space_name=space_name, 
+                type= task_type ,
+                detail= detail 
+            )
 
-            self.data.update_status(taskId=taskId, status= TaskStatus.CREATED, token_id= token_id)
-            self.data.save_input(id=id, taskId= taskId, type= DetailType.INPUT_MJ_PROMPT , detail= detail )
             if execute:
-                print(f"🚀 send prompt {new_prompt}, nonce: {id}")
+                print(f" 🟢 receive prompt {new_prompt}, nonce: {id}")
 
-                self.data.commit_task(
-                    taskId= taskId, 
-                    worker_id= current_user.worker_id,
-                    status= TaskStatus.CREATED 
+                self.data.space_prompt(
+                    space_name=space_name, 
+                    status= TaskStatus.CREATED
                 )
 
-                self.loop.create_task(current_user.remove_suffix())
+                self.data.redis_set_onwer(
+                    worker_id= current_user.worker_id,
+                    space_name= space_name,
+                    type=task_type
+                )
+
                 self.loop.create_task(current_user.send_prompt(new_prompt, id))
-                self.data.update_status(taskId=taskId, status= TaskStatus.CONFIRMED, token_id= token_id)
-                self.loop.create_task(self.check_task( account_id = _account_id, ref_id=id, taskId= taskId ))
+                self.loop.create_task(
+                        self.check_task( 
+                        worker_id = worker_id, 
+                        ref_id=id, 
+                        space_name= space_name 
+                    )
+                )
 
     def create_variation(self, prompt: str, new_prompt: str,  task: dict[str, str], index: str):
-        worker_id =  self.get_task_account_id(task)
+        worker_id =  self.get_task_worker_id(task)
+        print(worker_id)
         if worker_id is not None:
-            id = self.users[worker_id].generate_id()
-            broker_id  =  task['broker_id']
-            input_type = DetailType.INPUT_MJ_REMIX
+            current_user = self.users[worker_id]
+            task_type = DetailType.INPUT_MJ_REMIX
             detail = {
                 'ref': str(task['ref_id']),
                 'prompt': prompt,
                 'index': index
             }
-            self.data.save_input(id=id, taskId= task['taskId'], type= input_type , detail= detail )
-            self.data.redis_task_job(taskId=task['taskId'], id= task['ref_id'], type = input_type, index= index)
+            self.pre_send(
+                task=task,
+                task_type = task_type,
+                detail=detail,
+                worker_id=worker_id
+            )
             self.loop.create_task(
-                self.users[worker_id].send_variation(
+                current_user.send_variation(
                     prompt = new_prompt,
                     index = index,
                     messageId = task['id'],
@@ -134,17 +180,22 @@ class Gateway:
             )
 
     def create_upscale(self, task: dict[str, str], index: str):
-        worker_id =  self.get_task_account_id(task)
+        worker_id =  self.get_task_worker_id(task)
         if worker_id is not None:
-            id = self.users[worker_id].generate_id()
-            broker_id  =  task['broker_id']
+            current_user = self.users[worker_id]
             detail = {
                 'ref': str(task['ref_id']),
                 'index': index
             }
-            input_type = DetailType.INPUT_MJ_UPSCALE
-            self.data.save_input(id=id, taskId= task['taskId'], type= input_type , detail= detail )
-            self.data.redis_task_job(taskId=task['taskId'], id= task['ref_id'], type = input_type, index= index)
+            task_type = DetailType.INPUT_MJ_UPSCALE
+
+            self.pre_send(
+                task=task,
+                task_type = task_type,
+                detail=detail,
+                worker_id=worker_id
+            )
+
             self.loop.create_task(
                 self.users[worker_id].send_upscale(
                     index = index,
@@ -152,21 +203,121 @@ class Gateway:
                     messageHash = task['hash'], 
                 )
             )
-    def describe_a_image(self, taskId: str, url: str):
-        _account_id = self.pick_a_worker_id() 
-        if self.users[_account_id] is not None:
+    
+    def create_vary(self, prompt: str, new_prompt: str, task: dict[str, str], type: MJ_VARY_TYPE):
+        worker_id =  self.get_task_worker_id(task)
+        if worker_id is not None:
+            current_user = self.users[worker_id]
+            type_index = get_vary_type(type = type)
+            if type_index == 1:
+                job_type = 'high_variation'
+            else:
+                job_type = 'low_variation'
+
+            detail = {
+                'ref': str(task['ref_id']),
+                'type': type.value,
+                'prompt': prompt
+            }
+            task_type = DetailType.INPUT_MJ_VARY
+            self.pre_send(
+                task=task,
+                task_type = task_type,
+                detail=detail,
+                worker_id=worker_id
+            )
+            self.loop.create_task(
+                self.users[worker_id].send_vary(
+                    prompt = new_prompt,
+                    job_type= job_type,
+                    type_index = type_index,
+                    messageId = task['id'],
+                    messageHash = task['hash'], 
+                )
+            )            
+
+        pass
+
+    def create_zoom(self, prompt: str, new_prompt: str, zoom: float, task: dict[str, str]):
+        worker_id =  self.get_task_worker_id(task)
+        if worker_id is not None:
+            current_user = self.users[worker_id]
+            task_type = DetailType.INPUT_MJ_ZOOM
+            detail = {
+                'ref': str(task['ref_id']),
+                'type': zoom,
+                'prompt': prompt
+            }            
+            self.pre_send(
+                task=task,
+                task_type = task_type,
+                detail=detail,
+                worker_id=worker_id
+            )
+            self.loop.create_task(
+                current_user.send_zoom(
+                    prompt = new_prompt,
+                    zoom= zoom,
+                    messageId = task['id'],
+                    messageHash = task['hash'], 
+                )
+            )  
+
+    def create_pan(self, prompt: str, new_prompt: str, type: str, task: dict[str, str]):
+        worker_id =  self.get_task_worker_id(task)
+        if worker_id is not None:
+            current_user = self.users[worker_id]
+            task_type = DetailType.INPUT_MJ_PAN
+            detail = {
+                'ref': str(task['ref_id']),
+                'type': type,
+                'prompt': prompt,
+            } 
+            self.pre_send(
+                task=task,
+                task_type = task_type,
+                detail=detail,
+                worker_id=worker_id
+            )
+            self.loop.create_task(
+                current_user.send_pan(
+                    prompt = new_prompt,
+                    type= type,
+                    messageId = task['id'],
+                    messageHash = task['hash'], 
+                )
+            )  
+
+
+    def describe_a_image(self, space_name: str, url: str):
+        worker_id = self.pick_a_worker_id()
+        if self.users[worker_id] is not None:
+            current_user = self.users[worker_id]
+            task_type = DetailType.INPUT_MJ_DESCRIBE
+            id = current_user.generate_id()
+            detail = {
+                "url": url
+            }            
+            self.data.save_input(
+                id=id, 
+                space_name= space_name, 
+                type= task_type, 
+                detail= detail 
+            )
+
             self.loop.create_task(
                 self.start_describe(
-                    taskId= taskId,
-                    account_id= _account_id,
+                    space_name= space_name,
+                    worker_id= worker_id,
                     url=url
                 )
             )
 
-    async def start_describe(self,taskId: int, account_id: int, url: str):
+    async def start_describe(self,space_name: int, worker_id: int, url: str):
         file_resp = await self.data.file_download_a_file(url=url)
-        file_id, filename, upload_url, upload_filename = await self.users[account_id].describe_get_upload_url(bytes=io.BytesIO(file_resp))
+        file_id, filename, upload_url, upload_filename = await self.users[worker_id].describe_get_upload_url(bytes=io.BytesIO(file_resp))
         mime_type, _ = mimetypes.guess_type(upload_filename)
+        
         await self.data.upload_a_file(
             url= upload_url, 
             data= file_resp,
@@ -174,21 +325,21 @@ class Gateway:
         )
 
         self.data.redis_set_describe(
-            worker_id= self.users[account_id].worker_id, 
+            worker_id= self.users[worker_id].worker_id, 
             key= file_id, 
-            taskId= taskId, 
+            space_name= space_name, 
             url = url
         )
 
-        await self.users[account_id].describe_send(filename=filename, uploaded_filename= upload_filename)
+        await self.users[worker_id].describe_send(filename=filename, uploaded_filename= upload_filename)
 
 
 
-    async def check_task(self, account_id: int, ref_id: int, taskId: str):
+    async def check_task(self, worker_id: int, ref_id: int, space_name: str):
         await asyncio.sleep(config['wait_time'] - 10)
-        id = self.users[account_id].generate_id()
+        id = self.users[worker_id].generate_id()
         self.data.check_task(
             id = id, 
             ref_id= ref_id, 
-            taskId= taskId
+            space_name= space_name
         )
