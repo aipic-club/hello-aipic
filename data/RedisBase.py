@@ -62,9 +62,6 @@ class RedisBase(RedisInterface):
             key = f'onwer:{space_name}:{type.value}'
         self.__remove_keys(key)
 
- 
-
-
     def redis_space_prompt(self, space_name: str, status: TaskStatus, ttl: int = None) -> None:
         key = f'space:{space_name}:prompt'
         if ttl is not None:
