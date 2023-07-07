@@ -169,7 +169,7 @@ router = APIRouter(
 
 @app.get("/ping")
 async def ping(request: Request): 
-    print(f'request header       : {dict(request.headers.items())}' )    
+    print(f'request header : {dict(request.headers.items())}' )    
     return PlainTextResponse(content="pong") 
 
 @app.get("/mp",  dependencies=[Depends(check_wechat_signature)])

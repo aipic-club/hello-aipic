@@ -485,8 +485,8 @@ class Data(MySQLBase, RedisBase, FileBase):
                 }
                 self.mysql_execute(sql=sql, params=params, lastrowid= False, _cnx = cnx)
                 ### create default space and welcome msg for user
-                taskId = random_id(11)
-                task_id = self.create_task(token_id= token_id, taskId= taskId, cnx= cnx)
+                space_name = random_id(11)
+                self.create_space(name= space_name, token_id= token_id, cnx= cnx)
                 # snowflake_id = self.snowflake.generate_id()
                 # self.__insert_detail(
                 #     id= snowflake_id,
