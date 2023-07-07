@@ -1,7 +1,6 @@
 import random
 import string
 from datetime import datetime
-from mysql.connector import DATETIME
 import pytz
 
 def random_id(length = 6) -> str:

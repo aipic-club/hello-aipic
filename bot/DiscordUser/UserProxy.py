@@ -8,12 +8,8 @@ from .DiscordUser import DiscordUser
 from .payloads import payloads
 from .values import Events, MJBotId
 from .MessageHandler import MessageHandler
-from .utils import get_taskId
+from .utils import get_space_name
 from data import  Snowflake, random_id
-
-
-accept_events = [Events.INTERACTION_SUCCESS.value, Events.MESSAGE_CREATE.value]
-
 
 class UserProxy:
     def __init__(
@@ -42,12 +38,12 @@ class UserProxy:
         return {
             "guild_id": self.guild_id,
             "channel_id": self.channel_id,
-            "application_id": MJBotId
+            "application_id": str(MJBotId),
+            "session_id": self.user.session_id
         }
     def generate_id(self) -> int:
         return self.snowflake.generate_id()
     def __on_message(self, event: Events, data: dict) -> None:
-
         try:
             if event is Events.MESSAGE_CREATE:
                 message_worker_id = None            
@@ -67,26 +63,21 @@ class UserProxy:
                             print(f'== debug embeeds == {title}, {description}')
                             if title == 'Action needed to continue':
                                 print(data)
-
                                 components = data.get("components", [])
-
-
                                 print(components)
-
                                 custom_id = components[0].get("custom_id")
                                 pass
                             elif title == 'Queue full':
-
-
                                 return
                             elif title == 'Job queued':
-                                return
-                            elif title == 'Invalid parameter':
-                                taskId = get_taskId(embeds[0].get('footer',{}).get('text'))
+                                space_name = get_space_name(embeds[0].get('footer',{}).get('text'))
+                                self.messageHandler.on_job_queued(space_name=space_name)
+                            elif title == 'Invalid parameter' or title == "Invalid link":
+                                space_name = get_space_name(embeds[0].get('footer',{}).get('text'))
                                 id = self.generate_id()
                                 self.messageHandler.on_invalid_parameter(
                                     id,
-                                    taskId,
+                                    space_name,
                                     detail= {
                                         'ref': str(nonce),
                                         'title': title,
@@ -118,11 +109,8 @@ class UserProxy:
                         # print(name_without_extension)
                         
                         # ###
-
-
-
-
-                pass
+            elif event is Events.INTERACTION_SUCCESS:
+                self.messageHandler.on_interaction(data=data)
         except Exception as e:
             print("error when handle message", e)
     async def remove_prefix(self, nonce):
@@ -136,7 +124,10 @@ class UserProxy:
     async def remove_suffix(self):
         await self.remove_prefix(nonce=self.generate_id())
     async def send_prompt(self, prompt, nonce):
-        payload = payloads.prompt_v1118961510123847772(self.ids, prompt, nonce)
+        print("🪄 send prompt to mj")
+        await self.remove_suffix()
+        await asyncio.sleep(1)
+        payload = payloads.prompt(self.ids, prompt, nonce)
         payload_str = json.dumps(payload)
         try:
             await self.user.send_form_interactions(payload=payload_str)
@@ -151,7 +142,14 @@ class UserProxy:
             await asyncio.sleep(3)
             data_id = self.get_interaction_id(nonce)
             if data_id is not None:
-                payload = payloads.remix(self.ids, prompt= prompt,data_id= str(data_id), messageHash= messageHash, index= index )
+                payload = payloads.remix(
+                    self.ids, 
+                    prompt= prompt,
+                    data_id= str(data_id), 
+                    messageHash= messageHash, 
+                    index= index,
+                    remix_type=1
+                )
                 await self.user.send_interactions(payload)
             
         except Exception as e:
@@ -159,10 +157,93 @@ class UserProxy:
     async def send_upscale(self, index : int, messageId : str, messageHash : str):
         nonce = self.snowflake.generate_id()
         payload = payloads.upscale(self.ids, messageId= messageId, messageHash=messageHash, index=index, nonce=nonce)
+        print(payload)
         try:
             await self.user.send_interactions(payload)
         except Exception as e:
             print("error when upscale message", e)
+
+    async def send_vary(self,prompt: str, job_type: str, type_index: int, messageId : str, messageHash : str ):
+        print("send vary")
+        nonce = self.snowflake.generate_id()
+        payload = payloads.vary(
+            self.ids, 
+            job_type=job_type, 
+            messageId= messageId, 
+            messageHash=messageHash, 
+            nonce= nonce 
+        )
+        # print(payload)
+        try:
+            await self.user.send_interactions(payload)
+            await asyncio.sleep(3)
+            data_id = self.get_interaction_id(nonce)
+            if data_id is not None:
+                payload = payloads.remix(
+                    self.ids, 
+                    prompt= prompt,
+                    data_id= str(data_id), 
+                    messageHash= messageHash, 
+                    index= 1,
+                    remix_type=type_index
+                )
+                # print(payload)
+                await self.user.send_interactions(payload)            
+        except Exception as e:
+            print("error when upscale message", e)
+    async def send_zoom(self, prompt: str, zoom: float, messageId : str, messageHash : str):
+        nonce = self.snowflake.generate_id()
+        print(" zoom")
+        if prompt is None:
+            zoom_trans = 50 if zoom == 2 else 75
+            payload = payloads.zoom(
+                self.ids, 
+                zoom = zoom_trans, 
+                messageId= messageId,
+                messageHash= messageHash, 
+                nonce= nonce
+            )
+            await self.user.send_interactions(payload)     
+        else:
+            payload1 =  payloads.custom_zoom_step_1(
+                self.ids,
+                messageId= messageId,
+                messageHash= messageHash, 
+                nonce=  nonce
+            )
+            await self.user.send_interactions(payload1)   
+            await asyncio.sleep(3)
+            data_id = self.get_interaction_id(nonce)
+            payload2 = payloads.custom_zoom_step_2(
+                self.ids,
+                prompt=prompt,
+                data_id=data_id,
+                messageHash=messageHash,
+                nonce=self.snowflake.generate_id()
+            )    
+            await self.user.send_interactions(payload2)     
+
+    async def send_pan(self, prompt: str, type: str, messageId : str, messageHash : str):
+        nonce = self.snowflake.generate_id()
+        payload1 =  payloads.pan_step_1(
+            self.ids,
+            type=type,
+            messageId= messageId,
+            messageHash= messageHash, 
+            nonce=  nonce
+        )
+        await self.user.send_interactions(payload1)   
+        await asyncio.sleep(3) 
+        data_id = self.get_interaction_id(nonce)
+        payload2 = payloads.pan_step_2(
+            self.ids,
+            prompt=prompt,
+            type=type,
+            data_id=data_id,
+            messageHash=messageHash,
+            nonce=self.snowflake.generate_id()
+        )    
+        await self.user.send_interactions(payload2)   
 
 
     async def describe_get_upload_url(self, bytes: io.BytesIO):

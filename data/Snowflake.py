@@ -60,7 +60,7 @@ class Snowflake:
         worker_id = Snowflake.parse_snowflake_worker_id(snowflake_id=snowflake_id)
         broker_id , account_id = Snowflake.parse_worker_id(worker_id=worker_id)
         return broker_id , account_id
-
+    
     @staticmethod
     def parse_snowflake_worker_id( snowflake_id: int) -> int:
         worker_id = (snowflake_id >> 12) & 0x3FF

@@ -25,70 +25,59 @@ class DetailType(Enum):
     SYS_WELCOME = 1
     SYS_FAILED = 5
     ## MIDJOURNEY INPUT 
-    INPUT_MJ_PROMPT = 11
+    INPUT_MJ_REROLL = 10
+    INPUT_MJ_IMAGINE = 11
     INPUT_MJ_VARIATION = 12
     INPUT_MJ_REMIX = 13
     INPUT_MJ_UPSCALE = 14
-    INPUT_MJ_REROLL = 15
+    INPUT_MJ_DESCRIBE = 15
+    INPUT_MJ_VARY = 16
+    INPUT_MJ_ZOOM = 17
+    INPUT_MJ_PAN = 18
     ## MIDJOURNEY OUTPUT 
-    OUTPUT_MJ_PROMPT = 21
+    OUTPUT_MJ_IMAGINE = 21
     OUTPUT_MJ_VARIATION = 22
     OUTPUT_MJ_REMIX = 23
     OUTPUT_MJ_UPSCALE = 24
     OUTPUT_MJ_DESCRIBE = 25
+    OUTPUT_MJ_VARY = 26
+    OUTPUT_MJ_ZOOM = 27
+    OUTPUT_MJ_PAN = 28
     ## MIDJOURNEY ERROR
     OUTPUT_MJ_TIMEOUT = 31
     OUTPUT_MJ_INVALID_PARAMETER = 32
 
-output_type = [
-    DetailType.OUTPUT_MJ_PROMPT.value,
+mj_output_type = [
+    DetailType.OUTPUT_MJ_IMAGINE.value,
     DetailType.OUTPUT_MJ_REMIX.value,
     DetailType.OUTPUT_MJ_UPSCALE.value,
     DetailType.OUTPUT_MJ_VARIATION.value,
     DetailType.OUTPUT_MJ_DESCRIBE.value,
+    DetailType.OUTPUT_MJ_VARY.value,
+    DetailType.OUTPUT_MJ_ZOOM.value
+]
+
+error_mj_output_type = [
+    DetailType.OUTPUT_MJ_TIMEOUT,
+    DetailType.OUTPUT_MJ_INVALID_PARAMETER
 ]
 
 
 
 def get_cost(type: DetailType):
-    if type is DetailType.OUTPUT_MJ_PROMPT:
+    # if type is DetailType.OUTPUT_MJ_IMAGINE:
+    #     return 4
+    # elif type is DetailType.OUTPUT_MJ_REMIX:
+    #     return 4    
+    # elif type is DetailType.OUTPUT_MJ_UPSCALE:
+    #     return 4       
+    # elif type is DetailType.OUTPUT_MJ_VARIATION:
+    #     return 4        
+    # elif type is DetailType.OUTPUT_MJ_DESCRIBE:
+    #     return 4        
+    # else:
         return 4
-    elif type is DetailType.OUTPUT_MJ_REMIX:
-        return 4    
-    elif type is DetailType.OUTPUT_MJ_UPSCALE:
-        return 4       
-    elif type is DetailType.OUTPUT_MJ_VARIATION:
-        return 4        
-    elif type is DetailType.OUTPUT_MJ_DESCRIBE:
-        return 4        
-    else:
-        return 4
 
-    
-
-class ImageOperationType(Enum):
-    VARIATION = 0
-    UPSCALE = 1
-    REROLL = 2
-    DESCRIBE = 3
-
-class Cost(Enum):
-    DRAFT = 4
-    VARIATION = 4
-    UPSCALE = 4
-    REMIX = 4
-    @staticmethod
-    def get_cost(output: OutputType):
-        if output == OutputType.DRAFT.value:
-            return Cost.DRAFT.value
-        elif output == OutputType.VARIATION.value:
-            return Cost.VARIATION.value
-        elif output == OutputType.UPSCALE.value:
-            return Cost.UPSCALE.value 
-        elif output == OutputType.REMIX.value:
-            return Cost.REMIX.value 
-        else:
-            return 0
     
 class SysCode(Enum):
     OK = 0
@@ -104,10 +93,38 @@ class TokenType(Enum):
     NORMAL = 2
     DEMO = 3
 
+class MJ_VARY_TYPE(str, Enum):
+    STRONG = 'strong'
+    SUBTLE = 'subtle'
+    # LOW_VARIATION = 'low_variation'
+    # HIGH_VARIATION = 'high_variation'
+
+class MJ_PAN_TYPE(str, Enum):
+    LEFT = 'left'
+    RIGHT = 'right'
+    UP = 'up'
+    DOWN = 'down'
+
+
+def get_vary_type(type: MJ_VARY_TYPE) -> int:
+    #low_variation , subtle
+    if type is MJ_VARY_TYPE.SUBTLE:
+        return 0
+    #high_variation, strong
+    if type is MJ_VARY_TYPE.STRONG:
+        return 1
+    return None
+    
+
+class MJ_OUTPAINT_VALUE(int, Enum):
+    ZOOMOUT2X = 50
+    ZOOMOUT1_5X =  75
+
 
 config = {
     'wait_time': 60 * 10,  # 10 minutes
-    'cache_time': 6 * 60 * 60  # half day
+    'cache_time': 24 * 60 * 60,  # one day
+    'interaction_ttl': 60
 }
     
 image_hostname = 'https://imgcdn.aipic.club'
