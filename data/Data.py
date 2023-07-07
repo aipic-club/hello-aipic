@@ -97,7 +97,7 @@ class Data(MySQLBase, RedisBase, FileBase):
         try:
             # id = self.redis_get_token(token= token)
             data  = self.redis_get_token(token= token)
-            cost = self.redis_get_cost(token_id= data.get("id")) if data is not None else None
+            cost = self.redis_get_cost(token_id= data.get("id")) if data is not None else 0
             if data is None or cost is None:
                 sql =(
                     "SELECT t.id,TIMESTAMPDIFF(SECOND, NOW(), t.expire_at ) as ttl, t.type, t.balance, t.expire_at, COALESCE(a.cost, 0) AS cost"

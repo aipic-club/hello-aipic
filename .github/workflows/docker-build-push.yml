@@ -44,7 +44,7 @@ jobs:
             echo ${{ secrets.DOCKER_REGISTRY_PASSWORD }} | docker login -u ${{ vars.DOCKER_REGISTRY_USERNAME }} --password-stdin registry.baidubce.com
             docker pull registry.baidubce.com/miss-journey/journey:latest     
             docker stop journey-bot || true && docker rm journey-bot || true
-            docker run  -d  --restart --name journey-bot --env-file .env  --net=host registry.baidubce.com/miss-journey/journey:latest python ./bot-v2.py
+            docker run  -d  --restart always --name journey-bot --env-file .env  --net=host registry.baidubce.com/miss-journey/journey:latest python ./bot-v2.py
   deploy-server:
     needs: build-and-push
     runs-on: ubuntu-latest
