@@ -77,13 +77,13 @@ def token_context(authorization: str = Header(None)):
         #return {"error": "Authorization header is invalid"}
         raise HTTPException(401)
     token = parts[1]
-
-    token_id, info , code = data.get_token_info(token= token)
-
+    token_id, info, cost , code = data.get_token_info(token= token)
+    #spaces = data.get_all_spaces(token_id= token_id)
     if code is SysCode.OK and id is not None:
         return (token, token_id, info)
     else:
         raise HTTPException(401)
+    
     
     
 def space_context(space_name: str = Path(...), context: tuple = Depends(token_context) ):
@@ -131,8 +131,6 @@ class ImageContext:
 def get_space_jobs( space_name: str):
     status = data.space_prompt_status(space_name=space_name)
     jobs = data.spaces_jobs(space_name=space_name)
-    print(jobs)
-    #jobs = list(map(lambda x: ":".join(x.decode().split(":")[-3:]), job_keys))
     describe_data = data.redis_get_describe(space_name=space_name)
     describe = describe_data.get("url") if describe_data is not None else None
     return status, jobs, describe
@@ -140,6 +138,9 @@ def get_space_jobs( space_name: str):
 def is_busy( space_name: str):
     status, jobs, describe  = get_space_jobs( space_name=space_name)
     return status is not None or len(jobs) > 0 or describe is not None
+def withhold(space_name: str):
+    pass
+
 
 app = FastAPI()
 
@@ -519,10 +520,12 @@ async def pan(
 async def get_profile(context: tuple = Depends(token_context)):
     _, token_id, info = context
     cost = data.redis_get_cost(token_id= token_id)
+
     del info["id"]
     return {
         **info,
-        "cost": int(cost)
+        "cost": int(cost),
+        "withhold": 0
     }
 
 @router.post("/sign")

@@ -1,7 +1,7 @@
 from abc import abstractmethod
 import redis
 import json
-from .values import ImageOperationType, config, TaskStatus,DetailType
+from .values import  config, TaskStatus,DetailType
 
 class RedisInterface:
     @abstractmethod
@@ -53,8 +53,6 @@ class RedisBase(RedisInterface):
     def redis_is_onwer(self, worker_id: int, space_name: str, type: DetailType ):
         key = f'onwer:{space_name}:{type.value}'
         temp = self.redis.get(key)
-        print(key)
-        print(temp)
         return temp is not None and int(temp) == worker_id
     
     def redis_clear_onwer(self, space_name: str, type: DetailType):

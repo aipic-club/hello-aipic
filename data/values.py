@@ -65,46 +65,19 @@ error_mj_output_type = [
 
 
 def get_cost(type: DetailType):
-    if type is DetailType.OUTPUT_MJ_IMAGINE:
+    # if type is DetailType.OUTPUT_MJ_IMAGINE:
+    #     return 4
+    # elif type is DetailType.OUTPUT_MJ_REMIX:
+    #     return 4    
+    # elif type is DetailType.OUTPUT_MJ_UPSCALE:
+    #     return 4       
+    # elif type is DetailType.OUTPUT_MJ_VARIATION:
+    #     return 4        
+    # elif type is DetailType.OUTPUT_MJ_DESCRIBE:
+    #     return 4        
+    # else:
         return 4
-    elif type is DetailType.OUTPUT_MJ_REMIX:
-        return 4    
-    elif type is DetailType.OUTPUT_MJ_UPSCALE:
-        return 4       
-    elif type is DetailType.OUTPUT_MJ_VARIATION:
-        return 4        
-    elif type is DetailType.OUTPUT_MJ_DESCRIBE:
-        return 4        
-    else:
-        return 4
 
-    
-
-class ImageOperationType(Enum):
-    VARIATION = 0
-    UPSCALE = 1
-    REROLL = 2
-    DESCRIBE = 3
-
-class Cost(Enum):
-    DRAFT = 4
-    VARIATION = 4
-    UPSCALE = 4
-    REMIX = 4
-    VARY = 4
-    ZOOM = 4
-    @staticmethod
-    def get_cost(output: OutputType):
-        if output == OutputType.DRAFT.value:
-            return Cost.DRAFT.value
-        elif output == OutputType.VARIATION.value:
-            return Cost.VARIATION.value
-        elif output == OutputType.UPSCALE.value:
-            return Cost.UPSCALE.value 
-        elif output == OutputType.REMIX.value:
-            return Cost.REMIX.value    
-        else:
-            return 0
     
 class SysCode(Enum):
     OK = 0

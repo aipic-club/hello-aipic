@@ -136,16 +136,18 @@ class Data(MySQLBase, RedisBase, FileBase):
                 else:
                     code = SysCode.TOKEN_NOT_EXIST_OR_EXPIRED
             else:
-                if int(cost) > data.get("balance"):
-                    code = SysCode.TOKEN_OUT_OF_BALANCE
-                else:
-                    id = data.get("id")
-                    info = data
+                id = data.get("id")
+                info = data
         except Exception as e:
             print(e)
             code = SysCode.FATAL
-        return (id, info, code, )
-        
+        return (id, info, int(cost), code, )
+    def get_all_spaces(self, token_id: str):
+        spaces =  self.mysql_fetchall(sql="SELECT `name` FROM `space`", params= None)
+        spaces = list(map(lambda x: x.get('name'), spaces))
+        self.redis.rpush(f'token_id:{token_id}', *spaces)
+        return spaces
+
 
     def create_space(self, token_id: str, name: str, cnx = None) -> int:
         sql = ("INSERT INTO `space` (`token_id`, `name` ) VALUES( %(token_id)s, %(name)s)")
