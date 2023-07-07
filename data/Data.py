@@ -97,7 +97,7 @@ class Data(MySQLBase, RedisBase, FileBase):
         try:
             # id = self.redis_get_token(token= token)
             data  = self.redis_get_token(token= token)
-            cost = self.redis_get_cost(token_id= data.get("id")) if data is not None else 0
+            cost = self.redis_get_cost(token_id= data.get("id")) if data is not None else None
             if data is None or cost is None:
                 sql =(
                     "SELECT t.id,TIMESTAMPDIFF(SECOND, NOW(), t.expire_at ) as ttl, t.type, t.balance, t.expire_at, COALESCE(a.cost, 0) AS cost"
@@ -126,22 +126,23 @@ class Data(MySQLBase, RedisBase, FileBase):
                             'type': record['type'],
                             'expire_at': expire_at
                         }
-
+                        cost = int(record['cost'])
                         self.redis_set_token(token=token, ttl = ttl, data = info)
                         self.redis_init_cost(
                             token_id = id,
                             ttl = ttl,
-                            cost = int(record['cost'])
+                            cost = cost
                         )
                 else:
                     code = SysCode.TOKEN_NOT_EXIST_OR_EXPIRED
             else:
                 id = data.get("id")
                 info = data
+                cost = int(cost)
         except Exception as e:
             print(e)
             code = SysCode.FATAL
-        return (id, info, int(cost), code, )
+        return (id, info, cost, code, )
     def get_all_spaces(self, token_id: str):
         spaces =  self.mysql_fetchall(sql="SELECT `name` FROM `space`", params= None)
         spaces = list(map(lambda x: x.get('name'), spaces))
