@@ -148,7 +148,7 @@ class UserProxy:
                     data_id= str(data_id), 
                     messageHash= messageHash, 
                     index= index,
-                    remix_type=1
+                    remix_type=0
                 )
                 await self.user.send_interactions(payload)
             
