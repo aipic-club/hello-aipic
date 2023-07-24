@@ -470,7 +470,7 @@ class Data(MySQLBase, RedisBase, FileBase):
                 
             if token is None:
                 token = random_id(20)
-                sql = ("INSERT INTO `tokens` (`token`,`balance`,`type`,`expire_at`) VALUES( %(token)s, 100, %(type)s , DATE_ADD(NOW(), INTERVAL %(days)s DAY) )")
+                sql = ("INSERT INTO `tokens` (`token`,`balance`,`type`,`expire_at`) VALUES( %(token)s, 50, %(type)s , DATE_ADD(NOW(), INTERVAL %(days)s DAY) )")
                 params = {
                     'token': token,
                     'days': days,
