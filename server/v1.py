@@ -41,7 +41,6 @@ data = Data(
 )
 
 
-
 celery = Celery('tasks', broker=celery_broker)
 
 
@@ -169,7 +168,8 @@ router = APIRouter(
 
 @app.get("/ping")
 async def ping(request: Request): 
-    print(f'request header : {dict(request.headers.items())}' )    
+    # print(f'request header : {dict(request.headers.items())}' )    
+    celery.send_task('ping', queue= 'develop' if is_dev else 'celery')
     return PlainTextResponse(content="pong") 
 
 @app.get("/mp",  dependencies=[Depends(check_wechat_signature)])
@@ -514,6 +514,11 @@ async def pan(
     return {
         'status': 'ok'
     }
+
+
+@router.post("/square/{id}")
+async def square():
+    pass
 
 
 @router.get("/profile")

@@ -48,10 +48,10 @@ t.daemon = True
 t.start()
 
 
-@worker_init.connect
-def worker_start(sender, **kwargs):
-    print('worker started')
-    # discordBot.start(os.environ.get("DISCORD.BOT.TOKEN"))
+# @worker_init.connect
+# def worker_start(sender, **kwargs):
+#     print('worker started')
+#     # discordBot.start(os.environ.get("DISCORD.BOT.TOKEN"))
 
 class BaseTask(celery.Task):
     def __init__(self):
@@ -63,7 +63,7 @@ def ping():
 
 
 @celery.task(name='imagine',bind=True, base=BaseTask)
-def add_task(
+def imagine(
         self,
         token_type: int,
         space_name: str, 
@@ -72,6 +72,7 @@ def add_task(
         execute: bool
     ):
     new_prompt = refine_prompt(space_name, prompt)
+    print(new_prompt)
     gateway.loop.run_in_executor(
         pool, 
         lambda: gateway.create_prompt(
@@ -114,7 +115,6 @@ def vary(self, prompt: str, task: dict[str, str], type: str ):
     )   
     return
 
-
 @celery.task(name='upscale',bind=True, base=BaseTask)
 def upscale(self,  task: dict[str, str], index: str):
     gateway.loop.run_in_executor(
@@ -125,8 +125,6 @@ def upscale(self,  task: dict[str, str], index: str):
         )
     )   
     return
-
-
 
 @celery.task(name='zoom',bind=True, base=BaseTask)
 def zoom(self, prompt: str, zoom:float, task: dict[str, str]):
@@ -157,13 +155,9 @@ def pan(self, prompt: str, type: str, task: dict[str, str]):
     )   
     return
 
-
-
-
 @celery.task(name='reroll',bind=True, base=BaseTask)
 def reroll(self, task: dict[str, str, str]):
     return
-
 
 @celery.task(name="describe",bind=True, base=BaseTask)
 def describe(self, space_name: str, url: str):
@@ -172,7 +166,6 @@ def describe(self, space_name: str, url: str):
         lambda: gateway.describe_a_image( space_name=space_name, url= url)
     )  
     return
-
 
 if __name__ == '__main__':
     celery.worker_main(

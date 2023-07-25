@@ -430,7 +430,17 @@ class payloads:
         }
 
     @staticmethod
-    def square(ids: dict[str,str],):
-        return (
+    def square(ids: dict[str,str],messageId : str,  messageHash : str,  nonce: int):
+        return {
+            "type":3,
+            "nonce": str(nonce),
+            **ids,
+            "message_flags":0,
+            "message_id":messageId,
 
-        )
+            "data":
+                {
+                    "component_type":2,
+                    "custom_id": f"MJ::Outpaint::100::1::{messageHash}::SOLO"
+                }
+            }

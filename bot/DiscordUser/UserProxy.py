@@ -46,45 +46,46 @@ class UserProxy:
     def __on_message(self, event: Events, data: dict) -> None:
         try:
             if event is Events.MESSAGE_CREATE:
-                message_worker_id = None            
-                if event is  Events.MESSAGE_CREATE:
+                message_worker_id = None
+                channel_id = data.get('channel_id', None) 
+                guild_id = data.get('guild_id', None)
+                nonce = data.get('nonce', None)
+                #if self.channel_id != channel_id or self.guild_id != guild_id:
+                if self.channel_id != channel_id:
+                    return    
+                message_worker_id = self.snowflake.get_worker_id(int(nonce)) if nonce else None
+                embeds = data.get("embeds", [])
+                components = data.get("components", [])
+                print(components)
 
-                    channel_id = data.get('channel_id', None) 
-                    guild_id = data.get('guild_id', None)
-                    nonce = data.get('nonce', None)
-                    #if self.channel_id != channel_id or self.guild_id != guild_id:
-                    if self.channel_id != channel_id:
-                        return    
-                    message_worker_id = self.snowflake.get_worker_id(int(nonce)) if nonce else None
-                    embeds = data.get("embeds", [])
-                    if len(embeds) > 0:
-                            title = embeds[0].get("title")
-                            description = embeds[0].get("description")
-                            print(f'== debug embeeds == {title}, {description}')
-                            if title == 'Action needed to continue':
-                                print(data)
-                                components = data.get("components", [])
-                                print(components)
-                                custom_id = components[0].get("custom_id")
-                                pass
-                            elif title == 'Queue full':
-                                return
-                            elif title == 'Job queued':
-                                space_name = get_space_name(embeds[0].get('footer',{}).get('text'))
-                                self.messageHandler.on_job_queued(space_name=space_name)
-                            elif title == 'Invalid parameter' or title == "Invalid link":
-                                space_name = get_space_name(embeds[0].get('footer',{}).get('text'))
-                                id = self.generate_id()
-                                self.messageHandler.on_invalid_parameter(
-                                    id,
-                                    space_name,
-                                    detail= {
-                                        'ref': str(nonce),
-                                        'title': title,
-                                        'description': description
-                                    }
-                                )
-                                return
+                if len(embeds) > 0:
+                        title = embeds[0].get("title")
+                        description = embeds[0].get("description")
+                        print(f'== debug embeeds == {title}, {description}')
+                        if title == 'Action needed to continue':
+                            print(data)
+                            components = data.get("components", [])
+                            print(components)
+                            custom_id = components[0].get("custom_id")
+                            pass
+                        elif title == 'Queue full':
+                            return
+                        elif title == 'Job queued':
+                            space_name = get_space_name(embeds[0].get('footer',{}).get('text'))
+                            self.messageHandler.on_job_queued(space_name=space_name)
+                        elif title == 'Invalid parameter' or title == "Invalid link":
+                            space_name = get_space_name(embeds[0].get('footer',{}).get('text'))
+                            id = self.generate_id()
+                            self.messageHandler.on_invalid_parameter(
+                                id,
+                                space_name,
+                                detail= {
+                                    'ref': str(nonce),
+                                    'title': title,
+                                    'description': description
+                                }
+                            )
+                            return
                 id = self.generate_id()   
                 self.messageHandler.on_message(id, self.worker_id, message_worker_id ,  event, data)
             elif event is Events.MESSAGE_UPDATE:
