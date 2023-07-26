@@ -93,7 +93,7 @@ class MessageHandler:
                 if types is None:
                     return
 
-                curInputType, _ = types
+                curInputType, curOutputType = types
 
                 print(f'output: {worker_id}, {space_name}, {curInputType.value}')
                 print(types)
@@ -104,6 +104,19 @@ class MessageHandler:
                     type= curInputType
                 ):
                     attachments =  data.get('attachments',[])
+                    data_components = data.get('components', [])
+                    new_components = []
+                    to_exclude = ['❤️', 'Web','🔄']
+                    #print(data_components)
+                    for item in data_components:
+                        components = item.get('components', [])
+                        for component in components:
+                            emoji = component.get('emoji', {}).get('name', None)
+                            label = component.get('label', None)
+                            if (emoji or label) and emoji not in  to_exclude and label not in to_exclude:
+                                new_components.append({'emoji': emoji, 'label': label})
+                    
+                    print(new_components)
                     url =  attachments[0].get("url") if len(attachments) > 0  else None
                     
                     self.loop.run_in_executor(self.pool, lambda: 
@@ -113,6 +126,7 @@ class MessageHandler:
                             types= types , 
                             reference= reference_id,
                             message_id= message_id , 
+                            components = new_components,
                             url = url
                         )
                     )

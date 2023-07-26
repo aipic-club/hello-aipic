@@ -317,6 +317,7 @@ class Data(MySQLBase, RedisBase, FileBase):
             types: tuple[DetailType,DetailType], 
             reference: int | None,  
             message_id: str,  
+            components : list,
             url: str
         ):
         curInputType, curOutputType = types
@@ -342,7 +343,8 @@ class Data(MySQLBase, RedisBase, FileBase):
             'id': message_id,
             'hash': hash,
             'reference': reference,
-            'url': url_cn
+            'url': url_cn,
+            'components': components
         }
         self.__insert_detail_and_audit(
             id=id,

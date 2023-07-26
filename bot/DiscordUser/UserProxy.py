@@ -55,9 +55,6 @@ class UserProxy:
                     return    
                 message_worker_id = self.snowflake.get_worker_id(int(nonce)) if nonce else None
                 embeds = data.get("embeds", [])
-                components = data.get("components", [])
-                print(components)
-
                 if len(embeds) > 0:
                         title = embeds[0].get("title")
                         description = embeds[0].get("description")
@@ -73,6 +70,7 @@ class UserProxy:
                         elif title == 'Job queued':
                             space_name = get_space_name(embeds[0].get('footer',{}).get('text'))
                             self.messageHandler.on_job_queued(space_name=space_name)
+                            return
                         elif title == 'Invalid parameter' or title == "Invalid link":
                             space_name = get_space_name(embeds[0].get('footer',{}).get('text'))
                             id = self.generate_id()
