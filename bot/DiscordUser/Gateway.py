@@ -287,6 +287,26 @@ class Gateway:
                     messageHash = task['hash'], 
                 )
             )  
+    def make_square(self,  task: dict[str, str]):
+        worker_id =  self.get_task_worker_id(task)
+        if worker_id is not None:
+            current_user = self.users[worker_id]
+            task_type = DetailType.INPUT_MJ_ZOOM
+            detail = {
+                'ref': str(task['ref_id']),
+            } 
+            self.pre_send(
+                task=task,
+                task_type = task_type,
+                detail=detail,
+                worker_id=worker_id
+            )
+            self.loop.create_task(
+                current_user.send_square(
+                    messageId = task['id'],
+                    messageHash = task['hash'], 
+                )
+            )                
 
 
     def describe_a_image(self, space_name: str, url: str):

@@ -107,6 +107,7 @@ class ImageContext:
         ):
         _, token_id, _ = context
         record = data.get_detail_by_id(token_id=token_id, detail_id= id, types= self.allowed_types)
+        # print(record)
 
         if record is None:
             raise HTTPException(404) 
@@ -517,8 +518,34 @@ async def pan(
 
 
 @router.post("/square/{id}")
-async def square():
-    pass
+async def square(
+    context: dict = Depends(
+        ImageContext(          
+            allowed_types =[
+                DetailType.OUTPUT_MJ_UPSCALE
+            ]
+        )
+    )
+):
+    detail = context.get('detail',{})
+    if is_busy(space_name= detail.get("space_name")):
+        return Response(status_code=status.HTTP_202_ACCEPTED)    
+    worker_id = Snowflake.parse_snowflake_worker_id(snowflake_id = context.get('id'))
+    broker_id , _ = Snowflake.parse_worker_id(worker_id = worker_id)
+    celery.send_task('square',
+        (
+            {
+                **detail,
+                'ref_id': context.get('id'),
+                'worker_id': worker_id
+            },
+        ),
+        queue= f"queue_{broker_id}"
+    )
+
+    return {
+        'status': 'ok'
+    }
 
 
 @router.get("/profile")

@@ -244,6 +244,12 @@ class UserProxy:
         )    
         await self.user.send_interactions(payload2)   
 
+    async def send_square(self,messageId : str, messageHash : str):
+        nonce = self.snowflake.generate_id()
+        payload = payloads.square(self.ids, messageId= messageId, messageHash= messageHash, nonce= nonce)
+        await self.user.send_interactions(payload)  
+
+
 
     async def describe_get_upload_url(self, bytes: io.BytesIO):
         image = Image.open(bytes)

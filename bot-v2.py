@@ -155,6 +155,16 @@ def pan(self, prompt: str, type: str, task: dict[str, str]):
     )   
     return
 
+@celery.task(name='square',bind=True, base=BaseTask)
+def square(self, task: dict[str, str, str]):
+    gateway.loop.run_in_executor(
+        pool,
+        lambda: gateway.make_square(
+            task=task
+        )
+    )
+    return
+
 @celery.task(name='reroll',bind=True, base=BaseTask)
 def reroll(self, task: dict[str, str, str]):
     return
