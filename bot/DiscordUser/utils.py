@@ -64,6 +64,21 @@ def refine_prompt(space_name: str, prompt: str):
     new_prompt = re.sub(r"https://imgcdn.aipic.club/upload/", "http://imgcdn.aipic.club/upload/", new_prompt)
     return new_prompt
 
+def get_prompt_from_content(content: str, space_name: str):
+    content = re.sub(r"\*\*(.*?)\*\*(.*)", r"\1", content)
+    if space_name not in content:
+        return content
+    else:
+        pattern = r'--no\s(.*?)(?=\s--|$)'
+        m = re.findall(r'--no\s(.*?)(?=\s--|$)', content)
+        if len(m) == 1 and m[0] == space_name:
+            content = re.sub(pattern, '', content)
+        else:
+            content = re.sub(f"{re.escape(space_name)}[\s,]+", "", content)
+        return content
+
+
+
 def add_zoom(prompt: str, zoom: float):
     prompt += f" --zoom {zoom}" 
     return prompt   

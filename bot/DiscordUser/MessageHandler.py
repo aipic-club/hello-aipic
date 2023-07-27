@@ -98,6 +98,10 @@ class MessageHandler:
                 print(f'output: {worker_id}, {space_name}, {curInputType.value}')
                 print(types)
 
+                print(data)
+
+
+
                 if self.data.redis_is_onwer(
                     worker_id=worker_id, 
                     space_name= space_name, 
@@ -116,7 +120,9 @@ class MessageHandler:
                             if (emoji or label) and emoji not in  to_exclude and label not in to_exclude:
                                 new_components.append({'emoji': emoji, 'label': label})
                     
-                    print(new_components)
+                    # print(new_components)
+                    content =  data.get('content', '')
+                    prompt = get_prompt_from_content(content = content, space_name=space_name) if content else ''
                     url =  attachments[0].get("url") if len(attachments) > 0  else None
                     
                     self.loop.run_in_executor(self.pool, lambda: 
@@ -126,6 +132,7 @@ class MessageHandler:
                             types= types , 
                             reference= reference_id,
                             message_id= message_id , 
+                            prompt = prompt,
                             components = new_components,
                             url = url
                         )

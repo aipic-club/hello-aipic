@@ -318,6 +318,7 @@ class Data(MySQLBase, RedisBase, FileBase):
             reference: int | None,  
             message_id: str,  
             components : list,
+            prompt: str,
             url: str
         ):
         curInputType, curOutputType = types
@@ -344,6 +345,7 @@ class Data(MySQLBase, RedisBase, FileBase):
             'hash': hash,
             'reference': reference,
             'url': url_cn,
+            'prompt': prompt,
             'components': components
         }
         self.__insert_detail_and_audit(
